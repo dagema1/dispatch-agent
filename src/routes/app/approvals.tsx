@@ -4,6 +4,8 @@ import { decide } from '#/fns'
 import { Empty, ErrorText, Muted, PageTitle, Section, Status } from '#/ui/bits'
 import { AGENT_LABEL, ago } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
+import { useArrivals } from '#/ui/motion'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/app/approvals')({
@@ -14,6 +16,7 @@ function Approvals() {
   const snap = useSnap()
   const act = useAction((id: number, decision: 'approved' | 'rejected') => decide({ data: { id, decision } }))
   const pending = snap.approvals.filter((a) => a.status === 'pending')
+  const isNew = useArrivals(pending.map((a) => a.id))
   const done = snap.approvals.filter((a) => a.status !== 'pending')
   return (
     <div>
@@ -25,7 +28,7 @@ function Approvals() {
         ) : (
           <ul className="divide-y">
             {pending.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-start gap-3 py-3 first:pt-0 last:pb-0">
+              <li key={a.id} className={cn('-mx-2 flex flex-wrap items-start gap-3 rounded-lg px-2 py-3 first:pt-0 last:pb-0', isNew(a.id) && 'arrive')}>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{a.summary}</div>
                   <Muted className="mt-0.5 block">

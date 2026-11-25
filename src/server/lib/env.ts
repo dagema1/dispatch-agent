@@ -7,7 +7,7 @@ function opt(name: string): string | undefined {
 
 /** Typed access to configuration. Every integration degrades gracefully when its key is missing. */
 export const env = {
-  DATABASE_URL: opt('DATABASE_URL') ?? 'postgresql://dagem@localhost/dispatch_agent?host=/var/run/postgresql',
+  DATABASE_URL: opt('DATABASE_URL') ?? 'postgresql://postgres:postgres@localhost:5432/dispatch_agent',
   APP_URL: opt('APP_URL') ?? 'http://localhost:3000',
   GEMINI_API_KEY: opt('GEMINI_API_KEY'),
   GEMINI_MODEL: opt('GEMINI_MODEL') ?? 'gemini-3.8-flash',

@@ -1,208 +1,190 @@
-Welcome to your new TanStack Start app!
+# AI front office for HVAC & plumbing shops
 
-# Getting Started
+An agent that does the dispatcher / CSR job at a residential HVAC and plumbing company. It covers everything from the first call to the paid invoice. The demo company, **Northline Heating & Plumbing** (Denver), is fictional; the product itself is unnamed.
 
-To run this application:
+**Why this role:** the dispatcher/CSR is the busiest seat in a trades shop. Every missed call is a lost job, emergencies get handled first-come-first-served, and invoices go out days late. The agent answers every contact in seconds, books against a real fleet plan, re-plans when the day changes, and chases the money. The owner stays in control through a policy engine and approvals.
+
+---
+
+## What it does
+
+| Area | What happens | Where to see it |
+|---|---|---|
+| **Intake** | Browser voice receptionist (Gemini Live), email (Gmail poll or the test form) and web booking all go through one pipeline: safety check, triage (priority, trade, reasons), booking, reply with a tracking link. | `/book`, Inbox |
+| **Photo quotes** | Customer photos of the unit, its label or error lights → Gemini vision diagnosis → good / better / best options, priced only from the price book. Units past their expected lifespan are flagged as replacement leads. | `/book` → Details & photos, Quotes & invoices |
+| **Fleet dispatch** | Skills, time windows, priority and real drive times (OpenRouteService matrix) → optimised routes for 5 techs. It re-plans on every emergency, delay, sick call or finished job and tells the customers it moves. | Dispatch board |
+| **Technician app** | Telegram. Today's route arrives as an **interactive HTML widget** (Bot API 10.4) with On my way / Arrived / Job done buttons. Live location drives customer ETAs. | Telegram, `/c/track/…` |
+| **Job-to-cash** | Tech sends a voice note → job report → invoice → Stripe **test-mode** payment link → automatic reminders until paid. | Quotes & invoices |
+| **Office group** | The owner's Telegram group gets approval cards that anyone in the group can approve or reject; the card shows who decided. Commands are **ephemeral** (Bot API 10.2), so `/brief`, `/board`, `/approvals` and `/ask …` answers are visible only to whoever asked. | Telegram group |
+| **Ops copilot** | Chat with the business: "Tom called in sick, re-plan", "simulate a cold snap and draft a campaign", "which invoices are unpaid?". | Ops copilot, `/ask` in Telegram |
+| **Guardrails** | Every action passes a policy engine: *auto*, *needs approval* or *never*, per action type. Low model confidence forces approval. Every model call, tool call and policy decision is traced. | Approvals, Agent traces, Settings |
+| **Proof** | A day simulator (AI office vs a human-office baseline, same demand, same fleet) and a labelled triage eval set with a held-out split. | ROI & simulator |
+
+### Proactive (scheduled) work
+
+| Job | Schedule | What it does |
+|---|---|---|
+| `tick` (watchdog) | every minute | Polls Gmail, raises SLA alerts for unanswered urgent requests, drains the job queue, checks Stripe for payments |
+| `morning` | 06:30 company time | Re-plans the day, sends each tech their route, sends the owner a summary |
+| `weather` | 06:00 company time | Checks the Open-Meteo forecast; a cold snap or heat wave drafts a targeted maintenance campaign (sending it needs approval) |
+
+Locally these run on in-process timers. In production, Cloud Scheduler calls `POST /api/cron/<name>` with `Authorization: Bearer $CRON_SECRET`.
+
+### Free APIs used
+
+Gemini (text, vision, Live voice) · Telegram Bot API · OpenRouteService · Open-Meteo · Nominatim (OpenStreetMap geocoding) · Stripe (test mode) · Gmail + Google Calendar (optional, OAuth).
+
+---
+
+## Measured results
+
+Both tables come from running the code in this repo (`ROI & simulator` page, or the functions in `src/server/sim/`).
+
+### Day simulator: 120 contacts, 5 technicians, seed 7
+
+The human baseline is 1 CSR + 1 dispatcher working 08:00–17:00. They answer one call at a time (~6 min each), callers hang up after a few minutes on hold, about 45% of after-hours voicemails are never recovered, and dispatch is first-come-first-served with only explicit emergencies fast-tracked. The AI never sees a request before it arrives and re-plans every 15 minutes.
+
+| | Normal day: AI | Normal day: Human | Cold snap: AI | Cold snap: Human |
+|---|---|---|---|---|
+| Contacts answered / lost | 120 / 0 | 79 / 41 | 120 / 0 | 79 / 41 |
+| Median time to answer | 0.2 min | 10 min | 0.2 min | 10 min |
+| Jobs completed today | **37** | 30 | **41** | 28 |
+| Emergencies served today | **16 / 16** | 4 / 16 | **31 / 75** | 16 / 75 |
+| Avg emergency wait (request → arrival) | 1 h 46 m | 6 h 2 m | 3 h 39 m | 6 h 11 m |
+| Revenue completed today | **$15,140** | $12,160 | **$17,835** | $13,200 |
+| Drive minutes per job | 26 | 36 | 21 | 38 |
+| Technician utilisation | 77% | 63% | 85% | 59% |
+
+The simulator is a model, not a field trial. The baseline's assumptions are listed above and in `src/server/sim/simulator.ts`, so you can disagree with them and re-run.
+
+### Triage evals: 45 labelled customer messages
+
+The set includes a prompt-injection attempt and messages in Spanish. **Dev** (30 cases) was used to tune the rule-based fallback; **held-out** (15 cases) was written afterwards.
+
+| Metric | Rules: dev | Rules: held-out |
+|---|---|---|
+| Priority exact | 100% | 60% |
+| Priority within one level | 100% | 93% |
+| Emergency (P1) recall | 100% | 60% |
+| Safety hazard recall | 100% | 100% |
+| Over-escalated to P1 | 0 | 0 |
+| Trade / skill routing | 100% | 73% |
+
+<!-- GEMINI_EVALS -->
+
+**Disclosure:** the 100% dev scores show the rules were fitted to those cases; the held-out column is the honest number. After first seeing the held-out set I widened one safety pattern (to also match "natural gas"). That makes the held-out *safety* recall slightly optimistic. No other change was made after seeing the held-out cases.
+
+---
+
+## Run it locally
+
+**Needs:** Node 22+ (developed on 24), pnpm, and PostgreSQL 14+ (the `btree_gist` extension must be available; the migration creates it).
 
 ```bash
 pnpm install
-pnpm dev
+cp .env.example .env        # then fill in the keys below
+createdb dispatch_agent
+pnpm db:migrate
+pnpm db:seed                # 5 techs, 40 fictional customers, a partly booked 3-day schedule
+pnpm dev                    # http://localhost:3000
 ```
 
-# Building For Production
+Every integration is optional. Without a key, the feature falls back (rules instead of Gemini, estimated drive times instead of ORS, an outbox instead of delivery) and Settings shows what's missing.
 
-To build this application for production:
+| Variable | Get it from | Used for |
+|---|---|---|
+| `GEMINI_API_KEY` | aistudio.google.com → Get API key | triage, photo diagnosis, voice, copilot |
+| `GEMINI_MODEL` | default `gemini-3.8-flash` | falls back through Flash-Lite models when overloaded |
+| `TELEGRAM_BOT_TOKEN` | @BotFather → /newbot | technician app, office group |
+| `TELEGRAM_OWNER_CHAT_ID` | optional; the group's chat id | the office group (or send `/owner` in the group instead) |
+| `ORS_API_KEY` | openrouteservice.org → Dashboard | real drive-time matrices |
+| `STRIPE_SECRET_KEY` | Stripe dashboard, **test mode** (`sk_test_…`) | payment links |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud OAuth client (web); redirect URI `$APP_URL/api/google/callback` | Gmail intake and replies, Calendar sync |
+| `APP_URL` | `http://localhost:3000` locally | links sent to customers |
+| `CRON_SECRET` | any long random string | protects `/api/cron/*` |
+| `COMPANY_TZ` | default `America/Denver` | business hours, morning jobs |
+
+### Telegram setup (2 minutes)
+
+1. Create the bot with @BotFather and put the token in `.env`.
+2. **Office group:** add the bot to a group with everyone who should see alerts, then send `/owner` there (or set `TELEGRAM_OWNER_CHAT_ID`). The group's command menu then shows the ephemeral commands.
+3. **Technicians:** each tech opens a private chat with the bot and sends `/start <first name>` (Carlos, Priya, Jake, Aisha, Tom in the demo data).
+
+Telegram currently delivers HTML widgets only in **private chats** in production. Techs get the widget; on a client that can't show it, the route falls back to text with inline buttons. Ephemeral messages work in groups.
+
+### Checks
+
+```bash
+pnpm typecheck
+pnpm test        # optimiser unit tests
+pnpm build       # production build → .output/
+```
+
+---
+
+## Deploy (Google Cloud Run + Cloud Scheduler)
 
 ```bash
 pnpm build
+# Postgres: Neon free tier or Cloud SQL; run `pnpm db:migrate` and `pnpm db:seed` against it once.
+gcloud run deploy dispatch-agent --source . --region us-central1 \
+  --set-env-vars "APP_URL=https://<service-url>,EXTERNAL_CRON=1,DATABASE_URL=…,GEMINI_API_KEY=…,…" \
+  --min-instances 1 --no-cpu-throttling
 ```
 
-## Styling
-
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Remove `@tailwindcss/vite` and `tailwindcss` from `package.json`
-
-## Linting & Formatting
-
-This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
-
+- Cloud Run's Node buildpack runs `pnpm build` and then `pnpm start` (`node .output/server/index.mjs`).
+- `--min-instances 1 --no-cpu-throttling` keeps one instance alive. The Telegram bot uses long polling and the queue worker runs in-process, so both need a running instance.
+- `EXTERNAL_CRON=1` turns off the local timers. Create the three jobs:
 
 ```bash
-pnpm lint
-pnpm format
-pnpm check
+for job in "tick:* * * * *" "morning:30 6 * * *" "weather:0 6 * * *"; do
+  name=${job%%:*}; cron=${job#*:}
+  gcloud scheduler jobs create http "dispatch-$name" --location us-central1 \
+    --schedule "$cron" --time-zone "America/Denver" --http-method POST \
+    --uri "https://<service-url>/api/cron/$name" \
+    --headers "Authorization=Bearer $CRON_SECRET"
+done
 ```
 
+- With an `https` `APP_URL`, approval cards in Telegram also get an "Open dashboard" button.
 
-## Deploy with Nitro
+---
 
-This project uses Nitro as a generic server adapter, so it can run on any Node-compatible host.
+## How it's built
 
-```bash
-npm run build
-node .output/server/index.mjs
+```
+ customers ──voice/email/web──▶ Front desk agent ──┐
+ technicians ──Telegram──────▶ Technician bot ────┤        ┌──▶ SSE ─▶ dashboard (live)
+ office group ──Telegram─────▶ Owner bot / copilot ┼─▶ event bus (Postgres log) ──┤
+ schedulers ──/api/cron──────▶ Ops jobs ──────────┘        └──▶ agents react (re-plan, notify, chase)
+                                    │
+                         policy engine: auto / approve / never ─▶ approvals ─▶ executors
+                                    │
+                         traces: every LLM call, tool call, policy decision (timed, token-counted)
 ```
 
-The build output is a self-contained Node server. To deploy, push the `.output/` directory to your host (Render, Fly.io, your own VPS, etc.) and run the server command above.
+- **Stack:** TanStack Start (React 19, Vite, Nitro), PostgreSQL with Drizzle, Tailwind 4 with shadcn/ui, Leaflet, Recharts.
+- **No double booking**, enforced by the database: a deferred `EXCLUDE USING gist` constraint per technician over the live visit window. A durable job queue uses `SKIP LOCKED`.
+- **Dispatch optimiser** (`src/server/domain/optimizer.ts`): regret-2 insertion (urgent and hard-to-place jobs first), then relocate + swap local search, over skills, time windows, priority, job value and the ORS travel matrix. It is pure and deterministic, so the simulator can run it thousands of times. The unit tests are in `tests/`.
+- **Gemini:** structured JSON output with zod validation. A model fallback chain handles 503s, and every call has a 10 s timeout. The Live voice session uses an ephemeral token minted by the server, and its `book_service` tool call goes back through the same policy engine.
+- **Prompt injection:** customer text is always passed as data, never as instructions. The eval set includes an injection case.
 
-For host-specific presets (Vercel, Netlify, Cloudflare, AWS Lambda, etc.) and tuning, see https://v3.nitro.build/deploy.
-
-
-
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
+```
+src/
+  routes/            pages (customer: /book, /c/*; dashboard: /app/*) and API routes (/api/events, /api/cron, /api/google)
+  server/agent/      front desk, diagnosis, revenue, technician + route widget, owner bot, copilot, policy, traces
+  server/domain/     triage, dispatch / re-plan, optimiser, messaging, settings
+  server/integrations/  gemini, telegram, routing (ORS), weather, stripe, google
+  server/jobs/       scheduled jobs and queue handlers
+  server/sim/        day simulator, triage evals
+  ui/                shared UI (live data provider, map, voice client, theme, motion)
 ```
 
-Then anywhere in your JSX you can use it like so:
+## Honest limits
 
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+- Demo data is fictional, and payments are Stripe **test mode** only.
+- Voice runs in the browser only (no phone number).
+- The eval set is small (45 cases). Treat the percentages as directional.
+- The simulator compares against a modelled human office, not a measured one.
+- Without an ORS key (or when ORS is slow), drive times fall back to distance-based estimates, and traces say so.
+- Telegram widgets reach techs only in private chats. That's a Telegram production limit, not a choice.

@@ -2,6 +2,7 @@ import { Monitor, Moon, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { withViewTransition } from './motion'
 
 export type ThemePref = 'light' | 'dark' | 'system'
 const KEY = 'theme'
@@ -30,7 +31,8 @@ export function ThemeToggle({ className }: { className?: string }) {
   const [pref, setPref] = useState<ThemePref>('system')
   useEffect(() => setPref(read()), [])
   useEffect(() => {
-    apply(pref)
+    const want = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+    if (document.documentElement.classList.contains('dark') !== want) withViewTransition(() => apply(pref))
     if (pref !== 'system') return
     const mq = matchMedia('(prefers-color-scheme: dark)')
     const on = () => apply('system')

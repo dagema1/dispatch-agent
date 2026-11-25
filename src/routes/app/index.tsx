@@ -6,6 +6,7 @@ import type { Snapshot } from '#/server/api/views'
 import { ErrorText, Muted, PageTitle, Priority, Section, Stat, Status } from '#/ui/bits'
 import { addDays, ago, dayLabel, dayOf, dayTime, minutesOfDay, money, time } from '#/ui/format'
 import { useAction, useLive, useSnap } from '#/ui/live'
+import { useArrivals } from '#/ui/motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -38,6 +39,7 @@ function Board() {
 
   const dayJobs = useMemo(() => snap.jobs.filter((j) => j.scheduledStart && dayOf(j.scheduledStart) === day && j.status !== 'cancelled'), [snap.jobs, day])
   const unassigned = snap.jobs.filter((j) => j.status === 'unassigned')
+  const isNew = useArrivals(snap.jobs.map((j) => j.id))
   const todays = snap.jobs.filter((j) => j.scheduledStart && dayOf(j.scheduledStart) === snap.today)
   const openP1 = snap.jobs.filter((j) => j.priority === 1 && !['done', 'cancelled'].includes(j.status)).length
   const nowMin = minutesOfDay(snap.now)
@@ -192,8 +194,9 @@ function Board() {
                               onClick={() => setOpenId(j.id)}
                               title={`${j.title} · ${j.customer.name}`}
                               className={cn(
-                                'absolute inset-y-1 overflow-hidden rounded-md px-1.5 text-left text-[11px] leading-tight text-white shadow-sm ring-1 ring-black/10 transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                                'job-block absolute inset-y-1 overflow-hidden rounded-md px-1.5 text-left text-[11px] leading-tight text-white shadow-sm ring-1 ring-black/10 hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                                 j.status === 'done' && 'opacity-45',
+                                isNew(j.id) && 'arrive-pop',
                                 j.priority === 1 && 'ring-2 ring-red-500 ring-offset-1 ring-offset-background',
                               )}
                               style={{
@@ -298,12 +301,13 @@ function Feed({
   }>
 }) {
   const shown = events.filter((e) => EVENT_TEXT[e.type]).slice(0, 25)
+  const isNew = useArrivals(shown.map((e) => e.id))
   if (!shown.length) return <p className="text-sm text-muted-foreground">Waiting for activity… try booking from the customer page.</p>
   return (
     <ScrollArea className="h-[520px] pr-3">
       <ul className="space-y-2.5">
         {shown.map((e) => (
-          <li key={e.id} className="text-xs">
+          <li key={e.id} className={cn('-mx-1.5 rounded-md px-1.5 py-0.5 text-xs', isNew(e.id) && 'arrive')}>
             <div>{EVENT_TEXT[e.type](e.payload)}</div>
             <div className="text-[10px] text-muted-foreground">{ago(e.createdAt)}</div>
           </li>

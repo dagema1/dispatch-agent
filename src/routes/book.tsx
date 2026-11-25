@@ -120,7 +120,7 @@ function CallPanel() {
         {turns.length > 0 && (
           <div className="mt-4 max-h-72 space-y-2 overflow-y-auto rounded-lg bg-muted p-3">
             {turns.map((t, i) => (
-              <div key={i} className={cn('flex', t.role === 'caller' && 'justify-end')}>
+              <div key={i} className={cn('arrive-pop flex', t.role === 'caller' && 'justify-end')}>
                 <div
                   className={cn(
                     'max-w-[85%] rounded-2xl px-3 py-1.5 text-sm',

@@ -1,4 +1,4 @@
-import { Link, Outlet, createFileRoute } from '@tanstack/react-router'
+import { Link, Outlet, createFileRoute, useRouterState } from '@tanstack/react-router'
 import { Bot, CalendarRange, ChartNoAxesCombined, CircleDollarSign, Inbox, MessagesSquare, Settings, ShieldCheck, Wrench } from 'lucide-react'
 import { getSnapshot } from '#/fns'
 import { LiveProvider, useLive } from '#/ui/live'
@@ -40,6 +40,7 @@ function AppLayout() {
 
 function Shell() {
   const { snap, connected } = useLive()
+  const path = useRouterState({ select: (s) => s.location.pathname })
   const pending = snap?.approvals.filter((a) => a.status === 'pending').length ?? 0
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -78,7 +79,13 @@ function Shell() {
           </Button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-4 md:p-6">{snap ? <Outlet /> : null}</main>
+      <main className="min-w-0 flex-1 p-4 md:p-6">
+        {snap ? (
+          <div key={path} className="route-in">
+            <Outlet />
+          </div>
+        ) : null}
+      </main>
     </div>
   )
 }

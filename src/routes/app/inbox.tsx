@@ -5,6 +5,7 @@ import { simulateEmail } from '#/fns'
 import { Empty, ErrorText, Muted, PageTitle, Priority, Section, Status } from '#/ui/bits'
 import { ago, dayTime } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
+import { useArrivals } from '#/ui/motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -100,6 +101,7 @@ const fmtResp = (s: number) => (s < 90 ? `${s}s` : s < 5400 ? `${Math.round(s / 
 function Requests() {
   const snap = useSnap()
   const [filter, setFilter] = useState<Filter>('all')
+  const isNew = useArrivals(snap.requests.map((r) => r.id))
   const rows = snap.requests.filter((r) => (filter === 'urgent' ? (r.priority ?? 9) <= 2 || !!r.safetyFlag : filter === 'open' ? OPEN.includes(r.status) : true))
   return (
     <Card className="gap-0 py-0">
@@ -126,7 +128,7 @@ function Requests() {
             const resp = r.firstResponseAt ? Math.round((+new Date(r.firstResponseAt) - +new Date(r.createdAt)) / 1000) : null
             const name = r.customerId ? snap.customers[r.customerId]?.name : null
             return (
-              <li key={r.id} className="relative">
+              <li key={r.id} className={cn('relative', isNew(r.id) && 'arrive')}>
                 <span className={cn('absolute inset-y-0 left-0 w-1', RAIL[r.priority ?? 4])} aria-hidden />
                 <details className="group">
                   <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] gap-3 py-3 pr-4 pl-5 transition-colors hover:bg-muted/50">
@@ -190,6 +192,7 @@ const ChannelTag = ({ c }: { c: string }) => {
 function Messages() {
   const snap = useSnap()
   const [dir, setDir] = useState<'all' | 'in' | 'out'>('all')
+  const isNew = useArrivals(snap.messages.map((m) => m.id))
   const rows = snap.messages.filter((m) => dir === 'all' || m.direction === dir)
   return (
     <Card className="gap-0 py-0">
@@ -219,7 +222,7 @@ function Messages() {
                 : 'Office'
             const out = m.direction === 'out'
             return (
-              <li key={m.id}>
+              <li key={m.id} className={cn(isNew(m.id) && 'arrive')}>
                 <details className="group">
                   <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50">
                     <span className={cn('mt-0.5 grid size-7 place-items-center rounded-full', out ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground')}>

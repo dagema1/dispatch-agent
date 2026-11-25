@@ -156,3 +156,104 @@
 .leaflet-container {
   font-family: var(--font-sans);
 }
+
+/*
+ * Motion. Feedback 120-180 ms, state changes ~250 ms, re-plan moves ~450 ms; confident deceleration,
+ * no bounce. Everything here is skipped when the OS asks for reduced motion.
+ */
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  interpolate-size: allow-keywords;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes enter-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes arrival-glow {
+  from {
+    background-color: color-mix(in oklch, var(--primary) 14%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Press feedback: the button gives a little under the finger. */
+  [data-slot="button"],
+  [data-slot="toggle-group-item"],
+  [data-slot="tabs-trigger"] {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-duration: 160ms;
+    transition-timing-function: var(--ease-out);
+  }
+  [data-slot="button"]:not(:disabled):active,
+  [data-slot="toggle-group-item"]:not(:disabled):active {
+    transform: scale(0.97);
+    transition-duration: 80ms;
+  }
+
+  /* Tab panels fade in as they take over. */
+  [data-slot="tabs-content"][data-state="active"] {
+    animation: fade-in 200ms var(--ease-out);
+  }
+
+  /* Expanding rows (requests, messages, calls, traces) grow open instead of snapping. */
+  details::details-content {
+    height: 0;
+    overflow: clip;
+    transition:
+      height 260ms var(--ease-out),
+      content-visibility 260ms allow-discrete;
+  }
+  details[open]::details-content {
+    height: auto;
+  }
+
+  /* Something the agents just did arrives: slide in and glow briefly so the eye finds it. */
+  .arrive {
+    animation:
+      enter 320ms var(--ease-out),
+      arrival-glow 1600ms ease-out;
+  }
+  .arrive-pop {
+    animation: enter-pop 260ms var(--ease-out);
+  }
+
+  /* The re-plan, made visible: visits glide to their new slot on the timeline. */
+  .job-block {
+    transition:
+      left 450ms var(--ease-out),
+      width 450ms var(--ease-out),
+      filter 150ms;
+  }
+
+  /* Page changes: the new view settles in from just below. */
+  .route-in {
+    animation: enter-up 240ms var(--ease-out);
+  }
+
+  /* Theme changes cross-fade. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 200ms;
+    animation-timing-function: var(--ease-out);
+  }
+}
