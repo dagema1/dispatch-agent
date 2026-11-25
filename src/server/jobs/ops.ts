@@ -54,7 +54,7 @@ registerHandler('notify.moved', async (p) => {
   const [c] = await db.select().from(schema.customers).where(eq(schema.customers.id, job.customerId))
   const from = p.from ? new Date(String(p.from)) : null
   if (!job.scheduledStart) {
-    await alertOwner(`Job #${jobId} (${job.title}, ${c.name}) lost its slot in the re-plan and needs a manual decision.`)
+    await alertOwner(`Job #${jobId} (${job.title}, ${c.name}) lost its slot in the re-plan and needs a manual decision.`, { replan: true })
     return
   }
   if (from && from.getTime() < Date.now()) return // was already past, nothing to announce

@@ -40,7 +40,7 @@ const FEATURES = [
 
 function Home() {
   return (
-    <div className="min-h-dvh bg-linear-to-b from-accent to-background">
+    <div className="min-h-dvh">
       <div className="mx-auto max-w-5xl px-4 py-12 md:py-20">
         <div className="flex items-center gap-2 text-sm font-medium text-primary">
           <span className="grid size-7 place-items-center rounded-lg bg-primary text-primary-foreground">

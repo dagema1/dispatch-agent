@@ -4,6 +4,7 @@ import { getSnapshot } from '#/fns'
 import { LiveProvider, useLive } from '#/ui/live'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '#/ui/theme'
 
 export const Route = createFileRoute('/app')({
   loader: () => getSnapshot(),
@@ -42,17 +43,18 @@ function Shell() {
   const pending = snap?.approvals.filter((a) => a.status === 'pending').length ?? 0
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <aside className="border-b bg-card md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:border-r md:border-b-0">
+      <aside className="glass z-10 border-b bg-card md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:border-r md:border-b-0">
         <div className="flex items-center gap-2 px-4 py-4">
           <div className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
             <Wrench size={16} />
           </div>
-          <div className="leading-tight">
+          <div className="min-w-0 flex-1 leading-tight">
             <div className="text-sm font-semibold">{snap?.company.name ?? 'Northline'}</div>
             <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`} /> AI front office {connected ? 'live' : 'connecting'}
             </div>
           </div>
+          <ThemeToggle className="shrink-0" />
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible">
           {NAV.map((n) => (

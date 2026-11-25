@@ -158,7 +158,7 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
       )
     } else {
       parts.push(`Hi ${firstName(customer.name)}, we've logged your request (${t.issue}). Our schedule is full right now, so the office will call you shortly with the first available time.`)
-      await alertOwner(`Could not fit P${t.priority} job #${job.id} (${t.issue}) for ${customer.name}: needs a manual decision`)
+      await alertOwner(`Could not fit P${t.priority} job #${job.id} (${t.issue}) for ${customer.name}: needs a manual decision`, { replan: true })
     }
     if (quoteId) parts.push(`From your photos we've prepared repair and replacement options with upfront prices: ${links.quote(quoteId)}`)
     else if (t.priority > 1) parts.push(`If you can, send photos of the unit and its label here so the technician brings the right parts: ${links.photos(req.id)}`)

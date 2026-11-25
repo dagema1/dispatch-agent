@@ -1,7 +1,8 @@
 import './agent/front-desk'
 import './agent/revenue'
 import './agent/owner'
-import { onTelegramUpdate } from './agent/technician'
+import { onOwnerReady } from './agent/owner-bot'
+import { onTelegramUpdate } from './agent/telegram-bot'
 import { runMigrations } from './db/migrate'
 import { CRON, type CronName } from './jobs/ops'
 import { startTelegramPolling } from './integrations/telegram'
@@ -19,7 +20,7 @@ export function ensureBooted() {
   g.__boot ??= (async () => {
     await runMigrations()
     startWorker()
-    startTelegramPolling(async (u) => void (await onTelegramUpdate(u)))
+    startTelegramPolling(async (u) => void (await onTelegramUpdate(u)), onOwnerReady)
     if (!process.env.EXTERNAL_CRON) startLocalCron()
     console.log(`[boot] dispatch agent ready on ${env.APP_URL}`)
   })().catch((e) => {

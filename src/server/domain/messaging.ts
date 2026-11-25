@@ -3,7 +3,7 @@ import { db, schema } from '../db'
 import { publish } from '../lib/bus'
 import { env } from '../lib/env'
 import { gmailConnected, sendGmail } from '../integrations/google'
-import { sendTelegram } from '../integrations/telegram'
+import { esc, sendTelegram } from '../integrations/telegram'
 
 /**
  * Outbound communication. Every message is stored (the inbox shows full history); delivery goes
@@ -69,9 +69,11 @@ export async function ownerChatId(): Promise<string | null> {
   return (row?.value as { chatId?: string } | undefined)?.chatId ?? null
 }
 
-export async function alertOwner(text: string) {
+/** Alert the office group. `replan` adds a one-tap "Re-plan now" button anyone in the group can press. */
+export async function alertOwner(text: string, opts: { replan?: boolean } = {}) {
   const chat = await ownerChatId()
-  const ok = chat ? await sendTelegram(chat, `🔔 ${text}`) : false
+  const markup = opts.replan ? { reply_markup: { inline_keyboard: [[{ text: '🔁 Re-plan now', callback_data: 'replan' }]] } } : {}
+  const ok = chat ? await sendTelegram(chat, `🔔 ${esc(text)}`, markup) : false
   await publish('owner.alert', { text, delivered: ok })
 }
 

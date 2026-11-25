@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ChevronRight, Mail, MessageSquare, Phone, Send } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, Globe, Inbox, Mail, MessageSquare, Phone, Send, Thermometer, Timer } from 'lucide-react'
 import { useState } from 'react'
 import { simulateEmail } from '#/fns'
 import { Empty, ErrorText, Muted, PageTitle, Priority, Section, Status } from '#/ui/bits'
@@ -7,11 +7,12 @@ import { ago, dayTime } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/app/inbox')({ component: InboxPage })
@@ -43,148 +44,255 @@ const SAMPLES = [
   },
 ]
 
+type Filter = 'all' | 'urgent' | 'open'
+
 function InboxPage() {
   const snap = useSnap()
   return (
     <div>
       <PageTitle title="Inbox & calls" sub="Every channel lands in one pipeline: safety check → triage → booking → reply. First responses are measured." />
-      <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Tabs defaultValue="requests" className="min-w-0">
-          <TabsList>
-            <TabsTrigger value="requests">Requests ({snap.requests.length})</TabsTrigger>
-            <TabsTrigger value="messages">Messages ({snap.messages.length})</TabsTrigger>
-            <TabsTrigger value="calls">Calls ({snap.calls.length})</TabsTrigger>
+          <TabsList className="h-9">
+            <TabsTrigger value="requests" className="px-3">
+              <Inbox /> Requests <Count n={snap.requests.length} />
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="px-3">
+              <MessageSquare /> Messages <Count n={snap.messages.length} />
+            </TabsTrigger>
+            <TabsTrigger value="calls" className="px-3">
+              <Phone /> Calls <Count n={snap.calls.length} />
+            </TabsTrigger>
           </TabsList>
-          <TabsContent value="requests">
+          <TabsContent value="requests" className="mt-2">
             <Requests />
           </TabsContent>
-          <TabsContent value="messages">
+          <TabsContent value="messages" className="mt-2">
             <Messages />
           </TabsContent>
-          <TabsContent value="calls">
+          <TabsContent value="calls" className="mt-2">
             <Calls />
           </TabsContent>
         </Tabs>
-        <SimulateEmail />
+        <div className="xl:sticky xl:top-4">
+          <SimulateEmail />
+        </div>
       </div>
     </div>
   )
 }
 
+const Count = ({ n }: { n: number }) => <span className="rounded-full bg-muted-foreground/10 px-1.5 text-[11px] tabular-nums text-muted-foreground">{n}</span>
+
+const RAIL: Record<number, string> = { 1: 'bg-red-500', 2: 'bg-amber-500', 3: 'bg-sky-500', 4: 'bg-muted-foreground/30' }
+const OPEN = ['new', 'triaged', 'awaiting_customer']
+
+const initials = (n?: string | null) =>
+  (n ?? '?')
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+
+const fmtResp = (s: number) => (s < 90 ? `${s}s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`)
+
 function Requests() {
   const snap = useSnap()
-  if (!snap.requests.length) return <Empty>No requests yet. Book from the customer page or send a test email.</Empty>
+  const [filter, setFilter] = useState<Filter>('all')
+  const rows = snap.requests.filter((r) => (filter === 'urgent' ? (r.priority ?? 9) <= 2 || !!r.safetyFlag : filter === 'open' ? OPEN.includes(r.status) : true))
   return (
-    <div className="space-y-2">
-      {snap.requests.map((r) => {
-        const ex = (r.extracted ?? {}) as {
-          reasons?: string[]
-          issue?: string
-          weatherF?: number
-        }
-        const resp = r.firstResponseAt ? Math.round((+new Date(r.firstResponseAt) - +new Date(r.createdAt)) / 1000) : null
-        return (
-          <Card key={r.id} size="sm">
-            <CardContent className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <ChannelIcon c={r.channel} />
-                <span className="text-sm font-medium">{ex.issue ?? r.summary ?? 'Request'}</span>
-                <Priority p={r.priority} short />
-                {r.safetyFlag && <Badge variant="destructive">⚠ {r.safetyFlag.replace('_', ' ')}</Badge>}
-                <Status s={r.status} />
-                <Muted className="ml-auto">
-                  {r.customerId ? snap.customers[r.customerId]?.name : 'unknown'} · {ago(r.createdAt)}
-                </Muted>
-              </div>
-              <p className="line-clamp-2 text-sm text-muted-foreground">{r.rawText}</p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                {ex.reasons && (
-                  <span>
-                    Why P{r.priority}: {ex.reasons.join(' · ')}
-                  </span>
-                )}
-                {ex.weatherF != null && <span>Outside: {ex.weatherF}°F</span>}
-                {resp != null && (
-                  <span className={cn(resp < 60 && 'text-emerald-600 dark:text-emerald-400')}>First response in {resp < 90 ? `${resp}s` : `${Math.round(resp / 60)} min`}</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
+    <Card className="gap-0 py-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
+        <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={filter} onValueChange={(v) => v && setFilter(v as Filter)}>
+          <ToggleGroupItem value="all" className="px-3 text-xs">
+            All
+          </ToggleGroupItem>
+          <ToggleGroupItem value="urgent" className="px-3 text-xs">
+            Urgent &amp; safety
+          </ToggleGroupItem>
+          <ToggleGroupItem value="open" className="px-3 text-xs">
+            Needs follow-up
+          </ToggleGroupItem>
+        </ToggleGroup>
+        <Muted>{rows.length} shown</Muted>
+      </div>
+      {rows.length === 0 ? (
+        <Empty>{snap.requests.length ? 'Nothing matches this filter.' : 'No requests yet. Book from the customer page or send a test email.'}</Empty>
+      ) : (
+        <ul className="divide-y">
+          {rows.map((r) => {
+            const ex = (r.extracted ?? {}) as { reasons?: string[]; issue?: string; weatherF?: number }
+            const resp = r.firstResponseAt ? Math.round((+new Date(r.firstResponseAt) - +new Date(r.createdAt)) / 1000) : null
+            const name = r.customerId ? snap.customers[r.customerId]?.name : null
+            return (
+              <li key={r.id} className="relative">
+                <span className={cn('absolute inset-y-0 left-0 w-1', RAIL[r.priority ?? 4])} aria-hidden />
+                <details className="group">
+                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] gap-3 py-3 pr-4 pl-5 transition-colors hover:bg-muted/50">
+                    <span className="grid size-9 place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">{initials(name)}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="truncate text-sm font-semibold">{name ?? 'Unknown sender'}</span>
+                        <ChannelTag c={r.channel} />
+                      </div>
+                      <div className="truncate text-sm">{ex.issue ?? r.summary ?? 'Request'}</div>
+                      <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground group-open:hidden">{r.rawText}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Muted className="whitespace-nowrap">{ago(r.createdAt)}</Muted>
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {r.safetyFlag && <Badge variant="destructive">⚠ {r.safetyFlag.replaceAll('_', ' ')}</Badge>}
+                        <Priority p={r.priority} short />
+                        <Status s={r.status} />
+                      </div>
+                    </div>
+                  </summary>
+                  <div className="space-y-2 pr-4 pb-4 pl-[4.25rem]">
+                    <p className="rounded-lg bg-muted/60 p-3 text-sm whitespace-pre-wrap">{r.rawText}</p>
+                    <div className="flex flex-wrap gap-1.5 text-xs">
+                      {resp != null && (
+                        <Badge variant="outline" className={cn(resp < 60 && 'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400')}>
+                          <Timer /> replied in {fmtResp(resp)}
+                        </Badge>
+                      )}
+                      {ex.weatherF != null && (
+                        <Badge variant="outline">
+                          <Thermometer /> {ex.weatherF}°F outside
+                        </Badge>
+                      )}
+                    </div>
+                    {ex.reasons?.length ? (
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">Why P{r.priority}:</span> {ex.reasons.join(' · ')}
+                      </div>
+                    ) : null}
+                  </div>
+                </details>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </Card>
   )
 }
 
-const ChannelIcon = ({ c }: { c: string }) => {
-  const I = c === 'voice' ? Phone : c === 'email' ? Mail : MessageSquare
+const ChannelTag = ({ c }: { c: string }) => {
+  const I = c === 'voice' ? Phone : c === 'email' ? Mail : c === 'web' ? Globe : MessageSquare
   return (
-    <span className="grid size-6 place-items-center rounded-md bg-muted text-muted-foreground" title={c}>
-      <I className="size-3.5" />
+    <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground capitalize">
+      <I className="size-3" /> {c}
     </span>
   )
 }
 
 function Messages() {
   const snap = useSnap()
-  if (!snap.messages.length) return <Empty>No messages yet.</Empty>
+  const [dir, setDir] = useState<'all' | 'in' | 'out'>('all')
+  const rows = snap.messages.filter((m) => dir === 'all' || m.direction === dir)
   return (
-    <div className="space-y-2">
-      {snap.messages.map((m) => (
-        <Card key={m.id} size="sm" className={cn('border-l-4', m.direction === 'in' ? 'border-l-muted-foreground/40' : 'border-l-primary')}>
-          <CardContent className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="font-medium">
-                {m.direction === 'in' ? 'From' : 'To'} {m.customerId ? snap.customers[m.customerId]?.name : m.technicianId ? `tech #${m.technicianId}` : '—'}
-              </span>
-              <Badge variant="secondary">{m.channel}</Badge>
-              {m.direction === 'out' && (
-                <Badge
-                  variant="outline"
-                  className={cn(m.delivered ? 'border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'text-muted-foreground')}
-                >
-                  {m.delivered ? 'delivered' : 'outbox (channel not connected)'}
-                </Badge>
-              )}
-              <Muted className="ml-auto">{dayTime(m.createdAt)}</Muted>
-            </div>
-            {m.subject && <div className="text-sm font-medium">{m.subject}</div>}
-            <p className="text-sm whitespace-pre-wrap text-muted-foreground">{m.body}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <Card className="gap-0 py-0">
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
+        <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={dir} onValueChange={(v) => v && setDir(v as typeof dir)}>
+          <ToggleGroupItem value="all" className="px-3 text-xs">
+            All
+          </ToggleGroupItem>
+          <ToggleGroupItem value="in" className="px-3 text-xs">
+            Received
+          </ToggleGroupItem>
+          <ToggleGroupItem value="out" className="px-3 text-xs">
+            Sent by agents
+          </ToggleGroupItem>
+        </ToggleGroup>
+        <Muted>{rows.length} shown</Muted>
+      </div>
+      {rows.length === 0 ? (
+        <Empty>No messages yet.</Empty>
+      ) : (
+        <ul className="divide-y">
+          {rows.map((m) => {
+            const to = m.customerId
+              ? snap.customers[m.customerId]?.name
+              : m.technicianId
+                ? (snap.techs.find((t) => t.id === m.technicianId)?.name ?? `Tech #${m.technicianId}`)
+                : 'Office'
+            const out = m.direction === 'out'
+            return (
+              <li key={m.id}>
+                <details className="group">
+                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50">
+                    <span className={cn('mt-0.5 grid size-7 place-items-center rounded-full', out ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground')}>
+                      {out ? <ArrowUpRight className="size-3.5" /> : <ArrowDownLeft className="size-3.5" />}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+                        <span className="font-medium">
+                          {out ? 'To' : 'From'} {to}
+                        </span>
+                        <ChannelTag c={m.channel} />
+                        {out && !m.delivered && <span className="text-[11px] text-amber-700 dark:text-amber-400">not delivered · channel not connected</span>}
+                      </div>
+                      {m.subject && <div className="truncate text-sm">{m.subject}</div>}
+                      <p className="line-clamp-2 text-xs text-muted-foreground group-open:line-clamp-none group-open:whitespace-pre-wrap">{m.body}</p>
+                    </div>
+                    <Muted className="whitespace-nowrap">{dayTime(m.createdAt)}</Muted>
+                  </summary>
+                </details>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </Card>
   )
 }
 
 function Calls() {
   const snap = useSnap()
-  if (!snap.calls.length) return <Empty>No calls yet. Try “Call us” on the customer page.</Empty>
+  if (!snap.calls.length)
+    return (
+      <Card>
+        <Empty>No calls yet. Try “Call us” on the customer page.</Empty>
+      </Card>
+    )
   return (
-    <div className="space-y-2">
-      {snap.calls.map((c) => (
-        <Card key={c.id} size="sm">
-          <CardContent>
-            <details className="group">
-              <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 text-sm">
-                <ChevronRight className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
-                <Phone className="size-3.5" /> Call #{c.id}
-                {c.customerId && <span className="font-medium">{snap.customers[c.customerId]?.name}</span>}
-                <Muted>{c.transcript.length} turns</Muted>
-                <Muted className="ml-auto">{dayTime(c.startedAt)}</Muted>
-              </summary>
-              <div className="mt-2 space-y-1 pl-6">
-                {c.transcript.map((t, i) => (
-                  <div key={i} className={cn('text-sm', t.role === 'agent' ? 'text-primary' : 'text-foreground')}>
-                    <span className="font-medium">{t.role === 'agent' ? 'Agent' : 'Caller'}:</span> {t.text}
+    <Card className="gap-0 py-0">
+      <ul className="divide-y">
+        {snap.calls.map((c) => {
+          const last = c.transcript.at(-1)
+          return (
+            <li key={c.id}>
+              <details className="group">
+                <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50">
+                  <span className="grid size-9 place-items-center rounded-full bg-muted text-muted-foreground">
+                    <Phone className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">{c.customerId ? snap.customers[c.customerId]?.name : `Caller #${c.id}`}</div>
+                    <p className="truncate text-xs text-muted-foreground">{last ? `${last.role === 'agent' ? 'Agent' : 'Caller'}: ${last.text}` : 'No transcript'}</p>
                   </div>
-                ))}
-              </div>
-            </details>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <Muted className="block whitespace-nowrap">{dayTime(c.startedAt)}</Muted>
+                      <Muted className="block">{c.transcript.length} turns</Muted>
+                    </div>
+                    <ChevronRight className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                  </div>
+                </summary>
+                <div className="space-y-1.5 px-4 pb-4">
+                  {c.transcript.map((t, i) => (
+                    <div key={i} className={cn('flex', t.role !== 'agent' && 'justify-end')}>
+                      <div className={cn('max-w-[80%] rounded-2xl px-3 py-1.5 text-sm', t.role === 'agent' ? 'bg-muted' : 'bg-primary text-primary-foreground')}>{t.text}</div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </li>
+          )
+        })}
+      </ul>
+    </Card>
   )
 }
 
