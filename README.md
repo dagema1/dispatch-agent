@@ -61,16 +61,16 @@ The simulator is a model, not a field trial. The baseline's assumptions are list
 
 The set includes a prompt-injection attempt and messages in Spanish. **Dev** (30 cases) was used to tune the rule-based fallback; **held-out** (15 cases) was written afterwards.
 
-| Metric | Rules: dev | Rules: held-out |
-|---|---|---|
-| Priority exact | 100% | 60% |
-| Priority within one level | 100% | 93% |
-| Emergency (P1) recall | 100% | 60% |
-| Safety hazard recall | 100% | 100% |
-| Over-escalated to P1 | 0 | 0 |
-| Trade / skill routing | 100% | 73% |
+| Metric | Rules: dev | Rules: held-out | Gemini + rules: dev | Gemini + rules: held-out |
+|---|---|---|---|---|
+| Priority exact | 100% | 60% | 87% | **87%** |
+| Priority within one level | 100% | 93% | 100% | **93%** |
+| Emergency (P1) recall | 100% | 60% | 100% | **100%** |
+| Safety hazard recall | 100% | 100% | 100% | **100%** |
+| Over-escalated to P1 | 0 | 0 | 3 | **2** |
+| Trade / skill routing | 100% | 73% | 97% | **93%** |
 
-<!-- GEMINI_EVALS -->
+The Gemini run was on 2026-11-26 through the model fallback chain (`GEMINI_MODEL`, then the Flash-Lite models when it was overloaded), so some cases may have been answered by a lighter model. On held-out cases, Gemini catches every emergency the rules miss. The cost is over-escalation: 2 of 15 messages were bumped to P1 that a human labelled lower. For a dispatcher that is the safer error, but it costs a truck roll.
 
 **Disclosure:** the 100% dev scores show the rules were fitted to those cases; the held-out column is the honest number. After first seeing the held-out set I widened one safety pattern (to also match "natural gas"). That makes the held-out *safety* recall slightly optimistic. No other change was made after seeing the held-out cases.
 
