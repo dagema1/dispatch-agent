@@ -1,0 +1,66 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { Check, X } from 'lucide-react'
+import { decide } from '#/fns'
+import { Empty, ErrorText, Muted, PageTitle, Section, Status } from '#/ui/bits'
+import { AGENT_LABEL, ago } from '#/ui/format'
+import { useAction, useSnap } from '#/ui/live'
+import { Button } from '@/components/ui/button'
+
+export const Route = createFileRoute('/app/approvals')({
+  component: Approvals,
+})
+
+function Approvals() {
+  const snap = useSnap()
+  const act = useAction((id: number, decision: 'approved' | 'rejected') => decide({ data: { id, decision } }))
+  const pending = snap.approvals.filter((a) => a.status === 'pending')
+  const done = snap.approvals.filter((a) => a.status !== 'pending')
+  return (
+    <div>
+      <PageTitle title="Approvals" sub="Actions the policy engine held for you: by policy, low model confidence, or after-hours. Change the rules in Settings." />
+      <ErrorText error={act.error} />
+      <Section title={`Waiting (${pending.length})`} className="mb-4">
+        {pending.length === 0 ? (
+          <Empty>Nothing waiting. The agents are inside their limits.</Empty>
+        ) : (
+          <ul className="divide-y">
+            {pending.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-start gap-3 py-3 first:pt-0 last:pb-0">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium">{a.summary}</div>
+                  <Muted className="mt-0.5 block">
+                    {AGENT_LABEL[a.agent] ?? a.agent} agent · {a.tool} · {ago(a.createdAt)} · <span className="text-amber-700 dark:text-amber-400">{a.reason}</span>
+                  </Muted>
+                  {typeof a.args.body === 'string' && <p className="mt-2 rounded-md bg-muted p-2 text-xs whitespace-pre-wrap text-muted-foreground">{a.args.body}</p>}
+                </div>
+                <div className="flex gap-2">
+                  <Button disabled={act.busy} onClick={() => act.run(a.id, 'approved')}>
+                    <Check /> Approve
+                  </Button>
+                  <Button variant="destructive" disabled={act.busy} onClick={() => act.run(a.id, 'rejected')}>
+                    <X /> Reject
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+      <Section title="History">
+        {done.length === 0 ? (
+          <Empty>No decisions yet.</Empty>
+        ) : (
+          <ul className="divide-y">
+            {done.map((a) => (
+              <li key={a.id} className="flex items-center gap-2 py-2 text-sm first:pt-0 last:pb-0">
+                <Status s={a.status} />
+                <span className="flex-1 truncate">{a.summary}</span>
+                <Muted>{a.decidedAt ? ago(a.decidedAt) : ''}</Muted>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+    </div>
+  )
+}
