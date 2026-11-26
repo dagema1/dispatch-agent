@@ -1,5 +1,5 @@
 import { ClientOnly, createFileRoute } from '@tanstack/react-router'
-import { Activity, BellRing, CalendarCheck, Check, CircleDollarSign, Inbox, MapPin, RefreshCw, Siren, Snowflake, Sun, Truck, UserX, Wrench, Zap } from 'lucide-react'
+import { Activity, BellRing, CalendarCheck, CircleDollarSign, Inbox, MapPin, RefreshCw, Siren, Snowflake, Sun, Zap } from 'lucide-react'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { completeJob, replanNow, setTechActive } from '#/fns'
@@ -8,6 +8,7 @@ import { ErrorText, Muted, PageTitle, Priority, Section, Stat, Status } from '#/
 import { addDays, ago, dayLabel, dayOf, dayTime, minutesOfDay, money, time } from '#/ui/format'
 import { useAction, useLive, useSnap } from '#/ui/live'
 import { useArrivals } from '#/ui/motion'
+import { RouteTimeline } from '#/ui/RouteTimeline'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,7 +19,6 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 const FleetMap = lazy(() => import('#/ui/FleetMap'))
@@ -26,10 +26,6 @@ const FleetMap = lazy(() => import('#/ui/FleetMap'))
 export const Route = createFileRoute('/app/')({ component: Board })
 
 type Job = Snapshot['jobs'][number]
-const START = 7 * 60
-const HOURS = Array.from({ length: 13 }, (_, i) => 7 + i) // 7am..7pm axis labels
-const END = 19 * 60
-const pct = (m: number) => `${(Math.min(Math.max(m - START, 0), END - START) / (END - START)) * 100}%`
 const isLive = (t: Snapshot['techs'][number]) => !!(t.liveAt && Date.now() - new Date(t.liveAt).getTime() < 15 * 60_000 && t.liveLat != null)
 
 function Board() {
@@ -135,107 +131,17 @@ function Board() {
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-4">
           <Section title="Technician routes" right={<Muted>{day === snap.today ? 'Today' : dayLabel(day)} · 7am to 7pm</Muted>}>
-            <div className="overflow-x-auto">
-              <div className="min-w-[720px]">
-                <div className="relative ml-36 h-5 text-[10px] text-muted-foreground">
-                  {HOURS.map((h) => (
-                    <span key={h} className="absolute -translate-x-1/2" style={{ left: pct(h * 60) }}>
-                      {((h - 1) % 12) + 1}
-                      {h < 12 ? 'a' : 'p'}
-                    </span>
-                  ))}
-                </div>
-                {snap.techs.map((t) => {
-                  const jobs = dayJobs.filter((j) => j.technicianId === t.id)
-                  return (
-                    <div key={t.id} className="group/row flex items-center py-1">
-                      <div className="w-36 shrink-0 pr-2">
-                        <div className="flex items-center gap-1.5 text-sm font-medium">
-                          <span className="size-2.5 rounded-full" style={{ background: t.color }} />
-                          {t.name.split(' ')[0]}
-                          {isLive(t) && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <MapPin className="size-3 text-emerald-600" />
-                              </TooltipTrigger>
-                              <TooltipContent>Sharing live location</TooltipContent>
-                            </Tooltip>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {t.level === 'senior' ? 'Senior · ' : ''}
-                          {t.skills
-                            .map((s) => s.split('_')[0])
-                            .filter((s, i, a) => a.indexOf(s) === i)
-                            .join(', ')}
-                        </div>
-                        <Button
-                          variant="link"
-                          size="xs"
-                          className={cn(
-                            'h-auto px-0 text-[11px]',
-                            t.active
-                              ? 'text-muted-foreground opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:text-destructive [@media(hover:none)]:opacity-100'
-                              : 'font-medium text-destructive',
-                          )}
-                          onClick={() => toggle.run(t.id, !t.active)}
-                          disabled={toggle.busy}
-                        >
-                          {t.active ? (
-                            <>
-                              <UserX /> mark out
-                            </>
-                          ) : (
-                            'OUT · bring back'
-                          )}
-                        </Button>
-                      </div>
-                      <div className={cn('well relative h-12 flex-1 rounded-lg', !t.active && 'opacity-50')}>
-                        {day === snap.today && nowMin > START && nowMin < END && <div className="absolute inset-y-0 z-10 w-px bg-destructive/70" style={{ left: pct(nowMin) }} />}
-                        {jobs.map((j) => {
-                          const s = minutesOfDay(j.scheduledStart!)
-                          const e = j.scheduledEnd ? minutesOfDay(j.scheduledEnd) : s + j.durationMin
-                          return (
-                            <button
-                              type="button"
-                              key={j.id}
-                              onClick={() => setOpenId(j.id)}
-                              title={`${j.title} · ${j.customer.name}`}
-                              className={cn(
-                                'job-block absolute inset-y-1 overflow-hidden rounded-md px-1.5 text-left text-[11px] leading-tight text-white shadow-[inset_0_1px_0_oklch(1_0_0/0.3),0_2px_6px_-1px_oklch(0_0_0/0.4)] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                                j.status === 'done' && 'opacity-45',
-                                isNew(j.id) && 'arrive-pop',
-                                j.priority === 1 && 'outline-2 outline-offset-1 outline-red-500',
-                              )}
-                              style={{
-                                left: pct(s),
-                                width: `calc(${pct(e)} - ${pct(s)})`,
-                                background: t.color,
-                              }}
-                            >
-                              <div className="truncate font-semibold">
-                                {j.priority <= 2 ? `P${j.priority} ` : ''}
-                                {j.title}
-                              </div>
-                              <div className="flex items-center gap-1 truncate opacity-90">
-                                {time(j.scheduledStart)} · {j.customer.name.split(' ')[0]}
-                                {j.status === 'en_route' ? (
-                                  <Truck className="size-3 shrink-0" aria-label="on the way" />
-                                ) : j.status === 'on_site' ? (
-                                  <Wrench className="size-3 shrink-0" aria-label="on site" />
-                                ) : j.status === 'done' ? (
-                                  <Check className="size-3 shrink-0" aria-label="done" />
-                                ) : null}
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+            <RouteTimeline
+              techs={snap.techs}
+              jobs={dayJobs}
+              isToday={day === snap.today}
+              nowMin={nowMin}
+              isNew={isNew}
+              isLive={isLive}
+              onOpen={setOpenId}
+              onToggleTech={toggle.run}
+              toggleBusy={toggle.busy}
+            />
           </Section>
 
           <Card>
