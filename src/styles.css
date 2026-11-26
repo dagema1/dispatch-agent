@@ -164,6 +164,13 @@
   .slab {
     background-color: var(--glass);
   }
+  /* Every panel has a real 1px border. shadcn's Card draws its edge with ring-1, which is a
+     box-shadow and gets replaced by the slab shadow below, so cards would lose their edge. */
+  [data-slot="card"],
+  .slab {
+    border-width: 1px;
+    border-style: solid;
+  }
 }
 [data-slot="card"],
 .slab {
@@ -241,9 +248,6 @@
 }
 
 /* Light mode separates surfaces with a hairline and a small shadow instead of frost. */
-:root:not(.dark) [data-slot="card"] {
-  --tw-ring-color: var(--slab-border);
-}
 :root:not(.dark) [data-slot="card"],
 :root:not(.dark) .slab,
 :root:not(.dark) .segmented,

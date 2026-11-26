@@ -22,6 +22,8 @@ function Money() {
   const accepted = snap.quotes.filter((q) => q.status === 'accepted')
   const [openId, setOpenId] = useState<number | null>(null)
   const open = inv.find((i) => i.id === openId) ?? null
+  const [quoteId, setQuoteId] = useState<number | null>(null)
+  const quote = snap.quotes.find((q) => q.id === quoteId) ?? null
   return (
     <div className="mx-auto max-w-6xl">
       <PageTitle title="Quotes & invoices" sub="Quotes use only the price book. Payment links are Stripe test mode." />
@@ -95,55 +97,23 @@ function Money() {
           rows={snap.quotes}
           rowKey={(q) => q.id}
           empty="No quotes yet. Upload photos when booking on the customer page."
+          onRowClick={(q) => setQuoteId(q.id)}
+          rowLabel={(q) => `Quote #${q.id}, ${(q.customerId && snap.customers[q.customerId]?.name) || 'customer'}`}
           columns={[
             {
               key: 'quote',
               label: 'Quote',
               sort: (q) => q.id,
-              cell: (q) => {
-                const dx = q.diagnosis as { brand?: string; equipmentKind?: string; ageYears?: number; errorCode?: string }
-                return (
-                  <Cell2
-                    top={
-                      <a href={q.url} target="_blank" rel="noreferrer" className="hover:underline">
-                        Quote #{q.id}
-                      </a>
-                    }
-                    sub={[dx.brand, dx.equipmentKind?.replace('_', ' '), dx.ageYears != null ? `${dx.ageYears} yrs` : null, dx.errorCode ? `code ${dx.errorCode}` : null]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  />
-                )
-              },
+              cell: (q) => <Cell2 top={`#${q.id}`} sub={equipment(q)} />,
             },
             {
               key: 'customer',
               label: 'Customer',
               sort: (q) => (q.customerId ? (snap.customers[q.customerId]?.name ?? '') : ''),
               cell: (q) => (
-                <div className="flex items-center gap-2.5">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <Avatar name={(q.customerId && snap.customers[q.customerId]?.name) || '?'} size="sm" />
-                  <Cell2 top={q.customerId ? snap.customers[q.customerId]?.name : '—'} sub={ago(q.createdAt)} />
-                </div>
-              ),
-            },
-            {
-              key: 'options',
-              label: 'Options',
-              cell: (q) => (
-                <div className="flex flex-wrap gap-1.5">
-                  {q.options.map((o) => (
-                    <Badge
-                      key={o.tier}
-                      variant="outline"
-                      className={cn(
-                        'font-normal capitalize tabular-nums',
-                        q.chosenTier === o.tier ? 'border-primary/40 bg-accent text-accent-foreground' : 'text-muted-foreground',
-                      )}
-                    >
-                      {o.tier} {money(o.totalCents)}
-                    </Badge>
-                  ))}
+                  <span className="truncate font-medium">{(q.customerId && snap.customers[q.customerId]?.name) || '—'}</span>
                 </div>
               ),
             },
@@ -152,7 +122,7 @@ function Money() {
               label: 'Status',
               sort: (q) => q.status,
               cell: (q) => (
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5 max-sm:justify-end">
                   <Status s={q.status} />
                   {q.replacementLead && (
                     <Badge variant="outline" className="gap-1 font-normal text-muted-foreground">
@@ -163,6 +133,13 @@ function Money() {
               ),
             },
             {
+              key: 'created',
+              label: 'Created',
+              className: 'hidden md:table-cell',
+              sort: (q) => +new Date(q.createdAt),
+              cell: (q) => <span className="text-muted-foreground">{ago(q.createdAt)}</span>,
+            },
+            {
               key: 'value',
               label: 'Value',
               align: 'right',
@@ -171,6 +148,7 @@ function Money() {
             },
           ]}
         />
+        <QuoteDialog quote={quote} onClose={() => setQuoteId(null)} />
       </div>
     </div>
   )
@@ -184,12 +162,10 @@ type Invoice = ReturnType<typeof useSnap>['invoices'][number]
 
 /** Everything about one invoice: who, what was billed, where it stands, and the payment actions. */
 function InvoiceDialog({ invoice, onClose, onCheck, checking }: { invoice: Invoice | null; onClose: () => void; onCheck: (id: number) => void; checking: boolean }) {
-  const snap = useSnap()
   // keep the last invoice while the dialog animates closed
   const [shown, setShown] = useState<Invoice | null>(invoice)
   if (invoice && invoice !== shown) setShown(invoice)
   const i = invoice ?? shown
-  const c = i ? snap.customers[i.customerId] : undefined
   return (
     <Dialog open={!!invoice} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
@@ -201,24 +177,7 @@ function InvoiceDialog({ invoice, onClose, onCheck, checking }: { invoice: Invoi
               </DialogTitle>
               <DialogDescription>Created {dayTime(i.createdAt)}</DialogDescription>
             </DialogHeader>
-            <section className="well flex items-center gap-3 rounded-xl px-3.5 py-3">
-              <Avatar name={c?.name ?? '?'} />
-              <div className="min-w-0 text-sm">
-                <div className="truncate font-medium">{c?.name ?? 'Unknown customer'}</div>
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                  {c?.email && (
-                    <span className="inline-flex min-w-0 items-center gap-1">
-                      <Mail className="size-3 shrink-0" /> <span className="truncate">{c.email}</span>
-                    </span>
-                  )}
-                  {c?.phone && (
-                    <span className="inline-flex items-center gap-1 tabular-nums">
-                      <Phone className="size-3" /> {c.phone}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </section>
+            <CustomerCard id={i.customerId} />
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[11px] tracking-wider text-muted-foreground uppercase">
@@ -275,6 +234,138 @@ function InvoiceDialog({ invoice, onClose, onCheck, checking }: { invoice: Invoi
                 )}
               </DialogFooter>
             )}
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Who a quote or invoice is for, with how to reach them. */
+function CustomerCard({ id }: { id: number | null }) {
+  const snap = useSnap()
+  const c = id ? snap.customers[id] : undefined
+  return (
+    <section className="well flex items-center gap-3 rounded-xl px-3.5 py-3">
+      <Avatar name={c?.name ?? '?'} />
+      <div className="min-w-0 text-sm">
+        <div className="truncate font-medium">{c?.name ?? 'Unknown customer'}</div>
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+          {c?.email && (
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <Mail className="size-3 shrink-0" /> <span className="truncate">{c.email}</span>
+            </span>
+          )}
+          {c?.phone && (
+            <span className="inline-flex items-center gap-1 tabular-nums">
+              <Phone className="size-3" /> {c.phone}
+            </span>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+type Dx = {
+  equipmentKind?: string
+  brand?: string | null
+  model?: string | null
+  ageYears?: number | null
+  errorCode?: string | null
+  observations?: string[]
+  likelyFaults?: Array<{ fault: string; probability: number }>
+  confidence?: number
+}
+const equipment = (q: Quote) => {
+  const dx = q.diagnosis as Dx
+  return [dx.brand, dx.equipmentKind?.replace('_', ' ')].filter(Boolean).join(' · ') || 'Photo diagnosis'
+}
+
+/** One photo quote: what the photos showed, the three options with their lines, and the customer's choice. */
+function QuoteDialog({ quote, onClose }: { quote: Quote | null; onClose: () => void }) {
+  const [shown, setShown] = useState<Quote | null>(quote)
+  if (quote && quote !== shown) setShown(quote)
+  const q = quote ?? shown
+  const dx = (q?.diagnosis ?? {}) as Dx
+  const facts = q
+    ? [
+        ['Equipment', [dx.brand, dx.equipmentKind?.replace('_', ' '), dx.model].filter(Boolean).join(' · ') || '—'],
+        ['Age', dx.ageYears != null ? `${dx.ageYears} years` : 'Unknown'],
+        ['Error code', dx.errorCode || 'None shown'],
+      ]
+    : []
+  return (
+    <Dialog open={!!quote} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+        {q && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex flex-wrap items-center gap-2.5">
+                Quote #{q.id} <Status s={q.status} />
+                {q.replacementLead && (
+                  <Badge variant="outline" className="gap-1 font-normal text-muted-foreground">
+                    <Flame className="size-3" /> replacement lead
+                  </Badge>
+                )}
+              </DialogTitle>
+              <DialogDescription>From photos, {dayTime(q.createdAt)}</DialogDescription>
+            </DialogHeader>
+            <CustomerCard id={q.customerId} />
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-sm">
+              {facts.map(([k, v]) => (
+                <div key={k} className="contents">
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="text-right capitalize">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            {!!dx.likelyFaults?.length && (
+              <div className="space-y-1.5 text-sm">
+                <h3 className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Likely faults</h3>
+                <ul className="space-y-1">
+                  {dx.likelyFaults.map((f) => (
+                    <li key={f.fault} className="flex justify-between gap-4">
+                      <span>{f.fault}</span>
+                      <span className="text-muted-foreground tabular-nums">{Math.round(f.probability * 100)}%</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="space-y-2">
+              <h3 className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">Options</h3>
+              {q.options.map((o) => {
+                const chosen = q.chosenTier === o.tier
+                return (
+                  <section key={o.tier} className={cn('rounded-xl border px-3.5 py-3 text-sm', chosen ? 'border-primary/50 bg-accent/50' : 'border-(--slab-border)')}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="font-medium">
+                        <span className="capitalize">{o.tier}</span>
+                        <span className="font-normal text-muted-foreground"> · {o.title}</span>
+                        {chosen && <span className="ml-2 text-xs font-medium text-primary">Chosen</span>}
+                      </div>
+                      <span className="font-semibold tabular-nums">{money(o.totalCents)}</span>
+                    </div>
+                    <ul className="mt-1.5 space-y-0.5 text-xs text-muted-foreground">
+                      {o.lines.map((l) => (
+                        <li key={l.code} className="flex justify-between gap-4">
+                          <span>{l.name}</span>
+                          <span className="tabular-nums">{money(l.cents)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )
+              })}
+            </div>
+            <DialogFooter>
+              <Button asChild>
+                <a href={q.url} target="_blank" rel="noreferrer">
+                  <ExternalLink /> Open customer page
+                </a>
+              </Button>
+            </DialogFooter>
           </>
         )}
       </DialogContent>

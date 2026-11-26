@@ -11,7 +11,7 @@ Dispatch software for a trades office, open all day on a big monitor and checked
 | Strong glass | select, dialog, alert dialog, sheet, tooltip | `--glass-strong` `oklch(0.19 0 0 / 0.82)` + blur 24px | `oklch(1 0 0 / 0.86)` | Overlays, so text stays readable over anything |
 | Well | `.well`, inputs, textarea | `--well` `oklch(0.12 0 0)` | `oklch(0.945 0 0)` | Recessed: fields, timeline rows, quoted text |
 
-Shadows stay soft. No heavy drop shadows, no coloured glows on components (the top light belongs to the canvas only).
+Every card and slab has a real 1px `--slab-border` (shadcn Card's ring-1 is removed: the slab shadow replaced it). Shadows stay soft. No heavy drop shadows, no coloured glows on components (the top light belongs to the canvas only).
 
 ## Signature: the route motif
 
@@ -43,7 +43,7 @@ Shadows stay soft. No heavy drop shadows, no coloured glows on components (the t
 ## Layout
 
 - **Sidebar** (md+): a floating panel inset 0.75rem from the edges, `.rail-glass` (glass mixed in oklab with 8% blue in dark, 4% in light, blur 22px; never mix in oklch, which swings the hue through pink) so the canvas and route motif show through. 5rem icon rail with tooltips, expands to 16rem with labels and a title. Stored in `localStorage.rail`; the boot script mirrors it to `html[data-rail]` so skeletons match before hydration (`rail-open:` variant). The customer page is a quiet link card at the foot (globe tile, "Book, call, track"), never a second primary button.
-- **Phones**: no sidebar. Logo in the header; a bottom tab bar (Board, Inbox, Approvals, Money, More). More opens a sheet with the rest, customer page, theme and sign out. Tables become stacked cards (`RichTable`). Tables stay short (no sideways scroll): a few key columns, and `onRowClick` opens a dialog with the rest (invoices: customer contact, line items, dates, reminders, pay link, check payment).
+- **Phones**: no sidebar. Logo in the header; a bottom tab bar (Board, Inbox, Approvals, Money, More). More opens a sheet with the rest, customer page, theme and sign out. Tables become stacked cards (`RichTable`). Tables stay short (no sideways scroll): a few key columns, and `onRowClick` opens a dialog with the rest (invoices: customer contact, line items, dates, reminders, pay link, check payment; photo quotes: diagnosis, likely faults, the three options and the chosen one).
 - **Top bar**: company left (a quiet "Reconnecting…" only when the live stream drops; no always-on live pill), "Ask Riley" field right (hidden on Agent chat, which has its own composer).
 - **Board is a bento**: Needs you (2/3) beside Unassigned (1/3); KPI tiles; the timeline full width; the map (2/3) beside Live activity (1/3).
 - **Needs you** (board, top): the one list of things only the owner can do: P1 emergencies waiting (Call back), undelivered replies (Connect), visits past their window (Re-plan), pending approvals (Review). Empty state says so plainly.
