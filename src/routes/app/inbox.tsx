@@ -299,6 +299,7 @@ function Calls() {
                 </summary>
                 <ol className="well mx-5 mb-5 space-y-3 rounded-xl p-4">
                   {c.transcript.map((t, i) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript; a turn never moves
                     <li key={i} className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 text-sm leading-relaxed">
                       <span className={cn('pt-px text-xs font-medium', t.role === 'agent' ? 'text-primary' : 'text-muted-foreground')}>
                         {t.role === 'agent' ? 'Agent' : 'Caller'}

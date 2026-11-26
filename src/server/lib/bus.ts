@@ -9,7 +9,8 @@ import { db, schema } from '../db'
 export type DomainEvent = { id: number; type: string; payload: Record<string, unknown>; createdAt: string }
 
 const g = globalThis as unknown as { __bus?: EventEmitter }
-const emitter = g.__bus ?? (g.__bus = new EventEmitter().setMaxListeners(100))
+g.__bus ??= new EventEmitter().setMaxListeners(100)
+const emitter = g.__bus
 
 export async function publish(type: string, payload: Record<string, unknown> = {}): Promise<DomainEvent> {
   const [row] = await db.insert(schema.events).values({ type, payload }).returning()

@@ -30,7 +30,8 @@ const MENU = {
 const withMenu = (chatId: string, text: string) => sendTelegram(chatId, text, { reply_markup: MENU })
 const awaitingNote = new Map<number, number>() // chatId -> jobId
 const g = globalThis as unknown as { __routeWidgets?: Map<number, { chatId: string; messageId: number }>; __routeSub?: boolean }
-const widgets = (g.__routeWidgets ??= new Map()) // techId -> last route widget message
+g.__routeWidgets ??= new Map()
+const widgets = g.__routeWidgets // techId -> last route widget message
 
 export async function onTechMessage(msg: TgMessage) {
   const chatId = String(msg.chat.id)

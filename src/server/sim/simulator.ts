@@ -215,7 +215,10 @@ function makeDemand(sc: Scenario, n: number, r: () => number): SimReq[] {
   const total = tpl.reduce((a, [w]) => a + w, 0)
   const pick = () => {
     let x = r() * total
-    for (const [w, t] of tpl) if ((x -= w) < 0) return t
+    for (const [w, t] of tpl) {
+      x -= w
+      if (x < 0) return t
+    }
     return tpl[0][1]
   }
   const out: SimReq[] = []

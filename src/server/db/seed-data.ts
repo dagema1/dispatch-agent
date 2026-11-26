@@ -153,7 +153,7 @@ export function makeCustomers(n: number, seed = 7): SeedCustomer[] {
     ]
     out.push({
       name: `${first} ${last}`,
-      email: `${first}.${last}`.toLowerCase() + '@example.com',
+      email: `${`${first}.${last}`.toLowerCase()}@example.com`,
       phone: `(720) 555-${String(1000 + i).padStart(4, '0')}`,
       address: `${100 + Math.floor(r() * 9800)} ${pick(STREETS)}, Denver, CO`,
       lat,

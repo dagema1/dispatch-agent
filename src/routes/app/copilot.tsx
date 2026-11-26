@@ -39,6 +39,7 @@ function Copilot() {
     setHistory(r.history.slice(-40))
     setMsgs((m) => [...m, { role: 'assistant', text: r.text }])
   })
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when a message is added
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: 'smooth' })
   }, [msgs.length])
@@ -78,6 +79,7 @@ function Copilot() {
             </div>
           )}
           {msgs.map((m, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript; a turn never moves
             <div key={i} className={cn('arrive-pop flex', m.role === 'user' && 'justify-end')}>
               <div
                 className={cn(

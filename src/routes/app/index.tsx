@@ -27,6 +27,7 @@ export const Route = createFileRoute('/app/')({ component: Board })
 
 type Job = Snapshot['jobs'][number]
 const START = 7 * 60
+const HOURS = Array.from({ length: 13 }, (_, i) => 7 + i) // 7am..7pm axis labels
 const END = 19 * 60
 const pct = (m: number) => `${(Math.min(Math.max(m - START, 0), END - START) / (END - START)) * 100}%`
 const isLive = (t: Snapshot['techs'][number]) => !!(t.liveAt && Date.now() - new Date(t.liveAt).getTime() < 15 * 60_000 && t.liveLat != null)
@@ -138,10 +139,10 @@ function Board() {
             <div className="overflow-x-auto">
               <div className="min-w-[720px]">
                 <div className="relative ml-36 h-5 text-[10px] text-muted-foreground">
-                  {Array.from({ length: 13 }, (_, i) => (
-                    <span key={i} className="absolute -translate-x-1/2" style={{ left: pct(START + i * 60) }}>
-                      {((7 + i - 1) % 12) + 1}
-                      {7 + i < 12 ? 'a' : 'p'}
+                  {HOURS.map((h) => (
+                    <span key={h} className="absolute -translate-x-1/2" style={{ left: pct(h * 60) }}>
+                      {((h - 1) % 12) + 1}
+                      {h < 12 ? 'a' : 'p'}
                     </span>
                   ))}
                 </div>

@@ -88,18 +88,33 @@ function Agents() {
 }
 
 function TraceView({ runId }: { runId: string }) {
-  const [t, setT] = useState<Awaited<ReturnType<typeof getTrace>> | null>(null)
+  // undefined = loading, null = not found or failed (shown as such, not as an endless shimmer)
+  const [t, setT] = useState<Awaited<ReturnType<typeof getTrace>> | null | undefined>(undefined)
   useEffect(() => {
-    getTrace({ data: { runId } }).then(setT)
+    let live = true
+    setT(undefined)
+    getTrace({ data: { runId } })
+      .then((r) => live && setT(r ?? null))
+      .catch(() => live && setT(null))
+    return () => {
+      live = false
+    }
   }, [runId])
-  if (!t?.run)
+  if (t === undefined)
     return (
       <Section title="Trace">
-        <div className="space-y-3">
+        <div className="space-y-3" aria-busy="true">
+          <output className="sr-only">Loading trace…</output>
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="h-4 w-1/2" />
           <Skeleton className="h-4 w-3/5" />
         </div>
+      </Section>
+    )
+  if (!t?.run)
+    return (
+      <Section title="Trace">
+        <Empty>This trace is no longer available. Demo resets clear old runs.</Empty>
       </Section>
     )
   return (

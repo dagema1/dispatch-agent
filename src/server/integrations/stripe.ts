@@ -6,7 +6,8 @@ const g = globalThis as unknown as { __stripe?: Stripe }
 export const stripeEnabled = () => !!env.STRIPE_SECRET_KEY?.startsWith('sk_test_')
 function client() {
   if (!stripeEnabled()) throw new Error('Stripe test key not configured')
-  return (g.__stripe ??= new Stripe(env.STRIPE_SECRET_KEY!))
+  g.__stripe ??= new Stripe(env.STRIPE_SECRET_KEY!)
+  return g.__stripe
 }
 
 export async function createPaymentLink(opts: { invoiceId: number; customerEmail?: string | null; lines: Array<{ name: string; cents: number; qty: number }> }) {

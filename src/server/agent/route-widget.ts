@@ -12,10 +12,10 @@ export type WidgetRow = [number, string, string, string, 's' | 'e' | 'o', number
 export type WidgetData = { d: string; j: WidgetRow[]; n?: string }
 
 export function packRoute(day: string, rows: WidgetRow[], note?: string): string {
-  const fit = (r: WidgetRow[], t: number): WidgetRow[] => r.map((x) => [x[0], x[1], x[2].slice(0, t), x[3].slice(0, 18), x[4], x[5], x[6], x[7]])
+  const fitRows = (r: WidgetRow[], t: number): WidgetRow[] => r.map((x) => [x[0], x[1], x[2].slice(0, t), x[3].slice(0, 18), x[4], x[5], x[6], x[7]])
   for (const t of [40, 28, 18, 10]) {
     for (let n = rows.length; n > 0; n--) {
-      const s = JSON.stringify({ d: day, j: fit(rows.slice(0, n), t), ...(note ? { n: note.slice(0, 80) } : {}) } satisfies WidgetData)
+      const s = JSON.stringify({ d: day, j: fitRows(rows.slice(0, n), t), ...(note ? { n: note.slice(0, 80) } : {}) } satisfies WidgetData)
       if (Buffer.byteLength(s) <= 1024) return s
     }
   }

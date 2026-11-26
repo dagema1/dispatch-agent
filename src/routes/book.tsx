@@ -58,6 +58,7 @@ function CallPanel() {
   const [booked, setBooked] = useState<Record<string, unknown> | null>(null)
   const call = useRef<VoiceCall | null>(null)
   const end = useRef<HTMLDivElement>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when the transcript grows
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'nearest' })
   }, [turns])
@@ -90,7 +91,9 @@ function CallPanel() {
     <Card className="rounded-3xl">
       <CardContent className="px-6 sm:px-10">
         <div className="mx-auto flex max-w-sm flex-col items-center py-6 text-center">
-          <span className="tile size-14 rounded-2xl bg-emerald-500/15 text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400">{live ? <Mic className="size-6" /> : <Phone className="size-6" />}</span>
+          <span className="tile size-14 rounded-2xl bg-emerald-500/15 text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400">
+            {live ? <Mic className="size-6" /> : <Phone className="size-6" />}
+          </span>
           <h2 className="mt-5 text-2xl font-bold tracking-tight">
             {live ? (speaking === 'agent' ? 'Receptionist speaking' : 'We’re listening') : state === 'connecting' ? 'Connecting you' : 'Talk to our receptionist'}
           </h2>
@@ -109,7 +112,11 @@ function CallPanel() {
               <PhoneOff /> Hang up
             </Button>
           ) : (
-            <Button className="mt-6 h-12 w-full rounded-full bg-emerald-600 bg-none text-base text-white shadow-none hover:bg-emerald-500" onClick={start} disabled={state === 'ending'}>
+            <Button
+              className="mt-6 h-12 w-full rounded-full bg-emerald-600 bg-none text-base text-white shadow-none hover:bg-emerald-500"
+              onClick={start}
+              disabled={state === 'ending'}
+            >
               <Phone /> Start call
             </Button>
           )}
@@ -125,6 +132,7 @@ function CallPanel() {
         {turns.length > 0 && (
           <div className="mt-4 max-h-72 space-y-2 overflow-y-auto rounded-xl well p-3">
             {turns.map((t, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript; a turn never moves
               <div key={i} className={cn('arrive-pop flex', t.role === 'caller' && 'justify-end')}>
                 <div
                   className={cn(

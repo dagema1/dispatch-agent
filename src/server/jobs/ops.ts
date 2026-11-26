@@ -75,7 +75,8 @@ registerHandler('notify.moved', async (p) => {
 // ---------- watchdog (every minute) ----------
 
 const g = globalThis as unknown as { __slaAlerted?: Set<number> }
-const slaAlerted = (g.__slaAlerted ??= new Set())
+g.__slaAlerted ??= new Set()
+const slaAlerted = g.__slaAlerted
 
 export async function watchdog() {
   const out = { emails: 0, slaBreaches: 0, queue: 0 }

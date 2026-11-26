@@ -99,7 +99,7 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
 
     // 4. Missing essentials → ask one clarifying question instead of guessing.
     if (!customer || customer.lat == null) {
-      const ask = `${safety ? safety.script + '\n\n' : ''}Thanks for contacting ${settings.company.name}. So we can send the right technician, please reply with your full name, service address and a phone number.`
+      const ask = `${safety ? `${safety.script}\n\n` : ''}Thanks for contacting ${settings.company.name}. So we can send the right technician, please reply with your full name, service address and a phone number.`
       if (customer && !input.dryRun)
         await act(run, {
           policy: 'send_customer_message',

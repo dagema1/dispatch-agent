@@ -46,21 +46,25 @@ const NAV = [
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ] as const
 
+/** Stable keys for fixed-length placeholder lists. */
+const keys = (p: string, n: number) => Array.from({ length: n }, (_, i) => `${p}${i}`)
+
 /** First load: the shell's shape in shimmer, so the layout never jumps when data lands. */
 function AppSkeleton() {
   return (
-    <div className="canvas flex min-h-screen flex-col md:flex-row" role="status" aria-busy="true" aria-label="Loading the front office">
+    <div className="canvas flex min-h-screen flex-col md:flex-row" aria-busy="true">
+      <output className="sr-only">Loading the front office…</output>
       <div className="flex gap-2 border-b border-(--edge) bg-card p-2 md:h-screen md:w-18 md:flex-col md:items-center md:border-r md:border-b-0 md:py-3">
-        {Array.from({ length: 9 }, (_, i) => (
-          <Skeleton key={i} className="size-10 rounded-xl" />
+        {keys('rail', 9).map((k) => (
+          <Skeleton key={k} className="size-10 rounded-xl" />
         ))}
       </div>
       <div className="flex-1 space-y-4 p-4 md:p-6">
         <Skeleton className="h-9 w-full max-w-xs rounded-xl sm:ml-auto" />
         <Skeleton className="h-7 w-48" />
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="slab space-y-3 rounded-xl border bg-card p-4">
+          {keys('kpi', 4).map((k) => (
+            <div key={k} className="slab space-y-3 rounded-xl border bg-card p-4">
               <div className="flex items-center gap-3">
                 <Skeleton className="size-11 rounded-xl" />
                 <div className="flex-1 space-y-2">
@@ -74,8 +78,8 @@ function AppSkeleton() {
         </div>
         <div className="slab space-y-3 rounded-xl border bg-card p-5">
           <Skeleton className="h-4 w-40" />
-          {Array.from({ length: 5 }, (_, i) => (
-            <Skeleton key={i} className="h-11 w-full rounded-lg" />
+          {keys('row', 5).map((k) => (
+            <Skeleton key={k} className="h-11 w-full rounded-lg" />
           ))}
         </div>
       </div>

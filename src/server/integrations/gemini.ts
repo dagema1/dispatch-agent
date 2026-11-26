@@ -14,7 +14,8 @@ import { env } from '../lib/env'
 const g = globalThis as unknown as { __genai?: GoogleGenAI }
 function client(): GoogleGenAI {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set')
-  return (g.__genai ??= new GoogleGenAI({ apiKey: env.GEMINI_API_KEY, httpOptions: { timeout: 10_000 } }))
+  g.__genai ??= new GoogleGenAI({ apiKey: env.GEMINI_API_KEY, httpOptions: { timeout: 10_000 } })
+  return g.__genai
 }
 export const aiEnabled = () => !!env.GEMINI_API_KEY
 export const MODEL = () => env.GEMINI_MODEL
@@ -33,7 +34,8 @@ async function slot() {
 const FALLBACKS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash']
 const modelChain = () => [...new Set([MODEL(), ...(process.env.GEMINI_FALLBACK_MODELS?.split(',').map((x) => x.trim()) ?? FALLBACKS)])]
 const g2 = globalThis as unknown as { __geminiDown?: Map<string, number> }
-const down = (g2.__geminiDown ??= new Map())
+g2.__geminiDown ??= new Map()
+const down = g2.__geminiDown
 
 /** Call fn with the first healthy model; overloaded models are skipped for 2 minutes. */
 async function withRetry<T>(fn: (model: string) => Promise<T>): Promise<T & { _model?: string }> {

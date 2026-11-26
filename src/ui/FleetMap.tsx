@@ -59,6 +59,7 @@ export default function FleetMap({
       <Fit points={pts} />
       {routes.map((r, i) => (
         <Polyline
+          // biome-ignore lint/suspicious/noArrayIndexKey: one route per technician, in fixed technician order
           key={i}
           positions={r.points}
           pathOptions={{

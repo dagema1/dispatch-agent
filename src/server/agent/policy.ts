@@ -25,7 +25,8 @@ export type Action = {
 
 type Executor = (args: Record<string, unknown>) => Promise<unknown>
 const g = globalThis as unknown as { __executors?: Map<string, Executor> }
-const executors = g.__executors ?? (g.__executors = new Map())
+g.__executors ??= new Map()
+const executors = g.__executors
 
 export function registerExecutor(tool: string, fn: Executor) {
   executors.set(tool, fn)

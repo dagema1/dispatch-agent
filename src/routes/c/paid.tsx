@@ -8,11 +8,12 @@ import { Card, CardContent } from '@/components/ui/card'
 
 export const Route = createFileRoute('/c/paid')({
   validateSearch: z.object({
-    invoice: z.coerce.number().int(),
-    cancelled: z.coerce.number().optional(),
+    // a missing or mangled id shows the not-found card instead of a 500
+    invoice: z.coerce.number().int().positive().optional().catch(undefined),
+    cancelled: z.coerce.number().optional().catch(undefined),
   }),
   loaderDeps: ({ search }) => ({ invoice: search.invoice }),
-  loader: ({ deps }) => getPaid({ data: { invoice: deps.invoice } }),
+  loader: ({ deps }) => (deps.invoice ? getPaid({ data: { invoice: deps.invoice } }) : null),
   component: Paid,
   head: () => ({ meta: [{ title: 'Payment' }] }),
 })

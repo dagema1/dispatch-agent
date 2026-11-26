@@ -14,5 +14,6 @@ export function getPool(): pg.Pool {
   return g.__pool
 }
 
-export const db: Db = g.__db ?? (g.__db = drizzle(getPool(), { schema }))
+g.__db ??= drizzle(getPool(), { schema })
+export const db: Db = g.__db
 export { schema }

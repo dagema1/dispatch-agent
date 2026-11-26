@@ -35,9 +35,12 @@ const g = globalThis as unknown as {
   __askPrompts?: Map<number, number>
   __panel?: { chatId: string; messageId: number }
 }
-const cards = (g.__apCards ??= new Map()) // approvalId -> message_id in the owner group
-const askHistory = (g.__askHist ??= new Map()) // telegram user -> copilot history
-const askPrompts = (g.__askPrompts ??= new Map()) // prompt message_id -> user who asked for it
+g.__apCards ??= new Map()
+const cards = g.__apCards // approvalId -> message_id in the owner group
+g.__askHist ??= new Map()
+const askHistory = g.__askHist // telegram user -> copilot history
+g.__askPrompts ??= new Map()
+const askPrompts = g.__askPrompts // prompt message_id -> user who asked for it
 
 const who = (u: TgUser) => esc(u.first_name ?? u.username ?? 'someone')
 const dashboardButton = (): InlineKeyboard => (env.APP_URL.startsWith('https://') ? [[{ text: 'Open dashboard', url: `${env.APP_URL}/app` }]] : [])

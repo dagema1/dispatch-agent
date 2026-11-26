@@ -8,7 +8,8 @@ import { db, schema } from '../db'
  */
 export type Handler = (payload: Record<string, unknown>) => Promise<unknown>
 const g = globalThis as unknown as { __handlers?: Map<string, Handler>; __worker?: NodeJS.Timeout; __draining?: boolean }
-const handlers = g.__handlers ?? (g.__handlers = new Map())
+g.__handlers ??= new Map()
+const handlers = g.__handlers
 
 export function registerHandler(kind: string, fn: Handler) {
   handlers.set(kind, fn)

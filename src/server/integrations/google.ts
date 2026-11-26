@@ -98,7 +98,7 @@ export type InboundEmail = { id: string; threadId: string; from: string; fromNam
 export async function pollInbox(): Promise<InboundEmail[]> {
   if (!(await gmailConnected())) return []
   const list = await gapi<{ messages?: Array<{ id: string }> }>(
-    'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + encodeURIComponent('is:unread in:inbox newer_than:2d -from:me') + '&maxResults=10',
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent('is:unread in:inbox newer_than:2d -from:me')}&maxResults=10`,
   )
   const out: InboundEmail[] = []
   for (const m of list.messages ?? []) {
