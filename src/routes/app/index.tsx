@@ -304,7 +304,7 @@ function Dock({ children }: { children: React.ReactNode }) {
     <div
       role="toolbar"
       aria-label="Board controls"
-      className="slab fixed inset-x-3 bottom-3 z-30 flex items-center justify-between gap-2 overflow-x-auto rounded-2xl border bg-popover p-1.5 sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2 md:left-[calc(50%+var(--rail,4rem)/2)]"
+      className="slab fixed inset-x-3 bottom-3 z-30 flex items-center justify-between gap-2 overflow-x-auto rounded-2xl border bg-popover p-1.5 sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2 md:left-[calc(50%+var(--rail,4.5rem)/2)]"
     >
       {children}
     </div>,

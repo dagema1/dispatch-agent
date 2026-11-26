@@ -39,7 +39,7 @@
   --well: oklch(0.935 0.005 255);
   --dot: oklch(0.3 0.01 260 / 0.13);
   --edge: oklch(1 0 0 / 0.9);
-  --slab-shadow: 0 1px 2px oklch(0.3 0.02 260 / 0.08), 0 10px 28px -14px oklch(0.3 0.03 260 / 0.28);
+  --slab-shadow: 0 1px 2px oklch(0.3 0.02 260 / 0.05), 0 4px 12px -8px oklch(0.3 0.03 260 / 0.14);
   --well-shadow: inset 0 1px 2px oklch(0.3 0.02 260 / 0.1);
   --attn-1: oklch(0.9 0.14 92);
   --attn-2: oklch(0.8 0.16 75);
@@ -72,7 +72,7 @@
   --well: oklch(0.18 0.005 260);
   --dot: oklch(1 0 0 / 0.075);
   --edge: oklch(1 0 0 / 0.07);
-  --slab-shadow: 0 2px 4px oklch(0 0 0 / 0.35), 0 16px 36px -16px oklch(0 0 0 / 0.75);
+  --slab-shadow: 0 1px 2px oklch(0 0 0 / 0.2), 0 6px 16px -10px oklch(0 0 0 / 0.45);
   --well-shadow: inset 0 1px 3px oklch(0 0 0 / 0.55);
   --attn-1: oklch(0.88 0.14 90);
   --attn-2: oklch(0.78 0.16 72);

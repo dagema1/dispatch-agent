@@ -66,7 +66,7 @@ function useRail() {
   }, [])
   useEffect(() => {
     // the board's floating dock centres itself on the work area using this width
-    document.documentElement.style.setProperty('--rail', open ? '13.5rem' : '4rem')
+    document.documentElement.style.setProperty('--rail', open ? '15rem' : '4.5rem')
   }, [open])
   const toggle = () =>
     setOpen((o) => {
@@ -106,14 +106,14 @@ function Shell() {
         data-open={open}
         className={cn(
           'sticky top-0 z-20 flex items-center gap-1 border-b border-(--edge) bg-card px-2 py-2 shadow-(--slab-shadow) md:h-screen md:shrink-0 md:flex-col md:items-stretch md:border-r md:border-b-0 md:py-3 motion-safe:md:transition-[width] motion-safe:md:duration-200',
-          open ? 'md:w-54 md:px-3' : 'md:w-16 md:items-center md:px-0',
+          open ? 'md:w-60 md:px-3' : 'md:w-18 md:items-center md:px-0',
         )}
       >
         <div className={cn('mr-1 flex shrink-0 items-center gap-2.5 md:mr-0 md:mb-3', open && 'md:px-0.5')}>
           <div className="tile tile-solid size-9 shrink-0" title={snap?.company.name}>
             <Wrench size={17} />
           </div>
-          {open && <span className="hidden min-w-0 truncate text-sm leading-tight font-semibold md:block">{snap?.company.name ?? 'Northline'}</span>}
+          {open && <span className="hidden min-w-0 line-clamp-2 text-sm leading-tight font-semibold md:block">{snap?.company.name ?? 'Northline'}</span>}
         </div>
         <nav aria-label="Main" className="flex min-w-0 flex-1 gap-1 overflow-x-auto md:flex-none md:flex-col md:overflow-visible">
           {NAV.map((n) => (
