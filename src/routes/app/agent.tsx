@@ -207,7 +207,7 @@ function AgentChat() {
   )
 }
 
-/** The agent's mark: initials on the violet action gradient; pulses while it works. */
+/** The agent's mark: initials on the emerald action gradient; pulses while it works. */
 function Orb({ name, size, busy }: { name: string; size: 'xs' | 'sm' | 'lg'; busy?: boolean }) {
   return (
     <span

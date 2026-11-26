@@ -16,7 +16,7 @@ export const Route = createFileRoute('/app/agents')({
   validateSearch: (s: Record<string, unknown>): { run?: string } => (typeof s.run === 'string' && s.run ? { run: s.run } : {}),
 })
 
-/** Step kinds as tiles: model calls in violet, policy holds in gold, errors red, the rest quiet. */
+/** Step kinds as tiles: model calls in the accent, policy holds in gold, errors red, the rest quiet. */
 const KIND: Record<string, { tile: string; icon: React.ComponentType<{ className?: string }> }> = {
   llm: { tile: 'tile-action', icon: Sparkles },
   tool: { tile: 'tile-quiet', icon: Wrench },
