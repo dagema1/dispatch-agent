@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm'
 import { db, schema } from '../db'
-import { publish } from '../lib/bus'
-import { env } from '../lib/env'
 import { gmailConnected, sendGmail } from '../integrations/google'
 import { esc, sendTelegram } from '../integrations/telegram'
+import { publish } from '../lib/bus'
+import { env } from '../lib/env'
 
 /**
  * Outbound communication. Every message is stored (the inbox shows full history); delivery goes

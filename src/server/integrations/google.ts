@@ -28,7 +28,10 @@ async function stored(): Promise<Stored | null> {
   return (r?.value as Stored) ?? null
 }
 async function store(v: Stored) {
-  await db.insert(schema.settings).values({ key: 'google_oauth', value: v }).onConflictDoUpdate({ target: schema.settings.key, set: { value: v } })
+  await db
+    .insert(schema.settings)
+    .values({ key: 'google_oauth', value: v })
+    .onConflictDoUpdate({ target: schema.settings.key, set: { value: v } })
 }
 
 export async function gmailConnected() {
@@ -46,7 +49,10 @@ export async function exchangeCode(code: string) {
   })
   const t = (await res.json()) as { refresh_token?: string; access_token?: string; error?: string }
   if (!t.refresh_token) throw new Error(t.error ?? 'no refresh token')
-  const me = (await (await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', { headers: { Authorization: `Bearer ${t.access_token}` } })).json()) as { emailAddress?: string; historyId?: string }
+  const me = (await (await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', { headers: { Authorization: `Bearer ${t.access_token}` } })).json()) as {
+    emailAddress?: string
+    historyId?: string
+  }
   await store({ refreshToken: t.refresh_token, email: me.emailAddress, historyId: me.historyId })
 }
 

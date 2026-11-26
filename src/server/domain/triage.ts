@@ -47,8 +47,7 @@ const SAFETY_RULES: Array<{ re: RegExp; flag: string; script: string }> = [
   {
     re: /\b(carbon monoxide|co alarm|co detector|co2? alarm)/i,
     flag: 'carbon_monoxide',
-    script:
-      'If your carbon monoxide alarm is sounding: get everyone outside into fresh air now and call 911. Do not go back in until the fire department says it is safe.',
+    script: 'If your carbon monoxide alarm is sounding: get everyone outside into fresh air now and call 911. Do not go back in until the fire department says it is safe.',
   },
   {
     re: /\b(spark(s|ing)?|burning smell|smoke|electrical fire)/i,
@@ -78,13 +77,37 @@ export function ruleExtract(text: string): Extraction {
   const install = has('replace', 'quote', 'new system', 'estimate', 'install', 'upgrade', 'heat pump', 'what would it cost', 'new high')
   const maintenance = has('tune', 'maintenance', 'yearly', 'annual', 'check before', 'schedule an')
   const hvacWord = has('furnace', 'heat', 'ac ', 'ac,', 'a/c', 'air condition', 'thermostat', 'cooling') || re(/\bac\b/)
-  const broken = has('not working', 'stopped', 'no work', 'won\'t', 'will not', 'dead', 'not turn', 'just clicks', 'blowing warm', 'warm air', 'shutting off', 'short cycle', 'no heat')
+  const broken = has(
+    'not working',
+    'stopped',
+    'no work',
+    "won't",
+    'will not',
+    'dead',
+    'not turn',
+    'just clicks',
+    'blowing warm',
+    'warm air',
+    'shutting off',
+    'short cycle',
+    'no heat',
+  )
   const noHeat = !water_heater && (has('no heat', 'freezing') || (has('furnace', 'heat') && broken))
   const noCooling = has('no ac', 'ac not', 'not cooling', 'no cooling', 'hot inside', 'really hot') || (re(/\b(ac|a\/c|air condition\w*)\b/) && broken)
   const activeLeak = has('burst', 'flooding', 'water everywhere', 'gushing', 'pouring', 'spraying')
-  const vulnerable = has('baby', 'newborn', 'infant', 'elderly', 'grandma', 'grandpa', 'oxygen', 'disabled', 'pregnant', 'week old') || re(/\b([7-9]\d|1\d\d) ?(year|yr)s? ?old\b(?! (furnace|unit|system|ac|heater))/)
+  const vulnerable =
+    has('baby', 'newborn', 'infant', 'elderly', 'grandma', 'grandpa', 'oxygen', 'disabled', 'pregnant', 'week old') ||
+    re(/\b([7-9]\d|1\d\d) ?(year|yr)s? ?old\b(?! (furnace|unit|system|ac|heater))/)
   const onlyToilet = has('only toilet', 'only bathroom')
-  const skill: Skill = water_heater ? 'water_heater' : drain || (has('toilet') && has('clog', 'overflow')) ? 'drain' : plumbing ? 'plumbing' : install ? 'hvac_install' : 'hvac_repair'
+  const skill: Skill = water_heater
+    ? 'water_heater'
+    : drain || (has('toilet') && has('clog', 'overflow'))
+      ? 'drain'
+      : plumbing
+        ? 'plumbing'
+        : install
+          ? 'hvac_install'
+          : 'hvac_repair'
   void hvacWord
   const urgent = noHeat || noCooling || (water_heater && broken) || has('no hot', 'agua caliente') || onlyToilet || has('sewer', 'backing up')
   const base = activeLeak ? 1 : urgent ? 2 : install || maintenance ? 4 : 3

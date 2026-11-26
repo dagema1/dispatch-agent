@@ -1,4 +1,4 @@
-import { GoogleGenAI, type Content, type FunctionDeclaration, type Part } from '@google/genai'
+import { type Content, type FunctionDeclaration, GoogleGenAI, type Part } from '@google/genai'
 import { z } from 'zod'
 import type { Run } from '../agent/trace'
 import { env } from '../lib/env'

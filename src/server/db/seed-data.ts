@@ -48,11 +48,67 @@ export const PRICE_BOOK: Array<{ code: string; name: string; trade: string; cent
 ]
 
 const STREETS = [
-  'Larkspur Ave', 'Juniper St', 'Cedar Ridge Dr', 'Aspen Ct', 'Ponderosa Way', 'Bluebell Ln', 'Granite St', 'Willow Bend',
-  'Columbine Pl', 'Pinecrest Rd', 'Elk Run', 'Sagebrush Dr', 'Foothill Ave', 'Riverbend St', 'Maple Hollow', 'Prairie Sky Dr',
+  'Larkspur Ave',
+  'Juniper St',
+  'Cedar Ridge Dr',
+  'Aspen Ct',
+  'Ponderosa Way',
+  'Bluebell Ln',
+  'Granite St',
+  'Willow Bend',
+  'Columbine Pl',
+  'Pinecrest Rd',
+  'Elk Run',
+  'Sagebrush Dr',
+  'Foothill Ave',
+  'Riverbend St',
+  'Maple Hollow',
+  'Prairie Sky Dr',
 ]
-const FIRST = ['Maria', 'James', 'Linda', 'Robert', 'Grace', 'Daniel', 'Olivia', 'Samuel', 'Hannah', 'Marcus', 'Elena', 'Victor', 'Nora', 'Owen', 'Ruth', 'Felix', 'Iris', 'Leo', 'Mia', 'Hugo']
-const LAST = ['Alvarez', 'Bennett', 'Chen', 'Dawson', 'Ellis', 'Foster', 'Garcia', 'Hughes', 'Ibrahim', 'Jensen', 'Kowalski', 'Lopez', 'Moreau', 'Novak', 'Okafor', 'Park', 'Quinn', 'Rossi', 'Sato', 'Turner']
+const FIRST = [
+  'Maria',
+  'James',
+  'Linda',
+  'Robert',
+  'Grace',
+  'Daniel',
+  'Olivia',
+  'Samuel',
+  'Hannah',
+  'Marcus',
+  'Elena',
+  'Victor',
+  'Nora',
+  'Owen',
+  'Ruth',
+  'Felix',
+  'Iris',
+  'Leo',
+  'Mia',
+  'Hugo',
+]
+const LAST = [
+  'Alvarez',
+  'Bennett',
+  'Chen',
+  'Dawson',
+  'Ellis',
+  'Foster',
+  'Garcia',
+  'Hughes',
+  'Ibrahim',
+  'Jensen',
+  'Kowalski',
+  'Lopez',
+  'Moreau',
+  'Novak',
+  'Okafor',
+  'Park',
+  'Quinn',
+  'Rossi',
+  'Sato',
+  'Turner',
+]
 const BRANDS = ['Carrier', 'Lennox', 'Trane', 'Goodman', 'Rheem', 'Bryant', 'York', 'A.O. Smith']
 
 export function rng(seed: number) {
@@ -81,7 +137,7 @@ export type SeedCustomer = {
 
 export function makeCustomers(n: number, seed = 7): SeedCustomer[] {
   const r = rng(seed)
-  const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)]
+  const pick = <T>(a: T[]) => a[Math.floor(r() * a.length)]
   const out: SeedCustomer[] = []
   for (let i = 0; i < n; i++) {
     const first = FIRST[i % FIRST.length]

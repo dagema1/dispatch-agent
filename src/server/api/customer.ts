@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
-import { db, schema } from '../db'
 import { diagnoseAndQuote } from '../agent/diagnosis'
 import { handleInbound } from '../agent/front-desk'
+import { db, schema } from '../db'
 import { replan } from '../domain/dispatch'
 import { alertOwner, firstName, messageCustomer } from '../domain/messaging'
 import { getSettings } from '../domain/settings'
@@ -34,7 +34,10 @@ export async function uploadPhotos(token: string, photos: Media[]) {
     await db.update(schema.quotes).set({ jobId: job.id }).where(eq(schema.quotes.id, q.quote.id))
     // the technician brings the right parts; replacement leads go to a senior installer
     if (q.replacementLead && job.skill !== 'hvac_install' && q.diagnosis.equipmentKind !== 'water_heater') {
-      await db.update(schema.jobs).set({ title: `${job.title} (replacement lead)` }).where(eq(schema.jobs.id, job.id))
+      await db
+        .update(schema.jobs)
+        .set({ title: `${job.title} (replacement lead)` })
+        .where(eq(schema.jobs.id, job.id))
     }
   }
   const [c] = await db.select().from(schema.customers).where(eq(schema.customers.id, req.customerId))
@@ -116,14 +119,22 @@ export async function voiceTool(callId: number, name: string, args: Record<strin
     externalId: `call:${callId}`,
     customer: { name: String(args.name ?? ''), phone: (args.phone as string) || null, email: (args.email as string) || null, address: String(args.address ?? '') },
   })
-  await db.update(schema.calls).set({ requestId: res.requestId, customerId: res.customerId || null }).where(eq(schema.calls.id, callId))
+  await db
+    .update(schema.calls)
+    .set({ requestId: res.requestId, customerId: res.customerId || null })
+    .where(eq(schema.calls.id, callId))
   return {
     status: res.status,
     priority: res.priority,
     safetyAdvice: res.safety,
     technician: res.booking?.technician.split(' ')[0] ?? null,
     arrival: res.booking?.startText ?? null,
-    note: res.status === 'booked' ? 'Read back the arrival time. Tell them they will get a text/email with a live tracking link.' : res.status === 'awaiting_customer' ? 'Address could not be found; ask them to repeat it with city and zip.' : 'Could not fit a slot; the office will call back within 15 minutes.',
+    note:
+      res.status === 'booked'
+        ? 'Read back the arrival time. Tell them they will get a text/email with a live tracking link.'
+        : res.status === 'awaiting_customer'
+          ? 'Address could not be found; ask them to repeat it with city and zip.'
+          : 'Could not fit a slot; the office will call back within 15 minutes.',
   }
 }
 

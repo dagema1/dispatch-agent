@@ -5,9 +5,9 @@ import { replan } from '../domain/dispatch'
 import { firstName, ownerChatId } from '../domain/messaging'
 import {
   answerCallback,
-  type InlineKeyboard,
   ephemeralCallbackReply,
   esc,
+  type InlineKeyboard,
   sendEphemeral,
   sendTelegram,
   setOwnerCommands,
@@ -16,8 +16,8 @@ import {
   type TgUser,
   tg,
 } from '../integrations/telegram'
-import { env } from '../lib/env'
 import { subscribe } from '../lib/bus'
+import { env } from '../lib/env'
 import { dayOf, fmtTime } from '../lib/time'
 import { decideApproval } from './policy'
 
@@ -137,7 +137,13 @@ export async function onOwnerCallback(cb: TgCallback) {
 async function markCard(m: TgMessage, ap: typeof schema.approvals.$inferSelect, line: string) {
   const text = `${approvalText(ap)}\n\n<b>${line}</b>`
   if (m.ephemeral_message_id && m.receiver_user) {
-    return tg('editEphemeralMessageText', { chat_id: m.chat.id, receiver_user_id: m.receiver_user.id, ephemeral_message_id: m.ephemeral_message_id, text, parse_mode: 'HTML' }).catch(() => {})
+    return tg('editEphemeralMessageText', {
+      chat_id: m.chat.id,
+      receiver_user_id: m.receiver_user.id,
+      ephemeral_message_id: m.ephemeral_message_id,
+      text,
+      parse_mode: 'HTML',
+    }).catch(() => {})
   }
   return tg('editMessageText', { chat_id: m.chat.id, message_id: m.message_id, text, parse_mode: 'HTML' }).catch(() => {})
 }
@@ -166,7 +172,12 @@ async function postCard(id: number) {
   if (!chat || !env.TELEGRAM_BOT_TOKEN) return
   const [a] = await db.select().from(schema.approvals).where(eq(schema.approvals.id, id))
   if (!a) return
-  const m = await tg<{ message_id: number }>('sendMessage', { chat_id: chat, text: approvalText(a), parse_mode: 'HTML', reply_markup: { inline_keyboard: approvalKeyboard(id) } }).catch((e) => {
+  const m = await tg<{ message_id: number }>('sendMessage', {
+    chat_id: chat,
+    text: approvalText(a),
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: approvalKeyboard(id) },
+  }).catch((e) => {
     console.warn('[telegram] approval card', e.message)
     return null
   })
@@ -180,13 +191,21 @@ async function closeCard(id: number, decision: string) {
   cards.delete(id)
   const [a] = await db.select().from(schema.approvals).where(eq(schema.approvals.id, id))
   if (!a) return
-  await tg('editMessageText', { chat_id: chat, message_id: mid, text: `${approvalText(a)}\n\n<b>${decision === 'approved' ? '✅ Approved' : '❌ Rejected'}</b>`, parse_mode: 'HTML' }).catch(() => {})
+  await tg('editMessageText', {
+    chat_id: chat,
+    message_id: mid,
+    text: `${approvalText(a)}\n\n<b>${decision === 'approved' ? '✅ Approved' : '❌ Rejected'}</b>`,
+    parse_mode: 'HTML',
+  }).catch(() => {})
 }
 
 async function brief() {
   const today = dayOf(new Date())
   const [jobs, ap, inv, techs] = await Promise.all([
-    db.select().from(schema.jobs).where(inArray(schema.jobs.status, ['scheduled', 'en_route', 'on_site', 'unassigned', 'done'])),
+    db
+      .select()
+      .from(schema.jobs)
+      .where(inArray(schema.jobs.status, ['scheduled', 'en_route', 'on_site', 'unassigned', 'done'])),
     db.select().from(schema.approvals).where(eq(schema.approvals.status, 'pending')),
     db.select().from(schema.invoices),
     db.select().from(schema.technicians).where(eq(schema.technicians.active, true)),
@@ -201,7 +220,12 @@ async function brief() {
   return [
     `<b>Today</b> · ${todays.length} visits, ${done} done, ${live} in progress, ${techs.length} techs on`,
     p1 ? `🚨 ${p1} open emergency visit(s)` : '✅ No open emergencies',
-    unassigned.length ? `⚠️ ${unassigned.length} job(s) unassigned: ${unassigned.slice(0, 4).map((j) => `#${j.id}`).join(', ')}` : '✅ Everything is on a route',
+    unassigned.length
+      ? `⚠️ ${unassigned.length} job(s) unassigned: ${unassigned
+          .slice(0, 4)
+          .map((j) => `#${j.id}`)
+          .join(', ')}`
+      : '✅ Everything is on a route',
     ap.length ? `🟡 ${ap.length} approval(s) waiting (/approvals)` : '✅ No approvals waiting',
     `💵 Collected ${money(inv.filter((i) => i.status === 'paid').reduce((a, i) => a + i.totalCents, 0))} · outstanding ${money(unpaid.reduce((a, i) => a + i.totalCents, 0))} on ${unpaid.length} invoice(s)`,
   ].join('\n')

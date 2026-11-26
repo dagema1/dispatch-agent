@@ -1,17 +1,4 @@
-import {
-  bigserial,
-  boolean,
-  doublePrecision,
-  integer,
-  jsonb,
-  pgTable,
-  serial,
-  text,
-  timestamp,
-  uniqueIndex,
-  index,
-  uuid,
-} from 'drizzle-orm/pg-core'
+import { bigserial, boolean, doublePrecision, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 
 const ts = (name: string) => timestamp(name, { withTimezone: true })
 const createdAt = () => ts('created_at').notNull().defaultNow()
@@ -20,13 +7,7 @@ const createdAt = () => ts('created_at').notNull().defaultNow()
 // biome-ignore lint/suspicious/noExplicitAny: JSON columns hold arbitrary serialisable data
 export type JsonObject = Record<string, any>
 
-export const SKILLS = [
-  'hvac_repair',
-  'hvac_install',
-  'plumbing',
-  'water_heater',
-  'drain',
-] as const
+export const SKILLS = ['hvac_repair', 'hvac_install', 'plumbing', 'water_heater', 'drain'] as const
 export type Skill = (typeof SKILLS)[number]
 
 export const technicians = pgTable('technicians', {
@@ -97,10 +78,7 @@ export const requests = pgTable(
     estMinutes: integer('est_minutes'),
     estValueCents: integer('est_value_cents'),
     photos: jsonb('photos').$type<string[]>().default([]),
-    status: text('status')
-      .notNull()
-      .default('new')
-      .$type<'new' | 'triaged' | 'awaiting_customer' | 'booked' | 'escalated' | 'closed'>(),
+    status: text('status').notNull().default('new').$type<'new' | 'triaged' | 'awaiting_customer' | 'booked' | 'escalated' | 'closed'>(),
     firstResponseAt: ts('first_response_at'),
     createdAt: createdAt(),
   },
@@ -236,10 +214,7 @@ export const queue = pgTable(
     doneAt: ts('done_at'),
     createdAt: createdAt(),
   },
-  (t) => [
-    uniqueIndex('queue_dedupe_idx').on(t.dedupeKey),
-    index('queue_pick_idx').on(t.status, t.runAt),
-  ],
+  (t) => [uniqueIndex('queue_dedupe_idx').on(t.dedupeKey), index('queue_pick_idx').on(t.status, t.runAt)],
 )
 
 /** One agent invocation (a trace). */

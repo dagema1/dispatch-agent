@@ -1,7 +1,7 @@
-import { db, schema } from '../db'
-import { aiEnabled } from '../integrations/gemini'
-import { prioritise, ruleExtract, triage } from '../domain/triage'
 import { Run } from '../agent/trace'
+import { db, schema } from '../db'
+import { prioritise, ruleExtract, triage } from '../domain/triage'
+import { aiEnabled } from '../integrations/gemini'
 import { publish } from '../lib/bus'
 
 /**
@@ -66,11 +66,23 @@ export const HELDOUT: Case[] = [
 export async function runEvals(opts: { useModel: boolean }) {
   const viaModel = opts.useModel && aiEnabled()
   const run = await Run.start('ops', 'evals', viaModel ? 'model + rules' : 'rules only')
-  const rows: Array<{ split: 'dev' | 'heldout'; text: string; expected: { p: number; safety: string | null; skill: string }; got: { p: number; safety: string | null; skill: string }; reasons: string[] }> = []
+  const rows: Array<{
+    split: 'dev' | 'heldout'
+    text: string
+    expected: { p: number; safety: string | null; skill: string }
+    got: { p: number; safety: string | null; skill: string }
+    reasons: string[]
+  }> = []
   for (const c of [...CASES.map((x) => ({ ...x, split: 'dev' as const })), ...HELDOUT.map((x) => ({ ...x, split: 'heldout' as const }))]) {
     const w = { tempC: c.tempC, feelsC: c.tempC, code: 0, daily: [] }
     const t = viaModel ? await triage(c.text, w, null).catch(() => prioritise(ruleExtract(c.text), c.text, w)) : prioritise(ruleExtract(c.text), c.text, w)
-    rows.push({ split: c.split, text: c.text, expected: { p: c.p, safety: c.safety, skill: c.skill }, got: { p: t.priority, safety: t.safety, skill: t.skill }, reasons: t.reasons })
+    rows.push({
+      split: c.split,
+      text: c.text,
+      expected: { p: c.p, safety: c.safety, skill: c.skill },
+      got: { p: t.priority, safety: t.safety, skill: t.skill },
+      reasons: t.reasons,
+    })
   }
   const scoreOf = (rs: typeof rows) => {
     const n = rs.length
@@ -99,7 +111,10 @@ export async function runEvals(opts: { useModel: boolean }) {
   await run.step('note', 'eval.summary', null, { ...result, misses: result.misses.length })
   await run.end('done', `priority ${(result.priorityExact * 100).toFixed(0)}% · P1 recall ${(p1Recall * 100).toFixed(0)}% · safety recall ${(safetyRecall * 100).toFixed(0)}%`)
   const key = viaModel ? 'eval_model' : 'eval_rules'
-  await db.insert(schema.settings).values({ key, value: result }).onConflictDoUpdate({ target: schema.settings.key, set: { value: result } })
+  await db
+    .insert(schema.settings)
+    .values({ key, value: result })
+    .onConflictDoUpdate({ target: schema.settings.key, set: { value: result } })
   await publish('eval.finished', { mode: result.mode, priorityExact: result.priorityExact })
   return result
 }

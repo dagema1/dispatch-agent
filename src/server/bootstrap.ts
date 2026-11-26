@@ -4,8 +4,8 @@ import './agent/owner'
 import { onOwnerReady } from './agent/owner-bot'
 import { onTelegramUpdate } from './agent/telegram-bot'
 import { runMigrations } from './db/migrate'
-import { CRON, type CronName } from './jobs/ops'
 import { startTelegramPolling } from './integrations/telegram'
+import { CRON, type CronName } from './jobs/ops'
 import { env } from './lib/env'
 import { startWorker } from './lib/queue'
 
@@ -43,7 +43,10 @@ function startLocalCron() {
   setInterval(() => {
     const hm = new Intl.DateTimeFormat('en-GB', { timeZone: env.TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date())
     const day = new Intl.DateTimeFormat('en-CA', { timeZone: env.TZ }).format(new Date())
-    for (const [name, at] of [['weather', '06:00'], ['morning', '06:30']] as const) {
+    for (const [name, at] of [
+      ['weather', '06:00'],
+      ['morning', '06:30'],
+    ] as const) {
       const key = `${name}:${day}`
       if (hm >= at && hm < '07:30' && !done.has(key)) {
         done.add(key)

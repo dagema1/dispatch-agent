@@ -1,6 +1,6 @@
 import { db, schema } from '../db'
 import { rng, TECHS } from '../db/seed-data'
-import { baselinePlan, optimise, type OptJob, type OptTech, type Plan } from '../domain/optimizer'
+import { baselinePlan, type OptJob, type OptTech, optimise, type Plan } from '../domain/optimizer'
 import { prioritise, ruleExtract } from '../domain/triage'
 import { estimateMinutes, type LatLng } from '../integrations/routing'
 import { publish } from '../lib/bus'
@@ -59,7 +59,18 @@ const TEMPLATES: Record<Scenario, Array<[weight: number, text: string]>> = {
 }
 const TEMP_C: Record<Scenario, number> = { normal: 8, cold_snap: -18, heat_wave: 36 }
 
-type SimReq = { id: number; arrival: number; text: string; loc: LatLng; priority: 1 | 2 | 3 | 4; trueP: 1 | 2 | 3 | 4; skill: string; minutes: number; valueCents: number; wantsSenior: boolean }
+type SimReq = {
+  id: number
+  arrival: number
+  text: string
+  loc: LatLng
+  priority: 1 | 2 | 3 | 4
+  trueP: 1 | 2 | 3 | 4
+  skill: string
+  minutes: number
+  valueCents: number
+  wantsSenior: boolean
+}
 
 export type ModelResult = {
   label: string
@@ -163,7 +174,10 @@ export async function simulateDay(opts: { scenario: Scenario; requests: number; 
     human: score('Human office (baseline)', reqs, human.answeredAt, human.lost, humanPlan, techs),
     ms: Date.now() - t0,
   }
-  await db.insert(schema.settings).values({ key: `sim_last`, value: result }).onConflictDoUpdate({ target: schema.settings.key, set: { value: result } })
+  await db
+    .insert(schema.settings)
+    .values({ key: `sim_last`, value: result })
+    .onConflictDoUpdate({ target: schema.settings.key, set: { value: result } })
   await publish('sim.finished', { scenario: opts.scenario, requests: reqs.length, aiServed: result.ai.servedToday, humanServed: result.human.servedToday })
   return result
 }
@@ -213,7 +227,18 @@ function makeDemand(sc: Scenario, n: number, r: () => number): SimReq[] {
     const ex = ruleExtract(text)
     const t = prioritise(ex, text, { tempC: TEMP_C[sc] })
     const loc = { lat: 39.74 + (r() - 0.5) * 0.36, lng: -104.99 + (r() - 0.5) * 0.46 }
-    out.push({ id: i, arrival: Math.round(arrival), text, loc, priority: t.priority, trueP: t.priority, skill: t.skill, minutes: Math.min(t.estMinutes, 120), valueCents: t.estValueCents, wantsSenior: t.wantsSenior })
+    out.push({
+      id: i,
+      arrival: Math.round(arrival),
+      text,
+      loc,
+      priority: t.priority,
+      trueP: t.priority,
+      skill: t.skill,
+      minutes: Math.min(t.estMinutes, 120),
+      valueCents: t.estValueCents,
+      wantsSenior: t.wantsSenior,
+    })
   }
   return out
 }

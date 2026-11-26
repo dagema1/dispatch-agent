@@ -14,11 +14,7 @@ export function registerHandler(kind: string, fn: Handler) {
   handlers.set(kind, fn)
 }
 
-export async function enqueue(
-  kind: string,
-  payload: Record<string, unknown> = {},
-  opts: { runAt?: Date; dedupeKey?: string; maxAttempts?: number } = {},
-) {
+export async function enqueue(kind: string, payload: Record<string, unknown> = {}, opts: { runAt?: Date; dedupeKey?: string; maxAttempts?: number } = {}) {
   await db
     .insert(schema.queue)
     .values({ kind, payload, runAt: opts.runAt ?? new Date(), dedupeKey: opts.dedupeKey, maxAttempts: opts.maxAttempts ?? 5 })

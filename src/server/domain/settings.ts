@@ -54,9 +54,6 @@ export async function getSettings(): Promise<Settings> {
 }
 
 export async function saveSetting(key: keyof Settings, value: unknown) {
-  await db
-    .insert(schema.settings)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: schema.settings.key, set: { value } })
+  await db.insert(schema.settings).values({ key, value }).onConflictDoUpdate({ target: schema.settings.key, set: { value } })
   cache = undefined
 }

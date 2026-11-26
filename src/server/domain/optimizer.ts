@@ -134,10 +134,7 @@ function insertAt(state: State, r: number, pos: number, job: OptJob, travel: Tra
 }
 
 function totalCost(state: State): number {
-  return (
-    state.costs.reduce((a, b) => a + b, 0) +
-    state.unassigned.reduce((a, j) => a + UNASSIGNED_PENALTY[j.priority] + j.valueCents / 100, 0)
-  )
+  return state.costs.reduce((a, b) => a + b, 0) + state.unassigned.reduce((a, j) => a + UNASSIGNED_PENALTY[j.priority] + j.valueCents / 100, 0)
 }
 
 export function optimise(techs: OptTech[], jobs: OptJob[], travel: Travel, opts: { maxMs?: number } = {}): Plan {

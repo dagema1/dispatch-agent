@@ -30,7 +30,16 @@ const tools: Tool[] = [
         .orderBy(asc(schema.jobs.scheduledStart))
       return rows
         .filter((r) => (r.j.scheduledStart ? dayOf(r.j.scheduledStart) === day : r.j.status === 'unassigned'))
-        .map((r) => ({ job: r.j.id, tech: r.t, time: r.j.scheduledStart ? fmtDayTime(r.j.scheduledStart) : null, status: r.j.status, priority: r.j.priority, title: r.j.title, customer: r.c, valueUsd: r.j.estValueCents / 100 }))
+        .map((r) => ({
+          job: r.j.id,
+          tech: r.t,
+          time: r.j.scheduledStart ? fmtDayTime(r.j.scheduledStart) : null,
+          status: r.j.status,
+          priority: r.j.priority,
+          title: r.j.title,
+          customer: r.c,
+          valueUsd: r.j.estValueCents / 100,
+        }))
     },
   },
   {
@@ -58,10 +67,16 @@ const tools: Tool[] = [
     description: 'Mark a technician unavailable (sick, truck broke down) and re-plan the fleet. Their visits move to others.',
     params: z.object({ name: z.string().describe('first name'), reason: z.string() }),
     handler: async (a) => {
-      const [t] = await db.select().from(schema.technicians).where(ilike(schema.technicians.name, `${a.name}%`))
+      const [t] = await db
+        .select()
+        .from(schema.technicians)
+        .where(ilike(schema.technicians.name, `${a.name}%`))
       if (!t) return { error: 'no such technician' }
       await db.update(schema.technicians).set({ active: false }).where(eq(schema.technicians.id, t.id))
-      await db.update(schema.jobs).set({ technicianId: null, lockedTech: false }).where(and(eq(schema.jobs.technicianId, t.id), eq(schema.jobs.status, 'scheduled')))
+      await db
+        .update(schema.jobs)
+        .set({ technicianId: null, lockedTech: false })
+        .where(and(eq(schema.jobs.technicianId, t.id), eq(schema.jobs.status, 'scheduled')))
       const res = await replan({ reason: `${t.name} out: ${a.reason}` })
       return { technician: t.name, moved: res.moved.length, unassigned: res.unassigned, travelMin: res.travelMin }
     },
@@ -71,7 +86,10 @@ const tools: Tool[] = [
     description: 'Make a technician available again and re-plan.',
     params: z.object({ name: z.string() }),
     handler: async (a) => {
-      const [t] = await db.select().from(schema.technicians).where(ilike(schema.technicians.name, `${a.name}%`))
+      const [t] = await db
+        .select()
+        .from(schema.technicians)
+        .where(ilike(schema.technicians.name, `${a.name}%`))
       if (!t) return { error: 'no such technician' }
       await db.update(schema.technicians).set({ active: true }).where(eq(schema.technicians.id, t.id))
       const res = await replan({ reason: `${t.name} back` })
@@ -81,8 +99,20 @@ const tools: Tool[] = [
   {
     name: 'move_job',
     description: 'Ask to move a job to another day (and optionally pin it to a technician). Needs owner approval per policy.',
-    params: z.object({ jobId: z.number().int(), day: z.string().describe('YYYY-MM-DD'), from: z.string().default('08:00'), to: z.string().default('17:00'), technician: z.string().optional() }),
-    handler: async (a) => act(null, { policy: 'move_booked_job', tool: 'move_job', args: a, summary: `Move job #${a.jobId} to ${a.day} ${a.from}–${a.to}${a.technician ? ` with ${a.technician}` : ''}` }),
+    params: z.object({
+      jobId: z.number().int(),
+      day: z.string().describe('YYYY-MM-DD'),
+      from: z.string().default('08:00'),
+      to: z.string().default('17:00'),
+      technician: z.string().optional(),
+    }),
+    handler: async (a) =>
+      act(null, {
+        policy: 'move_booked_job',
+        tool: 'move_job',
+        args: a,
+        summary: `Move job #${a.jobId} to ${a.day} ${a.from}–${a.to}${a.technician ? ` with ${a.technician}` : ''}`,
+      }),
   },
   {
     name: 'simulate_weather',
@@ -104,12 +134,20 @@ const tools: Tool[] = [
     description: 'Open requests, approvals waiting, unpaid invoices and revenue numbers.',
     params: z.object({}),
     handler: async () => {
-      const [inv, ap, reqs] = await Promise.all([db.select().from(schema.invoices), db.select().from(schema.approvals).where(eq(schema.approvals.status, 'pending')), db.select().from(schema.requests)])
+      const [inv, ap, reqs] = await Promise.all([
+        db.select().from(schema.invoices),
+        db.select().from(schema.approvals).where(eq(schema.approvals.status, 'pending')),
+        db.select().from(schema.requests),
+      ])
       const sum = (xs: typeof inv) => xs.reduce((a, i) => a + i.totalCents, 0) / 100
       return {
         approvalsWaiting: ap.map((x) => ({ id: x.id, summary: x.summary })),
         invoices: { paidUsd: sum(inv.filter((i) => i.status === 'paid')), unpaidUsd: sum(inv.filter((i) => i.status === 'sent')), count: inv.length },
-        requests: { total: reqs.length, open: reqs.filter((r) => ['new', 'triaged', 'awaiting_customer'].includes(r.status)).length, p1: reqs.filter((r) => r.priority === 1).length },
+        requests: {
+          total: reqs.length,
+          open: reqs.filter((r) => ['new', 'triaged', 'awaiting_customer'].includes(r.status)).length,
+          p1: reqs.filter((r) => r.priority === 1).length,
+        },
       }
     },
   },
@@ -119,7 +157,10 @@ registerExecutor('move_job', async (a) => {
   const jobId = Number(a.jobId)
   let techId: number | null = null
   if (a.technician) {
-    const [t] = await db.select().from(schema.technicians).where(ilike(schema.technicians.name, `${a.technician}%`))
+    const [t] = await db
+      .select()
+      .from(schema.technicians)
+      .where(ilike(schema.technicians.name, `${a.technician}%`))
     techId = t?.id ?? null
   }
   const day = String(a.day)

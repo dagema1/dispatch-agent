@@ -44,7 +44,14 @@ Always include DIAG. Never invent prices.`,
       media: audio ? [audio] : undefined,
     })
   } else {
-    report = { workDone: transcriptHint ?? `Completed: ${job.title}.`, partCodes: [{ code: 'DIAG', qty: 1 }], followUp: null, customerDeclinedSomething: null, safetyIssueFound: null, confidence: 0.5 }
+    report = {
+      workDone: transcriptHint ?? `Completed: ${job.title}.`,
+      partCodes: [{ code: 'DIAG', qty: 1 }],
+      followUp: null,
+      customerDeclinedSomething: null,
+      safetyIssueFound: null,
+      confidence: 0.5,
+    }
   }
 
   const byCode = new Map(prices.map((p) => [p.code, p]))
@@ -110,10 +117,18 @@ registerHandler('invoice.reminder', async (p) => {
   await act(null, {
     policy: 'send_payment_reminder',
     tool: 'send_customer_message',
-    args: { customerId: c.id, jobId: inv.jobId, subject: `Reminder: invoice #${id}`, body: `Hi ${firstName(c.name)}, a friendly reminder that invoice #${id} ($${(inv.totalCents / 100).toFixed(2)}) is still open.${inv.payUrl ? ` You can pay here: ${inv.payUrl}` : ''} Thank you!` },
+    args: {
+      customerId: c.id,
+      jobId: inv.jobId,
+      subject: `Reminder: invoice #${id}`,
+      body: `Hi ${firstName(c.name)}, a friendly reminder that invoice #${id} ($${(inv.totalCents / 100).toFixed(2)}) is still open.${inv.payUrl ? ` You can pay here: ${inv.payUrl}` : ''} Thank you!`,
+    },
     summary: `Payment reminder for invoice #${id}`,
   })
-  await db.update(schema.invoices).set({ remindersSent: inv.remindersSent + 1 }).where(eq(schema.invoices.id, id))
+  await db
+    .update(schema.invoices)
+    .set({ remindersSent: inv.remindersSent + 1 })
+    .where(eq(schema.invoices.id, id))
 })
 
 export async function checkPaid(invoiceId: number): Promise<boolean> {
@@ -131,6 +146,9 @@ export async function checkPaid(invoiceId: number): Promise<boolean> {
 
 /** Watchdog sweep: refresh payment status of open invoices. */
 export async function sweepPayments() {
-  const open = await db.select({ id: schema.invoices.id }).from(schema.invoices).where(and(inArray(schema.invoices.status, ['sent']), isNotNull(schema.invoices.stripeSessionId)))
+  const open = await db
+    .select({ id: schema.invoices.id })
+    .from(schema.invoices)
+    .where(and(inArray(schema.invoices.status, ['sent']), isNotNull(schema.invoices.stripeSessionId)))
   for (const i of open) await checkPaid(i.id).catch(() => {})
 }

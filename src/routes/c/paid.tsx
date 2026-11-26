@@ -2,8 +2,8 @@ import { createFileRoute } from '@tanstack/react-router'
 import { CheckCircle2, Clock } from 'lucide-react'
 import { z } from 'zod'
 import { getPaid } from '#/fns'
-import { money } from '#/ui/format'
 import { CustomerShell, NotFound } from '#/ui/CustomerShell'
+import { money } from '#/ui/format'
 import { Card, CardContent } from '@/components/ui/card'
 
 export const Route = createFileRoute('/c/paid')({

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { CheckCircle2, CircleDashed, Play, RotateCcw, Snowflake, Sun, CloudSun } from 'lucide-react'
+import { CheckCircle2, CircleDashed, CloudSun, Play, RotateCcw, Snowflake, Sun } from 'lucide-react'
 import { resetDemo, runCronNow, setPolicy, setWeather } from '#/fns'
 import { ErrorText, Muted, PageTitle, Section } from '#/ui/bits'
 import { useAction, useSnap } from '#/ui/live'

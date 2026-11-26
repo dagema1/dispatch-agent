@@ -1,11 +1,11 @@
 import { and, inArray, notInArray, sql } from 'drizzle-orm'
 import type { Run } from '../agent/trace'
 import { db, schema } from '../db'
-import { travelMatrix, type LatLng } from '../integrations/routing'
+import { type LatLng, travelMatrix } from '../integrations/routing'
 import { publish } from '../lib/bus'
 import { enqueue } from '../lib/queue'
 import { addDays, dayOf, MIN, zoned } from '../lib/time'
-import { optimise, type OptJob, type OptTech } from './optimizer'
+import { type OptJob, type OptTech, optimise } from './optimizer'
 
 type JobRow = typeof schema.jobs.$inferSelect
 type TechRow = typeof schema.technicians.$inferSelect
@@ -132,8 +132,7 @@ export async function replan(opts: { reason: string; days?: number; run?: Run | 
         .where(sql`${schema.jobs.id} = ${jobId}`)
       const shifted = !old.scheduledStart || Math.abs(old.scheduledStart.getTime() - p.start.getTime()) > 30 * MIN
       const techChanged = old.technicianId !== p.techId
-      if (shifted || techChanged)
-        moved.push({ jobId, from: old.scheduledStart?.toISOString() ?? null, to: p.start.toISOString(), techChanged })
+      if (shifted || techChanged) moved.push({ jobId, from: old.scheduledStart?.toISOString() ?? null, to: p.start.toISOString(), techChanged })
     }
     const unplaced = remaining.map((j) => j.id)
     if (unplaced.length) {
@@ -157,7 +156,13 @@ export async function replan(opts: { reason: string; days?: number; run?: Run | 
     source,
     ms: Date.now() - t0,
   }
-  await opts.run?.step('tool', 'optimiser', { reason: opts.reason, jobs: open.length, techs: techs.length, matrix: source }, { scheduled: result.scheduled, unassigned: result.unassigned.length, moved: moved.length, travelMin: travelTotal }, result.ms)
+  await opts.run?.step(
+    'tool',
+    'optimiser',
+    { reason: opts.reason, jobs: open.length, techs: techs.length, matrix: source },
+    { scheduled: result.scheduled, unassigned: result.unassigned.length, moved: moved.length, travelMin: travelTotal },
+    result.ms,
+  )
   await publish('plan.updated', { reason: opts.reason, scheduled: result.scheduled, unassigned: result.unassigned.length, moved: moved.length, travelMin: travelTotal })
 
   // side effects after commit: calendar sync + customer notifications for real moves

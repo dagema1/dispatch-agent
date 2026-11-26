@@ -60,7 +60,11 @@ export const setTechActive = createServerFn({ method: 'POST' })
     const { db, schema } = await import('./server/db')
     const { eq, and } = await import('drizzle-orm')
     await db.update(schema.technicians).set({ active: data.active }).where(eq(schema.technicians.id, data.id))
-    if (!data.active) await db.update(schema.jobs).set({ technicianId: null, lockedTech: false }).where(and(eq(schema.jobs.technicianId, data.id), eq(schema.jobs.status, 'scheduled')))
+    if (!data.active)
+      await db
+        .update(schema.jobs)
+        .set({ technicianId: null, lockedTech: false })
+        .where(and(eq(schema.jobs.technicianId, data.id), eq(schema.jobs.status, 'scheduled')))
     return (await import('./server/domain/dispatch')).replan({ reason: `technician ${data.active ? 'back' : 'out'}` })
   })
 
@@ -77,8 +81,15 @@ export const simulateEmail = createServerFn({ method: 'POST' })
     await boot()
     const { handleInbound } = await import('./server/agent/front-desk')
     const { db, schema } = await import('./server/db')
-    const res = await handleInbound({ channel: 'email', text: `${data.subject}\n\n${data.body}`, externalId: `demo:${Date.now()}`, customer: { name: data.name, email: data.email } })
-    await db.insert(schema.messages).values({ direction: 'in', channel: 'email', customerId: res.customerId || null, requestId: res.requestId, subject: data.subject, body: data.body, delivered: true })
+    const res = await handleInbound({
+      channel: 'email',
+      text: `${data.subject}\n\n${data.body}`,
+      externalId: `demo:${Date.now()}`,
+      customer: { name: data.name, email: data.email },
+    })
+    await db
+      .insert(schema.messages)
+      .values({ direction: 'in', channel: 'email', customerId: res.customerId || null, requestId: res.requestId, subject: data.subject, body: data.body, delivered: true })
     return res
   })
 

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db, schema } from '../db'
-import { publish } from '../lib/bus'
 import { getSettings, type Policy } from '../domain/settings'
+import { publish } from '../lib/bus'
 import type { Run } from './trace'
 
 /**
@@ -31,10 +31,7 @@ export function registerExecutor(tool: string, fn: Executor) {
   executors.set(tool, fn)
 }
 
-export type ActOutcome =
-  | { status: 'done'; result: unknown }
-  | { status: 'pending_approval'; approvalId: number }
-  | { status: 'refused'; reason: string }
+export type ActOutcome = { status: 'done'; result: unknown } | { status: 'pending_approval'; approvalId: number } | { status: 'refused'; reason: string }
 
 export async function act(run: Run | null, action: Action): Promise<ActOutcome> {
   const settings = await getSettings()

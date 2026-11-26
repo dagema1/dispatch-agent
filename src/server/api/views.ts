@@ -39,8 +39,16 @@ export async function snapshot() {
       customer: { id: c.id, name: c.name, address: c.address, lat: c.lat, lng: c.lng, phone: c.phone, email: c.email },
       trackUrl: `/c/track/${sign('track', j.id)}`,
     }))
-  const custIds = [...new Set([...requests.map((r) => r.customerId), ...messages.map((m) => m.customerId), ...invoices.map((i) => i.customerId), ...quotes.map((q) => q.customerId)].filter((x): x is number => !!x))]
-  const customers = custIds.length ? await db.select({ id: schema.customers.id, name: schema.customers.name, email: schema.customers.email }).from(schema.customers).where(inArray(schema.customers.id, custIds)) : []
+  const custIds = [
+    ...new Set(
+      [...requests.map((r) => r.customerId), ...messages.map((m) => m.customerId), ...invoices.map((i) => i.customerId), ...quotes.map((q) => q.customerId)].filter(
+        (x): x is number => !!x,
+      ),
+    ),
+  ]
+  const customers = custIds.length
+    ? await db.select({ id: schema.customers.id, name: schema.customers.name, email: schema.customers.email }).from(schema.customers).where(inArray(schema.customers.id, custIds))
+    : []
   return {
     now: new Date().toISOString(),
     today,
@@ -67,7 +75,10 @@ export type Snapshot = Awaited<ReturnType<typeof snapshot>>
 
 /** Last simulator and eval results (stored so the ROI page survives reloads). */
 async function lab() {
-  const rows = await db.select().from(schema.settings).where(inArray(schema.settings.key, ['sim_last', 'eval_rules', 'eval_model']))
+  const rows = await db
+    .select()
+    .from(schema.settings)
+    .where(inArray(schema.settings.key, ['sim_last', 'eval_rules', 'eval_model']))
   const get = (k: string) => rows.find((r) => r.key === k)?.value ?? null
   return {
     sim: get('sim_last') as Awaited<ReturnType<typeof import('../sim/simulator').simulateDay>> | null,
@@ -83,7 +94,10 @@ export async function kpis() {
     db.select().from(schema.requests).where(gte(schema.requests.createdAt, since)),
     db.select().from(schema.invoices).where(gte(schema.invoices.createdAt, since)),
     db.select().from(schema.agentRuns).where(gte(schema.agentRuns.startedAt, since)),
-    db.select().from(schema.jobs).where(and(eq(schema.jobs.status, 'done'), gte(schema.jobs.completedAt, since))),
+    db
+      .select()
+      .from(schema.jobs)
+      .where(and(eq(schema.jobs.status, 'done'), gte(schema.jobs.completedAt, since))),
   ])
   const responded = reqs.filter((r) => r.firstResponseAt && r.channel !== 'sim')
   const respSec = responded.map((r) => (r.firstResponseAt!.getTime() - r.createdAt.getTime()) / 1000).sort((a, b) => a - b)

@@ -1,10 +1,11 @@
 import { and, eq, gte, inArray, isNull, lt } from 'drizzle-orm'
-import { db, schema } from '../db'
+import { z } from 'zod'
 import { handleInbound } from '../agent/front-desk'
 import { act, registerExecutor } from '../agent/policy'
 import { sweepPayments } from '../agent/revenue'
 import { sendRoute } from '../agent/technician'
 import { Run } from '../agent/trace'
+import { db, schema } from '../db'
 import { replan } from '../domain/dispatch'
 import { alertOwner, firstName, messageCustomer } from '../domain/messaging'
 import { getSettings } from '../domain/settings'
@@ -14,7 +15,6 @@ import { cToF, getWeather } from '../integrations/weather'
 import { publish } from '../lib/bus'
 import { drain, registerHandler } from '../lib/queue'
 import { dayOf, fmtDayTime, fmtTime } from '../lib/time'
-import { z } from 'zod'
 
 /**
  * Proactive work. Three scheduled entry points (Cloud Scheduler → /api/cron/<name>, or the
@@ -24,7 +24,10 @@ import { z } from 'zod'
 // ---------- queue handlers ----------
 
 registerHandler('calendar.sync', async (p) => {
-  const [job] = await db.select().from(schema.jobs).where(eq(schema.jobs.id, Number(p.jobId)))
+  const [job] = await db
+    .select()
+    .from(schema.jobs)
+    .where(eq(schema.jobs.id, Number(p.jobId)))
   if (!job || !(await gmailConnected())) return
   if (!job.scheduledStart || job.status === 'cancelled' || job.status === 'unassigned') {
     if (job.calendarEventId) {
@@ -88,7 +91,9 @@ export async function watchdog() {
         return null
       })
       if (res && res.status !== 'duplicate')
-        await db.insert(schema.messages).values({ direction: 'in', channel: 'email', customerId: res.customerId || null, requestId: res.requestId, subject: m.subject, body: m.text, delivered: true })
+        await db
+          .insert(schema.messages)
+          .values({ direction: 'in', channel: 'email', customerId: res.customerId || null, requestId: res.requestId, subject: m.subject, body: m.text, delivered: true })
       out.emails++
     }
   }
@@ -104,7 +109,9 @@ export async function watchdog() {
       slaAlerted.add(r.id)
       out.slaBreaches++
       await publish('sla.breach', { requestId: r.id, priority: r.priority })
-      await alertOwner(`SLA: P${r.priority} request #${r.id} (${r.summary ?? r.rawText.slice(0, 60)}) has no reply after ${Math.round((Date.now() - r.createdAt.getTime()) / 60_000)} min.`)
+      await alertOwner(
+        `SLA: P${r.priority} request #${r.id} (${r.summary ?? r.rawText.slice(0, 60)}) has no reply after ${Math.round((Date.now() - r.createdAt.getTime()) / 60_000)} min.`,
+      )
     }
   }
   // 3. queued work, payments
@@ -126,11 +133,16 @@ export async function morningPlan() {
     briefed++
   }
   const today = dayOf(new Date())
-  const jobs = await db.select().from(schema.jobs).where(inArray(schema.jobs.status, ['scheduled', 'unassigned']))
+  const jobs = await db
+    .select()
+    .from(schema.jobs)
+    .where(inArray(schema.jobs.status, ['scheduled', 'unassigned']))
   const todays = jobs.filter((j) => j.scheduledStart && dayOf(j.scheduledStart) === today)
   const unassigned = jobs.filter((j) => j.status === 'unassigned').length
   const value = todays.reduce((a, j) => a + j.estValueCents, 0)
-  await alertOwner(`☀️ Morning plan: ${todays.length} visits today across ${techs.length} techs, ~$${Math.round(value / 100).toLocaleString()} booked, ${res.travelMin} min driving.${unassigned ? ` ${unassigned} job(s) unassigned.` : ''} Routes sent to ${briefed} tech(s).`)
+  await alertOwner(
+    `☀️ Morning plan: ${todays.length} visits today across ${techs.length} techs, ~$${Math.round(value / 100).toLocaleString()} booked, ${res.travelMin} min driving.${unassigned ? ` ${unassigned} job(s) unassigned.` : ''} Routes sent to ${briefed} tech(s).`,
+  )
   await run.end('done', `${todays.length} visits, ${briefed} briefed`)
   return { visits: todays.length, briefed, unassigned, travelMin: res.travelMin }
 }
@@ -152,7 +164,10 @@ export async function weatherScan() {
 
   // one campaign per trigger per day
   const since = new Date(Date.now() - 20 * 3_600_000)
-  const [existing] = await db.select().from(schema.campaigns).where(and(eq(schema.campaigns.trigger, trigger), gte(schema.campaigns.createdAt, since)))
+  const [existing] = await db
+    .select()
+    .from(schema.campaigns)
+    .where(and(eq(schema.campaigns.trigger, trigger), gte(schema.campaigns.createdAt, since)))
   if (existing) return { trigger, campaignId: existing.id, minC, maxC }
 
   const run = await Run.start('ops', 'cron_weather', trigger)
@@ -179,16 +194,30 @@ export async function weatherScan() {
       schema: CampaignSchema,
     }).catch(() => copy)
   }
-  const [camp] = await db.insert(schema.campaigns).values({ trigger, title: `${trigger === 'cold_snap' ? 'Cold snap' : 'Heat wave'}: ${temp}`, subject: copy.subject, body: copy.body, customerIds: ids }).returning()
-  const out = await act(run, { policy: 'send_campaign', tool: 'send_campaign', args: { campaignId: camp.id }, summary: `Send "${copy.subject}" to ${ids.length} customers (${temp})` })
+  const [camp] = await db
+    .insert(schema.campaigns)
+    .values({ trigger, title: `${trigger === 'cold_snap' ? 'Cold snap' : 'Heat wave'}: ${temp}`, subject: copy.subject, body: copy.body, customerIds: ids })
+    .returning()
+  const out = await act(run, {
+    policy: 'send_campaign',
+    tool: 'send_campaign',
+    args: { campaignId: camp.id },
+    summary: `Send "${copy.subject}" to ${ids.length} customers (${temp})`,
+  })
   await run.end(out.status === 'done' ? 'done' : 'waiting_approval', `campaign #${camp.id} → ${out.status}`)
   return { trigger, campaignId: camp.id, audience: ids.length, minC, maxC }
 }
 
 registerExecutor('send_campaign', async (a) => {
-  const [camp] = await db.select().from(schema.campaigns).where(eq(schema.campaigns.id, Number(a.campaignId)))
+  const [camp] = await db
+    .select()
+    .from(schema.campaigns)
+    .where(eq(schema.campaigns.id, Number(a.campaignId)))
   if (!camp || camp.status !== 'draft') return { skipped: true }
-  const custs = await db.select().from(schema.customers).where(inArray(schema.customers.id, camp.customerIds.length ? camp.customerIds : [-1]))
+  const custs = await db
+    .select()
+    .from(schema.customers)
+    .where(inArray(schema.customers.id, camp.customerIds.length ? camp.customerIds : [-1]))
   for (const c of custs) await messageCustomer({ customerId: c.id, subject: camp.subject, body: camp.body.replaceAll('{first_name}', firstName(c.name)) })
   await db.update(schema.campaigns).set({ status: 'sent', sentAt: new Date() }).where(eq(schema.campaigns.id, camp.id))
   await publish('campaign.sent', { campaignId: camp.id, recipients: custs.length })
@@ -197,4 +226,3 @@ registerExecutor('send_campaign', async (a) => {
 
 export const CRON = { tick: watchdog, morning: morningPlan, weather: weatherScan } as const
 export type CronName = keyof typeof CRON
-

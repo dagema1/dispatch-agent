@@ -65,7 +65,14 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
 
     // 3. Triage (rules + model + weather).
     const t = await triage(input.text, weather, run)
-    if (!customer) customer = await createCustomer(run, { ...input.customer, name: input.customer?.name ?? t.customerName, address: input.customer?.address ?? t.address, phone: input.customer?.phone ?? t.phone, email: input.customer?.email ?? t.email })
+    if (!customer)
+      customer = await createCustomer(run, {
+        ...input.customer,
+        name: input.customer?.name ?? t.customerName,
+        address: input.customer?.address ?? t.address,
+        phone: input.customer?.phone ?? t.phone,
+        email: input.customer?.email ?? t.email,
+      })
 
     const [req] = await db
       .insert(schema.requests)
@@ -93,7 +100,13 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
     // 4. Missing essentials → ask one clarifying question instead of guessing.
     if (!customer || customer.lat == null) {
       const ask = `${safety ? safety.script + '\n\n' : ''}Thanks for contacting ${settings.company.name}. So we can send the right technician, please reply with your full name, service address and a phone number.`
-      if (customer && !input.dryRun) await act(run, { policy: 'send_customer_message', tool: 'send_customer_message', args: { customerId: customer.id, requestId: req.id, subject: `Re: ${t.issue}`, body: ask, channel: chan(input) }, summary: `Ask ${customer.name} for address` })
+      if (customer && !input.dryRun)
+        await act(run, {
+          policy: 'send_customer_message',
+          tool: 'send_customer_message',
+          args: { customerId: customer.id, requestId: req.id, subject: `Re: ${t.issue}`, body: ask, channel: chan(input) },
+          summary: `Ask ${customer.name} for address`,
+        })
       await db.update(schema.requests).set({ status: 'awaiting_customer' }).where(eq(schema.requests.id, req.id))
       await run.end('done', 'asked for address')
       return { requestId: req.id, customerId: customer?.id ?? 0, priority: t.priority, safety: t.safety, replyText: ask, status: 'awaiting_customer' }
@@ -101,7 +114,13 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
     const distance = haversineKm(settings.company.hq, { lat: customer.lat, lng: customer.lng! })
     if (distance > settings.company.serviceRadiusKm) {
       const msg = `Thanks for reaching out. Unfortunately ${customer.address} is outside our service area, so we can't send a technician. We recommend contacting a local licensed contractor.`
-      if (!input.dryRun) await act(run, { policy: 'send_customer_message', tool: 'send_customer_message', args: { customerId: customer.id, requestId: req.id, subject: `Re: ${t.issue}`, body: msg, channel: chan(input) }, summary: 'Out-of-area reply' })
+      if (!input.dryRun)
+        await act(run, {
+          policy: 'send_customer_message',
+          tool: 'send_customer_message',
+          args: { customerId: customer.id, requestId: req.id, subject: `Re: ${t.issue}`, body: msg, channel: chan(input) },
+          summary: 'Out-of-area reply',
+        })
       await db.update(schema.requests).set({ status: 'closed' }).where(eq(schema.requests.id, req.id))
       await run.end('done', `outside service area (${distance.toFixed(0)} km)`)
       return { requestId: req.id, customerId: customer.id, priority: t.priority, safety: t.safety, replyText: msg, status: 'escalated' }
@@ -157,7 +176,9 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
         `Track your technician live on the day: ${links.track(job.id)}`,
       )
     } else {
-      parts.push(`Hi ${firstName(customer.name)}, we've logged your request (${t.issue}). Our schedule is full right now, so the office will call you shortly with the first available time.`)
+      parts.push(
+        `Hi ${firstName(customer.name)}, we've logged your request (${t.issue}). Our schedule is full right now, so the office will call you shortly with the first available time.`,
+      )
       await alertOwner(`Could not fit P${t.priority} job #${job.id} (${t.issue}) for ${customer.name}: needs a manual decision`, { replan: true })
     }
     if (quoteId) parts.push(`From your photos we've prepared repair and replacement options with upfront prices: ${links.quote(quoteId)}`)
@@ -173,12 +194,29 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
         confidence: t.confidence,
       })
     }
-    await db.update(schema.requests).set({ status: booking ? 'booked' : 'escalated', firstResponseAt: new Date() }).where(eq(schema.requests.id, req.id))
+    await db
+      .update(schema.requests)
+      .set({ status: booking ? 'booked' : 'escalated', firstResponseAt: new Date() })
+      .where(eq(schema.requests.id, req.id))
     if (tech && placed.scheduledStart && dayOf(placed.scheduledStart) === dayOf(new Date())) {
-      await messageTechnician(tech.id, `🆕 <b>P${t.priority} added to your route</b>\n#${job.id} ${t.issue}\n${customer.name}, ${customer.address}\nArrive ${fmtTime(placed.scheduledStart)}${replacementLead ? '\n💡 Replacement opportunity (old unit) — quote attached in dashboard' : ''}`, job.id)
+      await messageTechnician(
+        tech.id,
+        `🆕 <b>P${t.priority} added to your route</b>\n#${job.id} ${t.issue}\n${customer.name}, ${customer.address}\nArrive ${fmtTime(placed.scheduledStart)}${replacementLead ? '\n💡 Replacement opportunity (old unit) — quote attached in dashboard' : ''}`,
+        job.id,
+      )
     }
     await run.end('done', booking ? `booked #${job.id} with ${tech!.name} ${booking.startText} (moved ${plan.moved.length} others)` : `job #${job.id} unplaced, escalated`)
-    return { requestId: req.id, customerId: customer.id, priority: t.priority, safety: t.safety, jobId: job.id, booking, quoteId, replyText: reply, status: booking ? 'booked' : 'escalated' }
+    return {
+      requestId: req.id,
+      customerId: customer.id,
+      priority: t.priority,
+      safety: t.safety,
+      jobId: job.id,
+      booking,
+      quoteId,
+      replyText: reply,
+      status: booking ? 'booked' : 'escalated',
+    }
   } catch (e) {
     await run.step('error', 'intake', null, { error: (e as Error).message })
     await run.end('failed', (e as Error).message)
@@ -195,7 +233,11 @@ async function findCustomer(c: Inbound['customer']) {
   if (c.phone) conds.push(eq(schema.customers.phone, c.phone))
   if (!conds.length && c.name) conds.push(ilike(schema.customers.name, c.name))
   if (!conds.length) return null
-  const [hit] = await db.select().from(schema.customers).where(or(...conds)).limit(1)
+  const [hit] = await db
+    .select()
+    .from(schema.customers)
+    .where(or(...conds))
+    .limit(1)
   return hit ?? null
 }
 

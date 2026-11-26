@@ -69,7 +69,10 @@ export async function onTechMessage(msg: TgMessage) {
 /** Taps on the route widget. Must be answered within 15 s, so slow work (re-plan) runs afterwards. */
 export async function onWidgetQuery(q: TgWidgetQuery) {
   const answer = (data: string) => tg('answerWidgetQuery', { widget_query_id: q.id, data: data.slice(0, 1000) }).catch((e) => console.warn('[telegram] widget answer', e.message))
-  const [tech] = await db.select().from(schema.technicians).where(eq(schema.technicians.telegramChatId, String(q.chat?.id ?? q.from.id)))
+  const [tech] = await db
+    .select()
+    .from(schema.technicians)
+    .where(eq(schema.technicians.telegramChatId, String(q.chat?.id ?? q.from.id)))
   if (!tech) return answer('This route belongs to another technician.')
   try {
     return await answer(await runAction(tech.id, q.chat?.id ?? q.from.id, q.data))
@@ -81,7 +84,10 @@ export async function onWidgetQuery(q: TgWidgetQuery) {
 /** Fallback inline buttons on the text route. */
 export async function onTechCallback(cb: TgCallback) {
   const chatId = cb.message?.chat.id ?? cb.from.id
-  const [tech] = await db.select().from(schema.technicians).where(eq(schema.technicians.telegramChatId, String(chatId)))
+  const [tech] = await db
+    .select()
+    .from(schema.technicians)
+    .where(eq(schema.technicians.telegramChatId, String(chatId)))
   if (!tech) return answerCallback(cb.id, 'Not linked to a technician.')
   const text = await runAction(tech.id, chatId, cb.data ?? '')
   await answerCallback(cb.id, text.slice(0, 190))
@@ -110,7 +116,11 @@ async function link(chatId: string, text: string) {
   const techs = await db.select().from(schema.technicians)
   const name = text.replace('/start', '').trim().toLowerCase()
   const match = name ? techs.find((t) => t.name.toLowerCase().startsWith(name) || firstName(t.name).toLowerCase() === name) : null
-  if (!match) return reply(chatId, `👋 Hi! Which technician are you? Reply with your first name: ${techs.map((t) => firstName(t.name)).join(', ')}.\n(Owner? Add me to your office group and send /owner there.)`)
+  if (!match)
+    return reply(
+      chatId,
+      `👋 Hi! Which technician are you? Reply with your first name: ${techs.map((t) => firstName(t.name)).join(', ')}.\n(Owner? Add me to your office group and send /owner there.)`,
+    )
   await db.update(schema.technicians).set({ telegramChatId: chatId }).where(eq(schema.technicians.id, match.id))
   await publish('tech.linked', { technicianId: match.id, name: match.name })
   await reply(chatId, `✅ Linked to ${esc(match.name)}.`)
@@ -129,7 +139,10 @@ async function todaysJobs(techId: number) {
 }
 
 const ST = { scheduled: 's', en_route: 'e', on_site: 'o' } as const
-const shortTime = (d: Date | null) => fmtTime(d).replace(/:00/, '').replace(/\s?([AP])M/i, (_, x: string) => x.toLowerCase())
+const shortTime = (d: Date | null) =>
+  fmtTime(d)
+    .replace(/:00/, '')
+    .replace(/\s?([AP])M/i, (_, x: string) => x.toLowerCase())
 
 async function routeData(techId: number, note?: string) {
   const jobs = await todaysJobs(techId)
@@ -156,7 +169,9 @@ export async function sendRoute(techId: number, chatId: string) {
       html: ROUTE_WIDGET_HTML,
       chat_data: data,
       allow_queries: true,
-      caption: jobs.length ? `🗺 ${jobs.length} visit(s) today. Tap a button as you go. Share live location (📎 → Location) for accurate ETAs.` : 'No more jobs on your route today. 🎉',
+      caption: jobs.length
+        ? `🗺 ${jobs.length} visit(s) today. Tap a button as you go. Share live location (📎 → Location) for accurate ETAs.`
+        : 'No more jobs on your route today. 🎉',
     })
     widgets.set(techId, { chatId, messageId: m.message_id })
     return
