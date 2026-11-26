@@ -85,6 +85,9 @@ export class VoiceCall {
           tools: [{ functionDeclarations: cfg.tools as never }],
           inputAudioTranscription: {},
           outputAudioTranscription: {},
+          // The model's plan once came out loud ("Next step: ask for the name"). Ask for no thought
+          // output; native-audio models also take a zero thinking budget (Gemini 3 Live rejects one).
+          thinkingConfig: /native-audio/.test(cfg.model) ? { thinkingBudget: 0, includeThoughts: false } : { includeThoughts: false },
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: cfg.voice ?? 'Aoede' } },
           },

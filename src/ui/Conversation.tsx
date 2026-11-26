@@ -10,11 +10,14 @@ import { Empty } from './bits'
 import { dayTime } from './format'
 import { useSnap } from './live'
 import { Composer } from './NeedsYou'
+import { splitAgentText } from './transcript'
 
 type Turn = { role: 'caller' | 'agent'; text: string }
 
 /** A call transcript as a chat: the agent on the left, the caller on the right. */
 export function TranscriptDialog({ turns, title, meta, open, onOpenChange }: { turns: Turn[]; title: string; meta?: string; open: boolean; onOpenChange: (o: boolean) => void }) {
+  const shown = turns.map((t) => ({ ...t, parts: t.role === 'agent' ? splitAgentText(t.text) : [{ kind: 'speech' as const, text: t.text }] }))
+  const notes = shown.some((t) => t.parts.some((p) => p.kind === 'note'))
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85dvh] flex-col gap-0 p-0 sm:max-w-lg">
@@ -24,12 +27,31 @@ export function TranscriptDialog({ turns, title, meta, open, onOpenChange }: { t
           </DialogTitle>
           {meta && <DialogDescription className="line-clamp-2">{meta}</DialogDescription>}
         </DialogHeader>
+        {notes && (
+          <p className="border-b bg-(--attn-2)/10 px-4 py-2 text-xs text-amber-800 dark:text-amber-300">
+            The agent read some of its internal notes aloud on this call. They are marked below. The voice agent is now told never to speak them.
+          </p>
+        )}
         <ol className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
-          {turns.map((t, i) => (
+          {shown.map((t, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript; a turn never moves
             <li key={i} className={cn('flex', t.role === 'caller' && 'justify-end')}>
               <Bubble mine={t.role === 'caller'} who={t.role === 'agent' ? 'Agent' : 'Caller'}>
-                {t.text}
+                {t.parts.map((p, j) =>
+                  p.kind === 'note' ? (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: segments of one fixed turn
+                    <div
+                      key={j}
+                      className="my-1.5 rounded-lg border border-dashed border-(--attn-2)/50 bg-(--attn-2)/8 px-2.5 py-1.5 text-xs text-muted-foreground first:mt-0 last:mb-0"
+                    >
+                      <div className="mb-0.5 text-[10px] font-semibold tracking-wider text-amber-700 uppercase dark:text-amber-300">Internal note · spoken by mistake</div>
+                      {p.text}
+                    </div>
+                  ) : (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: segments of one fixed turn
+                    <p key={j}>{p.text}</p>
+                  ),
+                )}
               </Bubble>
             </li>
           ))}
