@@ -1,4 +1,5 @@
 import { esc, sendTelegram, type TgUpdate } from '../integrations/telegram'
+import { onBoardQuery } from './board-widget'
 import { isOwnerChat, onGroupMessage, onOwnerCallback } from './owner-bot'
 import { onTechCallback, onTechMessage, onWidgetQuery } from './technician'
 
@@ -8,7 +9,8 @@ import { onTechCallback, onTechMessage, onWidgetQuery } from './technician'
  */
 export async function onTelegramUpdate(u: TgUpdate) {
   try {
-    if (u.widget_query) return await onWidgetQuery(u.widget_query)
+    // the office board lives in the owner group; route widgets live in technicians' private chats
+    if (u.widget_query) return u.widget_query.chat && (await isOwnerChat(u.widget_query.chat.id)) ? await onBoardQuery(u.widget_query) : await onWidgetQuery(u.widget_query)
     if (u.callback_query) {
       const chat = u.callback_query.message?.chat
       return chat && chat.type !== 'private' ? await onOwnerCallback(u.callback_query) : await onTechCallback(u.callback_query)

@@ -14,6 +14,7 @@ import {
   Hand,
   Inbox,
   KeyRound,
+  LayoutList,
   Mail,
   MapPinned,
   MessageSquare,
@@ -32,7 +33,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { addDemoQuote, getSetup, resetDemo, runCronNow, saveApiKeys, saveCompany, setOfficeLog, setPolicy, setSandbox, setWeather } from '#/fns'
+import { addDemoQuote, getSetup, postOfficeBoard, resetDemo, runCronNow, saveApiKeys, saveCompany, setOfficeLog, setPolicy, setSandbox, setWeather } from '#/fns'
 import { ApiKeyFields, type KeyPatch, type KeyStatus, typedKeys } from '#/ui/ApiKeys'
 import { ErrorText, Muted, PageTitle, PanelHead } from '#/ui/bits'
 import { CompanyFields, type CompanyValues } from '#/ui/CompanyForm'
@@ -281,6 +282,7 @@ function Integrations() {
       </ul>
       <TestInbox />
       <OfficeLog />
+      <LiveBoard />
       <Keys />
     </div>
   )
@@ -309,6 +311,41 @@ function OfficeLog() {
       Posts every booking, technician assignment and slot change to the office Telegram group, plus what technicians are sent and report: accepted, on the way, on site, running
       late, notes, done. Changes that land together go out as one silent message.
     </SwitchCard>
+  )
+}
+
+/** The pinned live board widget in the office group: posted with /menu, or from here. */
+function LiveBoard() {
+  const [note, setNote] = useState<string | null>(null)
+  const post = useAction(async () => {
+    const r = await postOfficeBoard()
+    setNote(r.ok ? 'Posted and pinned in the office group.' : r.reason)
+    return r
+  })
+  return (
+    <Card size="sm">
+      <CardContent className="flex flex-wrap items-center gap-4">
+        <span className="tile tile-action size-10 shrink-0 rounded-xl">
+          <LayoutList className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold">Live board in Telegram</h2>
+          <Muted className="block">
+            A pinned widget in the office group with every technician’s day, unassigned visits and pending approvals. It updates in place; tap a technician for their route, or
+            re-plan from it. /menu in the group posts it too.
+          </Muted>
+          {note && (
+            <output aria-live="polite" className="mt-1 block text-xs text-muted-foreground">
+              {note}
+            </output>
+          )}
+        </div>
+        <Button size="sm" variant="outline" disabled={post.busy} onClick={() => post.run()}>
+          <Send /> {post.busy ? 'Posting…' : 'Post to group'}
+        </Button>
+        <ErrorText error={post.error} />
+      </CardContent>
+    </Card>
   )
 }
 

@@ -19,6 +19,7 @@ import {
 import { subscribe } from '../lib/bus'
 import { env } from '../lib/env'
 import { dayOf, fmtTime } from '../lib/time'
+import { postBoard } from './board-widget'
 import { decideApproval } from './policy'
 
 /**
@@ -212,6 +213,9 @@ async function postPanel(chatId: string) {
   if (!m) return
   g.__panel = { chatId, messageId: m.message_id }
   await tg('pinChatMessage', { chat_id: chatId, message_id: m.message_id, disable_notification: true }).catch(() => {})
+  // the live board goes up with the panel (pinned last, so it shows at the top)
+  const b = await postBoard(chatId)
+  if (!b.ok) console.warn('[telegram] board', b.reason)
 }
 
 async function refreshPanel() {

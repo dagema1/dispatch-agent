@@ -451,6 +451,10 @@ export const setOfficeLog = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
+export const postOfficeBoard = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .handler(async () => (await import('./server/agent/board-widget')).postBoard())
+
 // ---------- price book ----------
 
 export const getPriceBook = createServerFn({ method: 'GET' })
