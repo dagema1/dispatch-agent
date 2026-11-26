@@ -1,6 +1,7 @@
 import './agent/front-desk'
 import './agent/revenue'
 import './agent/owner'
+import './agent/office-log'
 import { onOwnerReady } from './agent/owner-bot'
 import { onTelegramUpdate } from './agent/telegram-bot'
 import { runMigrations } from './db/migrate'

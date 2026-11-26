@@ -21,6 +21,7 @@ import {
   Plug,
   RotateCcw,
   Route as RouteIcon,
+  ScrollText,
   Send,
   ShieldCheck,
   Snowflake,
@@ -31,7 +32,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { addDemoQuote, getSetup, resetDemo, runCronNow, saveApiKeys, saveCompany, setPolicy, setSandbox, setWeather } from '#/fns'
+import { addDemoQuote, getSetup, resetDemo, runCronNow, saveApiKeys, saveCompany, setOfficeLog, setPolicy, setSandbox, setWeather } from '#/fns'
 import { ApiKeyFields, type KeyPatch, type KeyStatus, typedKeys } from '#/ui/ApiKeys'
 import { ErrorText, Muted, PageTitle, PanelHead } from '#/ui/bits'
 import { CompanyFields, type CompanyValues } from '#/ui/CompanyForm'
@@ -220,7 +221,7 @@ function Integrations() {
   const i = snap.integrations
   const items: Array<{ name: string; icon: Icon; ok: boolean; what: string; how: string; action?: React.ReactNode }> = [
     { name: 'Gemini', icon: Sparkles, ok: i.gemini, what: 'Triage, photo quotes, voice calls, copilot', how: 'GEMINI_API_KEY' },
-    { name: 'Telegram', icon: Send, ok: i.telegram, what: 'Technician app and owner alerts', how: 'TELEGRAM_BOT_TOKEN' },
+    { name: 'Telegram', icon: Send, ok: i.telegram, what: 'Technician app, owner alerts and the office group log', how: 'TELEGRAM_BOT_TOKEN' },
     {
       name: 'Google',
       icon: Mail,
@@ -279,6 +280,7 @@ function Integrations() {
         ))}
       </ul>
       <TestInbox />
+      <OfficeLog />
       <Keys />
     </div>
   )
@@ -290,27 +292,50 @@ function TestInbox() {
   const on = (snap.settings as { sandbox?: { testInbox: boolean } }).sandbox?.testInbox ?? true
   const save = useAction((v: boolean) => setSandbox({ data: { testInbox: v } }))
   return (
+    <SwitchCard icon={Inbox} title="Test inbox" on={on} save={save}>
+      With no Gmail or text provider, customer emails and texts are delivered to the test inbox in Simulators, and marked as test deliveries. Off: they wait in the outbox as not
+      delivered.
+    </SwitchCard>
+  )
+}
+
+/** The office Telegram group as a running dispatch log. */
+function OfficeLog() {
+  const snap = useSnap()
+  const on = (snap.settings as { officeLog?: { telegram: boolean } }).officeLog?.telegram ?? true
+  const save = useAction((v: boolean) => setOfficeLog({ data: { telegram: v } }))
+  return (
+    <SwitchCard icon={ScrollText} title="Office group log" on={on} save={save}>
+      Posts every booking, technician assignment and slot change to the office Telegram group, plus what technicians are sent and report: accepted, on the way, on site, running
+      late, notes, done. Changes that land together go out as one silent message.
+    </SwitchCard>
+  )
+}
+
+function SwitchCard({
+  icon: I,
+  title,
+  on,
+  save,
+  children,
+}: {
+  icon: Icon
+  title: string
+  on: boolean
+  save: { run: (v: boolean) => unknown; busy: boolean; error: string | null }
+  children: React.ReactNode
+}) {
+  return (
     <Card size="sm">
       <CardContent className="flex flex-wrap items-center gap-4">
         <span className="tile tile-action size-10 shrink-0 rounded-xl">
-          <Inbox className="size-5" />
+          <I className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold">Test inbox</h2>
-          <Muted className="block">
-            With no Gmail or text provider, customer emails and texts are delivered to the test inbox in Simulators, and marked as test deliveries. Off: they wait in the outbox as
-            not delivered.
-          </Muted>
+          <h2 className="text-sm font-semibold">{title}</h2>
+          <Muted className="block">{children}</Muted>
         </div>
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={on ? 'on' : 'off'}
-          onValueChange={(v) => v && save.run(v === 'on')}
-          disabled={save.busy}
-          aria-label="Test inbox"
-        >
+        <ToggleGroup type="single" variant="outline" size="sm" value={on ? 'on' : 'off'} onValueChange={(v) => v && save.run(v === 'on')} disabled={save.busy} aria-label={title}>
           <ToggleGroupItem value="on" className="px-3">
             On
           </ToggleGroupItem>

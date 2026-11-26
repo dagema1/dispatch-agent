@@ -348,6 +348,7 @@ export async function runningLate(techId: number, minutes: number): Promise<stri
     // not on a job yet: push the start of their day
     await db.update(schema.technicians).set({ liveAt: new Date() }).where(eq(schema.technicians.id, techId))
   }
+  await publish('tech.late', { technicianId: techId, minutes, jobId: job?.id ?? null })
   const res = await replan({ reason: `technician running ${minutes} min late`, run })
   await run.end('done', `re-planned: ${res.moved.length} visits moved`)
   void refreshWidget(techId)

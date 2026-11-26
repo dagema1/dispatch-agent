@@ -111,7 +111,7 @@ Every integration is optional. Without a key, the feature falls back (rules inst
 ### Telegram setup (2 minutes)
 
 1. Create the bot with @BotFather and put the token in `.env`.
-2. **Office group:** add the bot to a group with everyone who should see alerts, then send `/owner` there (or set `TELEGRAM_OWNER_CHAT_ID`). The bot posts the button panel and pins it if it is an admin; `/menu` re-posts it.
+2. **Office group:** add the bot to a group with everyone who should see alerts, then send `/owner` there (or set `TELEGRAM_OWNER_CHAT_ID`). The bot posts the button panel and pins it if it is an admin; `/menu` re-posts it. The group also gets a running dispatch log: bookings, technician assignments and slot changes, and what technicians are sent and report (accepted, on the way, on site, running late, notes, done), batched into silent messages. Turn it off in Settings → Integrations → Office group log.
 3. **Technicians:** each tech opens a private chat with the bot, sends `/start` and taps their name. The button keyboard appears under the chat.
 
 Telegram currently delivers HTML widgets only in **private chats** in production. Techs get the widget; on a client that can't show it, the route falls back to text with inline buttons. Ephemeral messages work in groups.

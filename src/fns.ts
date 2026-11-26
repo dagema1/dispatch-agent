@@ -443,6 +443,14 @@ export const setSandbox = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
+export const setOfficeLog = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(z.object({ telegram: z.boolean() }))
+  .handler(async ({ data }) => {
+    await (await import('./server/domain/settings')).saveSetting('officeLog', data)
+    return { ok: true }
+  })
+
 // ---------- price book ----------
 
 export const getPriceBook = createServerFn({ method: 'GET' })

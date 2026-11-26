@@ -15,6 +15,8 @@ export const DEFAULT_SETTINGS = {
   setup: { done: false, mode: 'demo' } as { done: boolean; mode: 'demo' | 'own' },
   /** Demo plumbing: customer messages with no real channel land in the test inbox (Simulators → Email & texts). */
   sandbox: { testInbox: true },
+  /** Post bookings, assignments and technician updates to the office Telegram group as a running log. */
+  officeLog: { telegram: true },
   /** What the agents may do on their own. */
   policies: {
     send_customer_message: 'auto',
@@ -88,6 +90,7 @@ export type Settings = {
   company: Company
   setup: { done: boolean; mode: 'demo' | 'own' }
   sandbox: { testInbox: boolean }
+  officeLog: { telegram: boolean }
   policies: Record<string, Policy>
   thresholds: (typeof DEFAULT_SETTINGS)['thresholds']
   hours: { open: string; close: string }
