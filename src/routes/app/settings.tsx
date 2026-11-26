@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   Ban,
   Bot,
@@ -38,6 +38,7 @@ import { useConfirm } from '#/ui/confirm'
 import { useAction, useSnap } from '#/ui/live'
 import { PersonaSettings } from '#/ui/PersonaSettings'
 import { PriceBook } from '#/ui/PriceBook'
+import { SegmentedNav, TabPanel } from '#/ui/SegmentedNav'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -98,7 +99,7 @@ const LEVEL: Record<Level, { label: string; hint: string; dot: string; icon: Ico
 const NAV: Record<Tab, { label: string; icon: Icon }> = {
   company: { label: 'Company', icon: Building2 },
   pricing: { label: 'Price book', icon: Tags },
-  persona: { label: 'Agent persona', icon: Bot },
+  persona: { label: 'Persona', icon: Bot },
   permissions: { label: 'Permissions', icon: ShieldCheck },
   integrations: { label: 'Integrations', icon: Plug },
   automation: { label: 'Automation', icon: Clock },
@@ -106,48 +107,18 @@ const NAV: Record<Tab, { label: string; icon: Icon }> = {
 }
 
 function SettingsPage() {
-  const snap = useSnap()
   const tab = Route.useSearch().tab ?? 'company'
-  const i = snap.integrations
-  const connected = [i.gemini, i.telegram, i.ors, i.stripe, !!i.googleAccount, true].filter(Boolean).length
-  const asking = Object.values(snap.settings.policies).filter((v) => v === 'approve').length
-  const meta: Partial<Record<Tab, string>> = {
-    persona: (snap.settings.persona as { agentName: string }).agentName,
-    permissions: `${asking} ask first`,
-    integrations: `${connected} of 6`,
-  }
 
   return (
     <div className="mx-auto max-w-5xl">
       <PageTitle title="Settings" />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
-        <nav aria-label="Settings sections">
-          <ul className="segmented flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-full p-[3px]">
-            {TABS.map((t) => {
-              const n = NAV[t]
-              const on = t === tab
-              return (
-                <li key={t} className="shrink-0">
-                  <Link
-                    to="/app/settings"
-                    search={{ tab: t }}
-                    replace
-                    aria-current={on ? 'page' : undefined}
-                    className={cn(
-                      'flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      on ? 'bg-foreground/11 font-medium text-foreground shadow-[inset_0_1px_0_var(--edge)]' : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground',
-                    )}
-                  >
-                    <n.icon className={cn('size-4 shrink-0', on && 'text-primary')} />
-                    <span>{n.label}</span>
-                    {meta[t] && <span className="rounded-full bg-foreground/8 px-1.5 text-[11px] text-muted-foreground tabular-nums max-xl:hidden">{meta[t]}</span>}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-        </nav>
-        <div key={tab} className="route-in min-w-0">
+        <SegmentedNav
+          label="Settings sections"
+          active={tab}
+          items={TABS.map((t) => ({ key: t, label: NAV[t].label, icon: NAV[t].icon, link: { to: '/app/settings', search: { tab: t } } }))}
+        />
+        <TabPanel order={TABS} active={tab}>
           {tab === 'company' && <Company />}
           {tab === 'pricing' && <PriceBook />}
           {tab === 'persona' && <PersonaSettings />}
@@ -155,7 +126,7 @@ function SettingsPage() {
           {tab === 'integrations' && <Integrations />}
           {tab === 'automation' && <Automation />}
           {tab === 'demo' && <Demo />}
-        </div>
+        </TabPanel>
       </div>
     </div>
   )

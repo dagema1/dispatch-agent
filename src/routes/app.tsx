@@ -298,10 +298,7 @@ function Shell() {
               <Wrench size={15} />
             </span>
             <span className="truncate font-medium">{snap?.company.name ?? 'Northline'}</span>
-            <span className="flex items-center gap-1.5 rounded-full bg-(--glass) px-2 py-0.5 text-xs text-muted-foreground shadow-[inset_0_1px_0_var(--edge)]">
-              <span className={`size-1.5 rounded-full ${connected ? 'bg-primary' : 'bg-muted-foreground/40'}`} />
-              {connected ? 'Agents live' : 'Connecting'}
-            </span>
+            {!connected && <output className="text-xs text-muted-foreground">Reconnecting…</output>}
           </div>
           {path !== '/app/agent' && <AskBar name={(snap?.settings.persona as { agentName?: string } | undefined)?.agentName ?? 'the agent'} />}
         </header>

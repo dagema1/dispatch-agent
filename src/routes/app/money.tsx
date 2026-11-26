@@ -19,7 +19,7 @@ function Money() {
   const sum = (s: string) => inv.filter((i) => i.status === s).reduce((a, i) => a + i.totalCents, 0)
   const accepted = snap.quotes.filter((q) => q.status === 'accepted')
   return (
-    <div>
+    <div className="mx-auto max-w-6xl">
       <PageTitle title="Quotes & invoices" sub="Quotes use only the price book. Payment links are Stripe test mode." />
       <ErrorText error={check.error} />
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">

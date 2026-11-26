@@ -37,7 +37,7 @@ function Agents() {
   const setSel = (id: string) => navigate({ search: { run: id } })
   const cost = snap.runs.reduce((a, r) => a + aiCost(r.tokensIn, r.tokensOut), 0)
   return (
-    <div>
+    <div className="mx-auto max-w-6xl">
       <AgentsTabs />
       <PageTitle
         title="Agent traces"
