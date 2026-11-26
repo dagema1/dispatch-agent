@@ -88,6 +88,7 @@ export async function onGroupMessage(msg: TgMessage) {
       askHistory.set(msg.from.id, r.history.slice(-20))
       return say(esc(r.text).slice(0, 4000))
     }
+    case '/menu':
     case '/help':
     case '/start':
       return say(

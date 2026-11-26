@@ -50,6 +50,8 @@ export type TgCallback = { id: string; from: TgUser; data?: string; message?: Tg
 export type TgWidgetQuery = { id: string; from: TgUser; chat?: { id: number; type: string }; message_id?: number; data: string }
 export type TgMessage = {
   message_id: number
+  reply_to_message?: { message_id: number }
+  edit_date?: number
   /** Bot API 10.2: set (and message_id is 0) for ephemeral messages / ephemeral commands in groups. */
   ephemeral_message_id?: number
   receiver_user?: TgUser
@@ -73,14 +75,8 @@ export function startTelegramPolling(onUpdate: (u: TgUpdate) => Promise<void>, o
       await tg('deleteWebhook', {}).catch(() => {})
       await tg('setMyCommands', {
         scope: { type: 'all_private_chats' },
-        commands: [
-          { command: 'start', description: 'Link this chat to your technician profile' },
-          { command: 'today', description: "Today's route" },
-          { command: 'onmyway', description: 'Tell the customer you are on the way: /onmyway <job#>' },
-          { command: 'arrived', description: 'Mark arrival: /arrived <job#>' },
-          { command: 'late', description: 'Running late: /late <minutes>' },
-          { command: 'done', description: 'Finish a job: /done <job#>, then send a voice note' },
-        ],
+        // everything else is on the button keyboard; the old slash commands still work if typed
+        commands: [{ command: 'start', description: 'Show my route and the button menu' }],
       }).catch((e) => console.warn('[telegram] commands', e.message))
       await onReady?.()
     } catch {}
@@ -104,13 +100,8 @@ export function startTelegramPolling(onUpdate: (u: TgUpdate) => Promise<void>, o
 export async function setOwnerCommands(chatId: string): Promise<boolean> {
   return tg('setMyCommands', {
     scope: { type: 'chat', chat_id: chatId },
-    commands: [
-      { command: 'brief', description: 'Today at a glance (only you see it)', is_ephemeral: true },
-      { command: 'board', description: "Each technician's route today", is_ephemeral: true },
-      { command: 'approvals', description: 'Actions waiting for a decision', is_ephemeral: true },
-      { command: 'ask', description: 'Ask the ops copilot: /ask who is free at 3pm?', is_ephemeral: true },
-      { command: 'help', description: 'What this bot does here', is_ephemeral: true },
-    ],
+    // the office runs from the pinned button panel; /menu re-posts it
+    commands: [{ command: 'menu', description: 'Post the office button panel' }],
   })
     .then(() => true)
     .catch((e) => {

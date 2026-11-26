@@ -13,9 +13,21 @@ import { Run } from './trace'
 
 /**
  * Technician app on Telegram (private chats): route, status updates, live location and voice-note
- * job completion. The route is sent as an interactive HTML widget (Bot API 10.4) whose buttons call
- * the same actions as the slash commands; clients without widget support get inline buttons instead.
+ * job completion. Nothing needs typing: a persistent button keyboard covers the day (route, running
+ * late, job done, location), the route is an interactive HTML widget (Bot API 10.4) with per-visit
+ * buttons, and clients without widget support get inline buttons. Slash commands still work if typed.
  */
+const BTN = { route: '🗺 My route', late: '⏱ Running late', done: '✅ Job done', loc: '📍 Send location' } as const
+const MENU = {
+  keyboard: [
+    [{ text: BTN.route }, { text: BTN.late }],
+    [{ text: BTN.done }, { text: BTN.loc, request_location: true }],
+  ],
+  is_persistent: true,
+  resize_keyboard: true,
+  input_field_placeholder: 'Tap a button, or send a voice note',
+}
+const withMenu = (chatId: string, text: string) => sendTelegram(chatId, text, { reply_markup: MENU })
 const awaitingNote = new Map<number, number>() // chatId -> jobId
 const g = globalThis as unknown as { __routeWidgets?: Map<number, { chatId: string; messageId: number }>; __routeSub?: boolean }
 const widgets = (g.__routeWidgets ??= new Map()) // techId -> last route widget message
@@ -24,15 +36,27 @@ export async function onTechMessage(msg: TgMessage) {
   const chatId = String(msg.chat.id)
   const [tech] = await db.select().from(schema.technicians).where(eq(schema.technicians.telegramChatId, chatId))
 
-  if (msg.location) return tech ? onLocation(tech.id, msg) : undefined
+  if (msg.location) {
+    if (!tech) return
+    await onLocation(tech.id, msg)
+    // a one-off pin from the button gets a nudge toward live sharing; live updates stay silent
+    if (!msg.location.live_period && !msg.edit_date) return reply(chatId, '📍 Got it. For ETAs that update as you drive: 📎 → Location → Share live location.')
+    return
+  }
   const text = (msg.text ?? '').trim()
   if (!tech) return link(chatId, text)
+
+  if (text === BTN.route) return sendRoute(tech.id, chatId)
+  if (text === BTN.late) return pickLate(chatId)
+  if (text === BTN.done) return pickDone(tech.id, msg.chat.id)
 
   const [raw, arg] = text.split(/\s+/)
   const cmd = raw?.split('@')[0]
   const jobId = Number(arg?.replace('#', '')) || undefined
   switch (cmd) {
     case '/start':
+      await withMenu(chatId, `Hi ${esc(firstName(tech.name))}. Your buttons are below the chat; here is today:`)
+      return sendRoute(tech.id, chatId)
     case '/today':
       return sendRoute(tech.id, chatId)
     case '/onmyway':
@@ -46,7 +70,7 @@ export async function onTechMessage(msg: TgMessage) {
   }
   if (msg.voice || msg.audio || (text && awaitingNote.has(msg.chat.id))) {
     const jobId = awaitingNote.get(msg.chat.id)
-    if (!jobId) return reply(chatId, 'Use /done <job#> first (or tap “Job done” on your route), then send the voice note.')
+    if (!jobId) return reply(chatId, `Tap “${BTN.done}” first, then send the voice note.`)
     awaitingNote.delete(msg.chat.id)
     await reply(chatId, '⏳ Writing the report and invoice…')
     let audio = null
@@ -63,7 +87,7 @@ export async function onTechMessage(msg: TgMessage) {
     afterChange(tech.id, `job #${jobId} completed`)
     return
   }
-  return reply(chatId, 'Commands: /today, /onmyway <job#>, /arrived <job#>, /late <min>, /done <job#>. Share your live location so customers see an accurate ETA.')
+  return withMenu(chatId, 'Use the buttons below. Visit actions (on my way, arrived, done) are on your route card.')
 }
 
 /** Taps on the route widget. Must be answered within 15 s, so slow work (re-plan) runs afterwards. */
@@ -84,6 +108,7 @@ export async function onWidgetQuery(q: TgWidgetQuery) {
 /** Fallback inline buttons on the text route. */
 export async function onTechCallback(cb: TgCallback) {
   const chatId = cb.message?.chat.id ?? cb.from.id
+  if (cb.data?.startsWith('link:')) return linkTo(cb, Number(cb.data.slice(5)))
   const [tech] = await db
     .select()
     .from(schema.technicians)
@@ -91,6 +116,11 @@ export async function onTechCallback(cb: TgCallback) {
   if (!tech) return answerCallback(cb.id, 'Not linked to a technician.')
   const text = await runAction(tech.id, chatId, cb.data ?? '')
   await answerCallback(cb.id, text.slice(0, 190))
+  // picker messages (late minutes, which job) collapse into the result
+  if (cb.message && /^(late|done):/.test(cb.data ?? '')) {
+    await tg('editMessageText', { chat_id: chatId, message_id: cb.message.message_id, text: esc(text), parse_mode: 'HTML' }).catch(() => {})
+    return
+  }
   if (cb.data === 'route') return
   await reply(String(chatId), text)
 }
@@ -100,11 +130,8 @@ async function runAction(techId: number, chatId: number, data: string): Promise<
   const jobId = Number(id) || undefined
   if (verb === 'omw') return onMyWay(techId, jobId)
   if (verb === 'arr') return arrived(techId, jobId)
-  if (verb === 'done') {
-    const text = await startDone(techId, chatId, jobId)
-    await reply(String(chatId), text)
-    return 'Send the voice note in the chat below 🎙'
-  }
+  if (verb === 'done') return startDone(techId, chatId, jobId)
+  if (verb === 'late') return runningLate(techId, Number(id) || 15)
   if (verb === 'route') {
     await sendRoute(techId, String(chatId))
     return 'Route refreshed.'
@@ -112,19 +139,54 @@ async function runAction(techId: number, chatId: number, data: string): Promise<
   return 'Unknown action.'
 }
 
+/** Unlinked chat: one button per technician instead of typing a name (typing still works). */
 async function link(chatId: string, text: string) {
-  const techs = await db.select().from(schema.technicians)
+  const techs = await db.select().from(schema.technicians).orderBy(asc(schema.technicians.name))
   const name = text.replace('/start', '').trim().toLowerCase()
   const match = name ? techs.find((t) => t.name.toLowerCase().startsWith(name) || firstName(t.name).toLowerCase() === name) : null
-  if (!match)
-    return reply(
-      chatId,
-      `👋 Hi! Which technician are you? Reply with your first name: ${techs.map((t) => firstName(t.name)).join(', ')}.\n(Owner? Add me to your office group and send /owner there.)`,
-    )
-  await db.update(schema.technicians).set({ telegramChatId: chatId }).where(eq(schema.technicians.id, match.id))
-  await publish('tech.linked', { technicianId: match.id, name: match.name })
-  await reply(chatId, `✅ Linked to ${esc(match.name)}.`)
-  return sendRoute(match.id, chatId)
+  if (match) return finishLink(chatId, match)
+  const rows: InlineKeyboard = []
+  for (let i = 0; i < techs.length; i += 2) rows.push(techs.slice(i, i + 2).map((t) => ({ text: t.name, callback_data: `link:${t.id}` })))
+  return sendTelegram(chatId, '👋 Hi! Which technician are you?\n<i>Owner? Add me to your office group and send /owner there.</i>', { reply_markup: { inline_keyboard: rows } })
+}
+
+async function linkTo(cb: TgCallback, techId: number) {
+  const chatId = String(cb.message?.chat.id ?? cb.from.id)
+  const [t] = await db.select().from(schema.technicians).where(eq(schema.technicians.id, techId))
+  if (!t) return answerCallback(cb.id, 'Not found.')
+  if (t.telegramChatId && t.telegramChatId !== chatId) return answerCallback(cb.id, `${firstName(t.name)} is already linked to another chat. Ask the office.`, true)
+  await answerCallback(cb.id)
+  if (cb.message) await tg('deleteMessage', { chat_id: chatId, message_id: cb.message.message_id }).catch(() => {})
+  return finishLink(chatId, t)
+}
+
+async function finishLink(chatId: string, t: typeof schema.technicians.$inferSelect) {
+  await db.update(schema.technicians).set({ telegramChatId: chatId }).where(eq(schema.technicians.id, t.id))
+  await publish('tech.linked', { technicianId: t.id, name: t.name })
+  await withMenu(chatId, `✅ Linked to ${esc(t.name)}. Your buttons are below the chat.`)
+  return sendRoute(t.id, chatId)
+}
+
+/** "Running late" button: pick the delay. */
+const pickLate = (chatId: string) =>
+  sendTelegram(chatId, '⏱ How late are you running?', {
+    reply_markup: { inline_keyboard: [[10, 15, 30, 45].map((m) => ({ text: `${m} min`, callback_data: `late:${m}` }))] },
+  })
+
+/** "Job done" button: the job you're on, or a choice when it isn't obvious. */
+async function pickDone(techId: number, chatId: number) {
+  const open = await db
+    .select()
+    .from(schema.jobs)
+    .where(and(eq(schema.jobs.technicianId, techId), inArray(schema.jobs.status, ['on_site', 'en_route'])))
+    .orderBy(asc(schema.jobs.scheduledStart))
+  const onSite = open.filter((j) => j.status === 'on_site')
+  if (onSite.length === 1) return reply(String(chatId), await startDone(techId, chatId, onSite[0].id))
+  const choices = open.length ? open : (await todaysJobs(techId)).map((j) => j.job)
+  if (!choices.length) return reply(String(chatId), 'No open jobs on your route.')
+  return sendTelegram(String(chatId), '✅ Which job did you finish?', {
+    reply_markup: { inline_keyboard: choices.slice(0, 6).map((j) => [{ text: `#${j.id} ${j.title}`.slice(0, 60), callback_data: `done:${j.id}` }]) },
+  })
 }
 
 async function todaysJobs(techId: number) {
@@ -170,7 +232,7 @@ export async function sendRoute(techId: number, chatId: string) {
       chat_data: data,
       allow_queries: true,
       caption: jobs.length
-        ? `🗺 ${jobs.length} visit(s) today. Tap a button as you go. Share live location (📎 → Location) for accurate ETAs.`
+        ? `🗺 ${jobs.length} visit(s) today. Tap a visit as you go; the menu below has route, late, done and location.`
         : 'No more jobs on your route today. 🎉',
     })
     widgets.set(techId, { chatId, messageId: m.message_id })
@@ -263,14 +325,14 @@ async function arrived(techId: number, jobId?: number): Promise<string> {
   if (!job) return 'Job not found.'
   await claimNow(techId, job.id, { status: 'on_site', scheduledStart: new Date(), scheduledEnd: new Date(Date.now() + job.durationMin * 60_000) })
   await publish('job.status', { jobId: job.id, status: 'on_site' })
-  const text = `📍 On site at #${job.id}. Tap “Job done” (or /done ${job.id}) when finished.`
+  const text = `📍 On site at #${job.id}. Tap “Job done” when finished.`
   afterChange(techId, `tech on site at job #${job.id}`, text)
   return text
 }
 
 async function startDone(techId: number, chatId: number, jobId?: number): Promise<string> {
   const job = await pickJob(techId, jobId, ['on_site', 'en_route', 'scheduled'])
-  if (!job) return 'No open job found. Use /done <job#>.'
+  if (!job) return 'No open job found.'
   awaitingNote.set(chatId, job.id)
   return `🎙 Send a short voice note for job #${job.id}: what you did and which parts you used. I'll write the report and invoice.`
 }
