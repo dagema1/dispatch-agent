@@ -14,11 +14,13 @@ export const Route = createRootRoute({
         content: 'AI front office for home-service trades: voice receptionist, photo quotes, fleet dispatch, job-to-cash.',
       },
     ],
+    // theme bootstrap runs before paint; rendered through HeadContent so server and client trees match
+    scripts: [{ children: THEME_BOOT }],
     links: [
       { rel: 'stylesheet', href: appCss },
       {
         rel: 'icon',
-        href: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%2321a0b0%22/><path d=%22M20.5 7.5a5 5 0 0 0-6.3 6.3l-6.4 6.4a2 2 0 0 0 2.8 2.8l6.4-6.4a5 5 0 0 0 6.3-6.3l-2.9 2.9-2.4-.4-.4-2.4z%22 fill=%22white%22/></svg>',
+        href: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%236d5ce8%22/><path d=%22M20.5 7.5a5 5 0 0 0-6.3 6.3l-6.4 6.4a2 2 0 0 0 2.8 2.8l6.4-6.4a5 5 0 0 0 6.3-6.3l-2.9 2.9-2.4-.4-.4-2.4z%22 fill=%22white%22/></svg>',
       },
     ],
   }),
@@ -29,8 +31,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static theme bootstrap, no user input */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         <HeadContent />
       </head>
       <body>

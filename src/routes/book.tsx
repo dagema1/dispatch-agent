@@ -1,9 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Camera, CheckCircle2, CircleAlert, Mic, Phone, PhoneOff, TriangleAlert } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { bookOnline } from '#/fns'
 import { CustomerShell } from '#/ui/CustomerShell'
 import { fileToMedia } from '#/ui/format'
+import { LiveWaveform, type WaveMode } from '#/ui/LiveWaveform'
 import type { Turn, VoiceCall, VoiceState } from '#/ui/voice'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -83,34 +84,38 @@ function CallPanel() {
     await call.current.start()
   }
   const live = state === 'live'
+  const sources = useCallback(() => [call.current?.micAnalyser ?? null, call.current?.outAnalyser ?? null], [])
+  const mode: WaveMode = live ? 'listening' : state === 'connecting' ? 'processing' : 'idle'
   return (
-    <Card>
-      <CardContent>
-        <div className="flex flex-col items-center py-4">
-          <div className={cn('relative size-24 rounded-full! text-white transition-colors', live ? 'tile tile-solid' : 'tile tile-solid opacity-90')}>
-            {live && speaking && (
-              <span className={cn('absolute inset-0 animate-ping rounded-full opacity-40 motion-reduce:hidden', speaking === 'agent' ? 'bg-primary' : 'bg-muted-foreground')} />
-            )}
-            {live ? <Mic className="size-8" /> : <Phone className="size-8" />}
-          </div>
-          <div className="mt-3 text-sm text-muted-foreground" aria-live="polite">
-            {state === 'idle' && 'Uses your microphone. Speak naturally.'}
-            {state === 'error' && 'Call ended.'}
-            {state === 'connecting' && 'Connecting…'}
-            {live && (speaking === 'agent' ? 'Receptionist is speaking…' : speaking === 'caller' ? 'Listening…' : 'Connected')}
-            {state === 'ending' && 'Ending call…'}
-          </div>
+    <Card className="rounded-3xl">
+      <CardContent className="px-6 sm:px-10">
+        <div className="mx-auto flex max-w-sm flex-col items-center py-6 text-center">
+          <span className="tile tile-action size-14 rounded-2xl ring-1 ring-primary/25">{live ? <Mic className="size-6" /> : <Phone className="size-6" />}</span>
+          <h2 className="mt-5 text-2xl font-bold tracking-tight">
+            {live ? (speaking === 'agent' ? 'Receptionist speaking' : 'We’re listening') : state === 'connecting' ? 'Connecting you' : 'Talk to our receptionist'}
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground" aria-live="polite">
+            {live
+              ? 'Describe the problem and your address. We’ll book you while you talk.'
+              : state === 'connecting'
+                ? 'Allow the microphone if your browser asks.'
+                : state === 'error'
+                  ? 'The call ended. You can start again or send the details instead.'
+                  : 'Uses your microphone. Speak naturally; you’ll get a confirmed arrival window before you hang up.'}
+          </p>
+          <LiveWaveform mode={mode} sources={sources} className={cn('mt-6', live ? 'text-primary' : 'text-muted-foreground')} />
           {live || state === 'connecting' ? (
-            <Button variant="destructive" size="lg" className="mt-4 h-11 px-6" onClick={() => call.current?.hangUp()}>
+            <Button variant="destructive" className="mt-6 h-12 w-full rounded-full text-base" onClick={() => call.current?.hangUp()}>
               <PhoneOff /> Hang up
             </Button>
           ) : (
-            <Button size="lg" className="mt-4 h-11 px-6" onClick={start} disabled={state === 'ending'}>
+            <Button className="mt-6 h-12 w-full rounded-full text-base" onClick={start} disabled={state === 'ending'}>
               <Phone /> Start call
             </Button>
           )}
+          <p className="mt-4 text-xs text-muted-foreground">Calls are transcribed so your booking is accurate.</p>
           {err && (
-            <Alert variant="destructive" className="mt-3">
+            <Alert variant="destructive" className="mt-4 text-left">
               <CircleAlert />
               <AlertDescription>{err}</AlertDescription>
             </Alert>
@@ -123,8 +128,8 @@ function CallPanel() {
               <div key={i} className={cn('arrive-pop flex', t.role === 'caller' && 'justify-end')}>
                 <div
                   className={cn(
-                    'max-w-[85%] rounded-2xl px-3 py-1.5 text-sm',
-                    t.role === 'caller' ? 'bg-primary text-primary-foreground' : 'bg-card text-card-foreground shadow-xs',
+                    'max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
+                    t.role === 'caller' ? 'bg-accent text-accent-foreground' : 'bg-card text-card-foreground',
                   )}
                 >
                   {t.text}

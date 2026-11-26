@@ -3,7 +3,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { P_LABEL, P_STYLE, STATUS_STYLE } from './format'
+import { P_LABEL, P_STYLE, STATUS_TONE, TONE_DOT } from './format'
 
 /** Priority and status keep their semantic colours on top of the shadcn Badge shape. */
 export const Priority = ({ p, short }: { p: number | null | undefined; short?: boolean }) =>
@@ -14,20 +14,72 @@ export const Priority = ({ p, short }: { p: number | null | undefined; short?: b
   ) : null
 
 export const Status = ({ s }: { s: string }) => (
-  <Badge variant="outline" className={cn('border-transparent capitalize', STATUS_STYLE[s] ?? 'bg-muted text-muted-foreground')}>
+  <Badge variant="outline" className={cn('gap-1.5 border-border font-normal text-muted-foreground capitalize', s === 'cancelled' && 'line-through')}>
+    <span className={cn('size-1.5 rounded-full', TONE_DOT[STATUS_TONE[s] ?? 'none'])} aria-hidden />
     {s.replaceAll('_', ' ')}
   </Badge>
 )
 
-export function Stat({ label, value, hint, tone }: { label: string; value: React.ReactNode; hint?: React.ReactNode; tone?: 'good' | 'warn' | 'bad' }) {
-  const c =
-    tone === 'good' ? 'text-emerald-600 dark:text-emerald-400' : tone === 'warn' ? 'text-amber-600 dark:text-amber-400' : tone === 'bad' ? 'text-destructive' : 'text-foreground'
+/** Progress ring for a share (0..1), e.g. visits done of visits today. */
+function Ring({ value }: { value: number }) {
+  const r = 18
+  const c = 2 * Math.PI * r
+  const v = Math.min(Math.max(value, 0), 1)
   return (
-    <Card size="sm" className="gap-1">
-      <CardContent>
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className={cn('mt-0.5 text-xl font-semibold tabular-nums', c)}>{value}</div>
-        {hint && <div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>}
+    <svg viewBox="0 0 44 44" className="size-11 shrink-0 -rotate-90" role="img" aria-label={`${Math.round(v * 100)}%`}>
+      <circle cx="22" cy="22" r={r} fill="none" strokeWidth="4" className="stroke-muted" />
+      <circle
+        cx="22"
+        cy="22"
+        r={r}
+        fill="none"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - v)}
+        className="stroke-primary motion-safe:transition-[stroke-dashoffset] motion-safe:duration-700"
+      />
+    </svg>
+  )
+}
+
+/** KPI card: icon tile, the number with a short note, an optional progress ring, the label underneath. */
+export function Stat({
+  label,
+  value,
+  hint,
+  tone,
+  icon: Icon,
+  ratio,
+}: {
+  label: string
+  value: React.ReactNode
+  hint?: React.ReactNode
+  tone?: 'good' | 'warn' | 'bad'
+  icon?: React.ComponentType<{ className?: string }>
+  ratio?: number
+}) {
+  return (
+    <Card size="sm">
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          {Icon && (
+            <span className={cn('tile size-11 shrink-0 rounded-xl', tone === 'bad' ? 'tile-red' : tone === 'warn' ? 'tile-attn' : 'tile-quiet')}>
+              <Icon className="size-5" />
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-2xl leading-tight font-semibold tracking-tight tabular-nums">{value}</div>
+            {hint && (
+              <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+                {tone && <span className={cn('size-1.5 shrink-0 rounded-full', TONE_DOT[tone === 'warn' ? 'attn' : tone])} aria-hidden />}
+                {hint}
+              </div>
+            )}
+          </div>
+          {ratio != null && <Ring value={ratio} />}
+        </div>
+        <div className="text-sm text-muted-foreground">{label}</div>
       </CardContent>
     </Card>
   )

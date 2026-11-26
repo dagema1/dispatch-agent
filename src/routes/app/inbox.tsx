@@ -83,10 +83,14 @@ function InboxPage() {
   )
 }
 
-const Count = ({ n }: { n: number }) => <span className="rounded-full bg-muted-foreground/10 px-1.5 text-[11px] tabular-nums text-muted-foreground">{n}</span>
+const Count = ({ n }: { n: number }) => (
+  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-foreground/8 px-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground in-data-[state=active]:bg-primary in-data-[state=active]:text-primary-foreground">
+    {n}
+  </span>
+)
 
-/** Leading tile: the channel it came in on, tinted by how urgent triage judged it. */
-const TILE: Record<number, string> = { 1: 'tile-red', 2: 'tile-attn', 3: 'tile-action', 4: 'tile-quiet' }
+/** Leading tile: the channel it came in on. Only emergencies are tinted. */
+const TILE: Record<number, string> = { 1: 'tile-red', 2: 'tile-quiet', 3: 'tile-quiet', 4: 'tile-quiet' }
 const channelIcon = (c: string) => (c === 'voice' ? Phone : c === 'email' ? Mail : c === 'web' ? Globe : MessageSquare)
 const OPEN = ['new', 'triaged', 'awaiting_customer']
 
@@ -99,7 +103,7 @@ function Requests() {
   const rows = snap.requests.filter((r) => (filter === 'urgent' ? (r.priority ?? 9) <= 2 || !!r.safetyFlag : filter === 'open' ? OPEN.includes(r.status) : true))
   return (
     <Card className="gap-0 py-0">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-3">
         <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={filter} onValueChange={(v) => v && setFilter(v as Filter)}>
           <ToggleGroupItem value="all" className="px-3 text-xs">
             All
@@ -124,7 +128,7 @@ function Requests() {
             return (
               <li key={r.id} className={cn(isNew(r.id) && 'arrive')}>
                 <details className="group">
-                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] gap-3 px-4 py-3 transition-colors hover:bg-secondary/60">
+                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] gap-3 px-5 py-4 transition-colors hover:bg-secondary/50">
                     <ChannelTile c={r.channel} p={r.priority} />
                     <div className="min-w-0">
                       <div className="flex items-baseline gap-2">
@@ -147,7 +151,7 @@ function Requests() {
                       </div>
                     </div>
                   </summary>
-                  <div className="space-y-2 pr-4 pb-4 pl-[4.25rem]">
+                  <div className="space-y-2 pr-5 pb-5 pl-[4.75rem]">
                     <p className="well rounded-xl p-3 text-sm whitespace-pre-wrap">{r.rawText}</p>
                     <div className="flex flex-wrap gap-1.5 text-xs">
                       {resp != null && (
@@ -202,7 +206,7 @@ function Messages() {
   const rows = snap.messages.filter((m) => dir === 'all' || m.direction === dir)
   return (
     <Card className="gap-0 py-0">
-      <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
+      <div className="flex items-center justify-between gap-2 border-b px-5 py-3">
         <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={dir} onValueChange={(v) => v && setDir(v as typeof dir)}>
           <ToggleGroupItem value="all" className="px-3 text-xs">
             All
@@ -230,22 +234,26 @@ function Messages() {
             return (
               <li key={m.id} className={cn(isNew(m.id) && 'arrive')}>
                 <details className="group">
-                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3 transition-colors hover:bg-secondary/60">
-                    <span className={cn('mt-0.5 grid size-7 place-items-center rounded-full', out ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground')}>
-                      {out ? <ArrowUpRight className="size-3.5" /> : <ArrowDownLeft className="size-3.5" />}
+                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)] gap-4 px-5 py-4 transition-colors hover:bg-secondary/50">
+                    <span className="tile tile-quiet size-9" aria-hidden>
+                      {out ? <ArrowUpRight className="size-4" /> : <ArrowDownLeft className="size-4" />}
                     </span>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-                        <span className="font-medium">
-                          {out ? 'To' : 'From'} {to}
-                        </span>
-                        <ChannelTag c={m.channel} />
-                        {out && !m.delivered && <span className="text-[11px] text-amber-700 dark:text-amber-400">not delivered · channel not connected</span>}
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                          <span className="text-sm font-semibold">
+                            {out ? 'To' : 'From'} {to}
+                          </span>
+                          <ChannelTag c={m.channel} />
+                        </div>
+                        <Muted className="shrink-0 whitespace-nowrap">{dayTime(m.createdAt)}</Muted>
                       </div>
-                      {m.subject && <div className="truncate text-sm">{m.subject}</div>}
-                      <p className="line-clamp-2 text-xs text-muted-foreground group-open:line-clamp-none group-open:whitespace-pre-wrap">{m.body}</p>
+                      {m.subject && <div className="text-sm font-medium">{m.subject}</div>}
+                      <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground group-open:line-clamp-none group-open:whitespace-pre-wrap group-open:text-foreground/85">
+                        {m.body}
+                      </p>
+                      {out && !m.delivered && <p className="text-xs text-muted-foreground">Not delivered: channel not connected</p>}
                     </div>
-                    <Muted className="whitespace-nowrap">{dayTime(m.createdAt)}</Muted>
                   </summary>
                 </details>
               </li>
@@ -273,13 +281,13 @@ function Calls() {
           return (
             <li key={c.id}>
               <details className="group">
-                <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-secondary/60">
-                  <span className="grid size-9 place-items-center rounded-full bg-muted text-muted-foreground">
+                <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 transition-colors hover:bg-secondary/50">
+                  <span className="tile tile-quiet size-9">
                     <Phone className="size-4" />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-sm font-medium">{c.customerId ? snap.customers[c.customerId]?.name : `Caller #${c.id}`}</div>
-                    <p className="truncate text-xs text-muted-foreground">{last ? `${last.role === 'agent' ? 'Agent' : 'Caller'}: ${last.text}` : 'No transcript'}</p>
+                    <div className="text-sm font-semibold">{c.customerId ? snap.customers[c.customerId]?.name : `Caller #${c.id}`}</div>
+                    <p className="mt-0.5 truncate text-sm text-muted-foreground">{last ? `${last.role === 'agent' ? 'Agent' : 'Caller'}: ${last.text}` : 'No transcript'}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="text-right">
@@ -289,13 +297,16 @@ function Calls() {
                     <ChevronRight className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
                   </div>
                 </summary>
-                <div className="space-y-1.5 px-4 pb-4">
+                <ol className="well mx-5 mb-5 space-y-3 rounded-xl p-4">
                   {c.transcript.map((t, i) => (
-                    <div key={i} className={cn('flex', t.role !== 'agent' && 'justify-end')}>
-                      <div className={cn('max-w-[80%] rounded-2xl px-3 py-1.5 text-sm', t.role === 'agent' ? 'bg-muted' : 'bg-primary text-primary-foreground')}>{t.text}</div>
-                    </div>
+                    <li key={i} className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 text-sm leading-relaxed">
+                      <span className={cn('pt-px text-xs font-medium', t.role === 'agent' ? 'text-primary' : 'text-muted-foreground')}>
+                        {t.role === 'agent' ? 'Agent' : 'Caller'}
+                      </span>
+                      <span className="text-foreground/90">{t.text}</span>
+                    </li>
                   ))}
-                </div>
+                </ol>
               </details>
             </li>
           )

@@ -19,6 +19,7 @@ import { getSnapshot } from '#/fns'
 import { LiveProvider, useLive } from '#/ui/live'
 import { ThemeToggle } from '#/ui/theme'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
@@ -26,7 +27,7 @@ export const Route = createFileRoute('/app')({
   loader: () => getSnapshot(),
   component: AppLayout,
   ssr: false,
-  pendingComponent: () => <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">Loading the front office…</div>,
+  pendingComponent: AppSkeleton,
 })
 
 const NAV = [
@@ -44,6 +45,43 @@ const NAV = [
   { to: '/app/copilot', label: 'Ops copilot', icon: MessagesSquare },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ] as const
+
+/** First load: the shell's shape in shimmer, so the layout never jumps when data lands. */
+function AppSkeleton() {
+  return (
+    <div className="canvas flex min-h-screen flex-col md:flex-row" role="status" aria-busy="true" aria-label="Loading the front office">
+      <div className="flex gap-2 border-b border-(--edge) bg-card p-2 md:h-screen md:w-18 md:flex-col md:items-center md:border-r md:border-b-0 md:py-3">
+        {Array.from({ length: 9 }, (_, i) => (
+          <Skeleton key={i} className="size-10 rounded-xl" />
+        ))}
+      </div>
+      <div className="flex-1 space-y-4 p-4 md:p-6">
+        <Skeleton className="h-9 w-full max-w-xs rounded-xl sm:ml-auto" />
+        <Skeleton className="h-7 w-48" />
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="slab space-y-3 rounded-xl border bg-card p-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="size-11 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-5 w-16" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+              <Skeleton className="h-3 w-28" />
+            </div>
+          ))}
+        </div>
+        <div className="slab space-y-3 rounded-xl border bg-card p-5">
+          <Skeleton className="h-4 w-40" />
+          {Array.from({ length: 5 }, (_, i) => (
+            <Skeleton key={i} className="h-11 w-full rounded-lg" />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function AppLayout() {
   const initial = Route.useLoaderData()

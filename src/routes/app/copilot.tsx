@@ -89,7 +89,7 @@ function Copilot() {
               </div>
             </div>
           ))}
-          {chat.busy && <div className="animate-pulse text-sm text-muted-foreground">Thinking and checking the schedule…</div>}
+          {chat.busy && <div className="shimmer-text text-sm">Thinking and checking the schedule…</div>}
           <div ref={end} />
         </div>
         <div className="px-3">

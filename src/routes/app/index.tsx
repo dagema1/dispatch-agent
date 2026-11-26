@@ -1,5 +1,5 @@
 import { ClientOnly, createFileRoute } from '@tanstack/react-router'
-import { Activity, BellRing, Check, MapPin, RefreshCw, Snowflake, Sun, Truck, UserX, Wrench, Zap } from 'lucide-react'
+import { Activity, ArrowUpRight, BellRing, CalendarCheck, Check, CircleDollarSign, Inbox, MapPin, RefreshCw, Siren, Snowflake, Sun, Truck, UserX, Wrench, Zap } from 'lucide-react'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { completeJob, replanNow, setTechActive } from '#/fns'
@@ -10,6 +10,7 @@ import { useAction, useLive, useSnap } from '#/ui/live'
 import { useArrivals } from '#/ui/motion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -79,7 +80,22 @@ function Board() {
 
   return (
     <div>
-      <PageTitle title="Dispatch board" sub="The dispatch agent re-plans the whole fleet on every new request, delay or cancellation." />
+      <PageTitle
+        title="Dispatch board"
+        sub="The dispatch agent re-plans the whole fleet on every new request, delay or cancellation."
+        right={
+          w ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1 text-sm ring-1 ring-border"
+              title={w.override ? 'Demo weather override on' : 'Open-Meteo'}
+            >
+              {w.tempC <= 0 ? <Snowflake className="size-4 text-muted-foreground" /> : <Sun className="size-4 text-muted-foreground" />}
+              <span className="tabular-nums">{Math.round((w.tempC * 9) / 5 + 32)}°F</span>
+              <span className="text-muted-foreground">Denver{w.override ? ' · demo' : ''}</span>
+            </span>
+          ) : null
+        }
+      />
       <Dock>
         <ToggleGroup type="single" variant="outline" size="sm" value={day} onValueChange={(v) => v && setDay(v)} aria-label="Day shown">
           {[0, 1, 2].map((i) => {
@@ -97,29 +113,22 @@ function Board() {
       </Dock>
       <ErrorText error={replan.error ?? toggle.error} />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Stat label="Visits today" value={todays.length} hint={`${todays.filter((j) => j.status === 'done').length} done`} />
-        <Stat label="Booked value today" value={money(todays.reduce((a, j) => a + j.estValueCents, 0))} />
-        <Stat label="Open emergencies" value={openP1} tone={openP1 ? 'bad' : 'good'} />
+      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Stat
+          label="Visits today"
+          icon={CalendarCheck}
+          value={todays.length}
+          hint={`${todays.filter((j) => j.status === 'done').length} done so far`}
+          ratio={todays.length ? todays.filter((j) => j.status === 'done').length / todays.length : 0}
+        />
+        <Stat label="Booked value today" icon={CircleDollarSign} value={money(todays.reduce((a, j) => a + j.estValueCents, 0))} hint="estimated, before upsells" />
+        <Stat label="Open emergencies" icon={Siren} value={openP1} tone={openP1 ? 'bad' : 'good'} hint={openP1 ? 'jump the queue on re-plan' : 'none waiting'} />
         <Stat
           label="Unassigned"
+          icon={Inbox}
           value={unassigned.length}
           tone={unassigned.length ? 'warn' : 'good'}
-          hint={unassigned.length ? 'needs a slot or a decision' : 'everything has a slot'}
-        />
-        <Stat
-          label="Weather (Denver)"
-          value={
-            w ? (
-              <span className="inline-flex items-center gap-1">
-                {w.tempC <= 0 ? <Snowflake className="size-4 text-sky-500" /> : <Sun className="size-4 text-amber-500" />}
-                {Math.round((w.tempC * 9) / 5 + 32)}°F
-              </span>
-            ) : (
-              '—'
-            )
-          }
-          hint={w?.override ? 'demo override on' : 'Open-Meteo'}
+          hint={unassigned.length ? 'need a slot or a decision' : 'everything has a slot'}
         />
       </div>
 
@@ -224,13 +233,28 @@ function Board() {
             </div>
           </Section>
 
-          <Section title={`Map · ${day === snap.today ? 'today' : dayLabel(day)}`} right={<Muted>dashed line = planned route order</Muted>}>
-            <ClientOnly fallback={<Skeleton className="h-[360px] rounded-xl" />}>
-              <Suspense fallback={<Skeleton className="h-[360px] rounded-xl" />}>
-                <FleetMap techs={mapTechs} jobs={mapJobs} routes={routes} />
-              </Suspense>
-            </ClientOnly>
-          </Section>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold tracking-tight">Live map</CardTitle>
+              <CardDescription>
+                {mapTechs.filter((t) => t.live).length} of {mapTechs.length} technicians sharing location · {dayJobs.length} visits{' '}
+                {day === snap.today ? 'today' : `on ${dayLabel(day)}`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="relative overflow-hidden rounded-2xl ring-1 ring-border">
+                <ClientOnly fallback={<Skeleton className="h-[400px] rounded-none" />}>
+                  <Suspense fallback={<Skeleton className="h-[400px] rounded-none" />}>
+                    <FleetMap techs={mapTechs} jobs={mapJobs} routes={routes} height={400} />
+                  </Suspense>
+                </ClientOnly>
+                <span className="pointer-events-none absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-xs font-medium ring-1 ring-border">
+                  <MapPin className="size-3.5" /> Denver metro
+                </span>
+                <MapInsight unassigned={unassigned.length} openP1={openP1} busy={replan.busy} onReplan={() => replan.run()} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-4">
@@ -309,6 +333,32 @@ function Dock({ children }: { children: React.ReactNode }) {
       {children}
     </div>,
     document.body,
+  )
+}
+
+/** One line of judgement floating over the map, like a dispatcher looking over your shoulder. */
+function MapInsight({ unassigned, openP1, busy, onReplan }: { unassigned: number; openP1: number; busy: boolean; onReplan: () => void }) {
+  const msg =
+    openP1 > 0
+      ? { title: `${openP1} emergenc${openP1 === 1 ? 'y' : 'ies'} open`, sub: 'Emergencies jump the queue on the next re-plan.', act: true }
+      : unassigned > 0
+        ? { title: `${unassigned} visit${unassigned === 1 ? '' : 's'} without a slot`, sub: 'Re-plan to fit them in, or mark someone back in.', act: true }
+        : { title: 'Every visit has a slot', sub: 'Routes are re-planned automatically on every change.', act: false }
+  return (
+    <div className="absolute inset-x-3 bottom-3 z-10 flex items-center gap-3 rounded-2xl border bg-popover/95 p-3 shadow-(--slab-shadow)">
+      <span className={cn('tile size-9 shrink-0 rounded-full', openP1 ? 'tile-red' : 'tile-quiet')}>
+        <Zap className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium">{msg.title}</div>
+        <div className="truncate text-xs text-muted-foreground">{msg.sub}</div>
+      </div>
+      {msg.act && (
+        <Button size="sm" className="shrink-0 rounded-full px-3.5" onClick={onReplan} disabled={busy}>
+          Re-plan <ArrowUpRight />
+        </Button>
+      )}
+    </div>
   )
 }
 

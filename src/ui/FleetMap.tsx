@@ -1,6 +1,6 @@
 import L from 'leaflet'
 import { useEffect } from 'react'
-import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
+import { AttributionControl, CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, ZoomControl } from 'react-leaflet'
 
 export type MapJob = {
   id: number
@@ -51,7 +51,10 @@ export default function FleetMap({
 }) {
   const pts: Array<[number, number]> = [...techs.map((t) => [t.lat, t.lng] as [number, number]), ...jobs.map((j) => [j.lat, j.lng] as [number, number])]
   return (
-    <MapContainer center={[39.74, -104.99]} zoom={11} style={{ height, width: '100%', borderRadius: 12 }} scrollWheelZoom={false}>
+    <MapContainer center={[39.74, -104.99]} zoom={11} style={{ height, width: '100%' }} scrollWheelZoom={false} zoomControl={false} attributionControl={false}>
+      {/* controls sit top-right so the location chip and insight bar keep the left and bottom */}
+      <ZoomControl position="topright" />
+      <AttributionControl position="topright" prefix={false} />
       <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       <Fit points={pts} />
       {routes.map((r, i) => (

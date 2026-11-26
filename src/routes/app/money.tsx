@@ -1,9 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { RefreshCw } from 'lucide-react'
+import { BellRing, Clock, FileCheck, Flame, RefreshCw, Wallet } from 'lucide-react'
 import { markPaidTest } from '#/fns'
-import { Empty, ErrorText, Muted, PageTitle, Section, Stat, Status } from '#/ui/bits'
+import { ErrorText, PageTitle, Stat, Status } from '#/ui/bits'
 import { ago, money } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
+import { Cell2, RichTable } from '#/ui/RichTable'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -21,90 +22,180 @@ function Money() {
       <PageTitle title="Quotes & invoices" sub="Photo quotes are priced only from the price book. Invoices go out with a Stripe test-mode link and get chased automatically." />
       <ErrorText error={check.error} />
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Collected" value={money(sum('paid'))} tone="good" />
-        <Stat label="Outstanding" value={money(sum('sent'))} tone={sum('sent') ? 'warn' : undefined} />
-        <Stat label="Quotes accepted" value={`${accepted.length} / ${snap.quotes.length}`} />
-        <Stat label="Replacement leads" value={snap.quotes.filter((q) => q.replacementLead).length} hint="units at or past end of life" />
+        <Stat
+          label="Collected"
+          icon={Wallet}
+          value={money(sum('paid'))}
+          hint="paid through Stripe"
+          ratio={sum('paid') + sum('sent') ? sum('paid') / (sum('paid') + sum('sent')) : 0}
+        />
+        <Stat
+          label="Outstanding"
+          icon={Clock}
+          value={money(sum('sent'))}
+          tone={sum('sent') ? 'warn' : undefined}
+          hint={sum('sent') ? 'reminders go out automatically' : 'nothing owed'}
+        />
+        <Stat
+          label="Quotes accepted"
+          icon={FileCheck}
+          value={`${accepted.length} / ${snap.quotes.length}`}
+          hint="good · better · best"
+          ratio={snap.quotes.length ? accepted.length / snap.quotes.length : 0}
+        />
+        <Stat label="Replacement leads" icon={Flame} value={snap.quotes.filter((q) => q.replacementLead).length} hint="units at or past end of life" />
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Section title="Invoices">
-          {inv.length === 0 ? (
-            <Empty>No invoices yet. Close a job from the board or with /done in Telegram.</Empty>
-          ) : (
-            <ul className="divide-y">
-              {inv.map((i) => (
-                <li key={i.id} className="py-2.5 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium">#{i.id}</span>
-                    <span>{snap.customers[i.customerId]?.name}</span>
-                    <Status s={i.status} />
-                    <span className="ml-auto font-semibold tabular-nums">{money(i.totalCents, 2)}</span>
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-                    <span>{i.lines.map((l) => l.code).join(' · ')}</span>
-                    <span>{ago(i.createdAt)}</span>
-                    {i.remindersSent > 0 && <span>{i.remindersSent} reminder(s)</span>}
-                    {i.payUrl && (
-                      <Button variant="link" size="xs" className="h-auto px-0 text-[11px]" asChild>
-                        <a href={i.payUrl} target="_blank" rel="noreferrer">
-                          pay link
-                        </a>
-                      </Button>
-                    )}
-                    {i.status === 'sent' && i.stripeSessionId && (
-                      <Button variant="link" size="xs" className="h-auto px-0 text-[11px]" onClick={() => check.run(i.id)} disabled={check.busy}>
-                        <RefreshCw /> check payment
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-        <Section title="Photo quotes">
-          {snap.quotes.length === 0 ? (
-            <Empty>No quotes yet. Upload photos when booking on the customer page.</Empty>
-          ) : (
-            <ul className="divide-y">
-              {snap.quotes.map((q) => {
-                const dx = q.diagnosis as {
-                  brand?: string
-                  equipmentKind?: string
-                  ageYears?: number
-                  errorCode?: string
-                }
+      <div className="space-y-4">
+        <RichTable
+          title="Invoices"
+          rows={inv}
+          rowKey={(i) => i.id}
+          initialSort={{ key: 'created', dir: 'desc' }}
+          empty="No invoices yet. Close a job from the board or with /done in Telegram."
+          columns={[
+            {
+              key: 'invoice',
+              label: 'Invoice',
+              sort: (i) => i.id,
+              cell: (i) => <Cell2 top={`#${i.id}`} sub={i.lines.map((l) => l.code).join(' · ')} />,
+            },
+            {
+              key: 'customer',
+              label: 'Customer',
+              sort: (i) => snap.customers[i.customerId]?.name ?? '',
+              cell: (i) => <Cell2 top={snap.customers[i.customerId]?.name ?? '—'} sub={snap.customers[i.customerId]?.email} />,
+            },
+            { key: 'status', label: 'Status', sort: (i) => i.status, cell: (i) => <Status s={i.status} /> },
+            {
+              key: 'created',
+              label: 'Created',
+              className: 'hidden lg:table-cell',
+              sort: (i) => +new Date(i.createdAt),
+              cell: (i) => (
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <Clock className="size-3.5" /> {ago(i.createdAt)}
+                </span>
+              ),
+            },
+            {
+              key: 'reminders',
+              label: 'Reminders',
+              className: 'hidden xl:table-cell',
+              sort: (i) => i.remindersSent,
+              cell: (i) => (
+                <span className="inline-flex items-center gap-1.5 tabular-nums text-muted-foreground">
+                  <BellRing className="size-3.5" /> {i.remindersSent}
+                </span>
+              ),
+            },
+            {
+              key: 'pay',
+              label: 'Payment',
+              cell: (i) => (
+                <div className="flex items-center gap-3">
+                  {i.payUrl && (
+                    <a href={i.payUrl} target="_blank" rel="noreferrer" className="text-xs font-medium text-primary hover:underline">
+                      Pay link
+                    </a>
+                  )}
+                  {i.status === 'sent' && i.stripeSessionId && (
+                    <Button variant="ghost" size="xs" onClick={() => check.run(i.id)} disabled={check.busy}>
+                      <RefreshCw /> Check
+                    </Button>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'amount',
+              label: 'Amount',
+              align: 'right',
+              sort: (i) => i.totalCents,
+              cell: (i) => <span className="font-semibold tabular-nums">{money(i.totalCents, 2)}</span>,
+            },
+          ]}
+        />
+        <RichTable
+          title="Photo quotes"
+          rows={snap.quotes}
+          rowKey={(q) => q.id}
+          empty="No quotes yet. Upload photos when booking on the customer page."
+          columns={[
+            {
+              key: 'quote',
+              label: 'Quote',
+              sort: (q) => q.id,
+              cell: (q) => {
+                const dx = q.diagnosis as { brand?: string; equipmentKind?: string; ageYears?: number; errorCode?: string }
                 return (
-                  <li key={q.id} className="py-2.5 first:pt-0 last:pb-0">
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      <Button variant="link" className="h-auto px-0 font-medium" asChild>
-                        <a href={q.url} target="_blank" rel="noreferrer">
-                          Quote #{q.id}
-                        </a>
-                      </Button>
-                      <span>{q.customerId ? snap.customers[q.customerId]?.name : ''}</span>
-                      <Status s={q.status} />
-                      {q.replacementLead && <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">replacement lead</Badge>}
-                    </div>
-                    <Muted className="mt-0.5 block text-[11px]">
-                      {[dx.brand, dx.equipmentKind?.replace('_', ' '), dx.ageYears != null ? `${dx.ageYears} yrs` : null, dx.errorCode ? `code ${dx.errorCode}` : null]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </Muted>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {q.options.map((o) => (
-                        <Badge key={o.tier} variant="outline" className={cn('capitalize', q.chosenTier === o.tier && 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950')}>
-                          {o.tier}: {money(o.totalCents)}
-                        </Badge>
-                      ))}
-                    </div>
-                  </li>
+                  <Cell2
+                    top={
+                      <a href={q.url} target="_blank" rel="noreferrer" className="hover:underline">
+                        Quote #{q.id}
+                      </a>
+                    }
+                    sub={[dx.brand, dx.equipmentKind?.replace('_', ' '), dx.ageYears != null ? `${dx.ageYears} yrs` : null, dx.errorCode ? `code ${dx.errorCode}` : null]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  />
                 )
-              })}
-            </ul>
-          )}
-        </Section>
+              },
+            },
+            {
+              key: 'customer',
+              label: 'Customer',
+              sort: (q) => (q.customerId ? (snap.customers[q.customerId]?.name ?? '') : ''),
+              cell: (q) => <Cell2 top={q.customerId ? snap.customers[q.customerId]?.name : '—'} sub={ago(q.createdAt)} />,
+            },
+            {
+              key: 'options',
+              label: 'Options',
+              cell: (q) => (
+                <div className="flex flex-wrap gap-1.5">
+                  {q.options.map((o) => (
+                    <Badge
+                      key={o.tier}
+                      variant="outline"
+                      className={cn(
+                        'font-normal capitalize tabular-nums',
+                        q.chosenTier === o.tier ? 'border-primary/40 bg-accent text-accent-foreground' : 'text-muted-foreground',
+                      )}
+                    >
+                      {o.tier} {money(o.totalCents)}
+                    </Badge>
+                  ))}
+                </div>
+              ),
+            },
+            {
+              key: 'status',
+              label: 'Status',
+              sort: (q) => q.status,
+              cell: (q) => (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Status s={q.status} />
+                  {q.replacementLead && (
+                    <Badge variant="outline" className="gap-1 font-normal text-muted-foreground">
+                      <Flame className="size-3" /> lead
+                    </Badge>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'value',
+              label: 'Value',
+              align: 'right',
+              sort: (q) => quoteValue(q),
+              cell: (q) => <span className="font-semibold tabular-nums">{money(quoteValue(q))}</span>,
+            },
+          ]}
+        />
       </div>
     </div>
   )
 }
+
+type Quote = ReturnType<typeof useSnap>['quotes'][number]
+/** The chosen tier once accepted, otherwise the middle ("better") option as the likely value. */
+const quoteValue = (q: Quote) => (q.options.find((o) => o.tier === q.chosenTier) ?? q.options[1] ?? q.options[0])?.totalCents ?? 0

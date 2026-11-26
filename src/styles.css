@@ -164,11 +164,21 @@
   border-radius: calc(var(--radius) - 5px) !important;
   background: transparent;
 }
-[data-slot="toggle-group"][data-variant="outline"] [data-slot="toggle-group-item"][data-state="on"]:not([class*="data-[state=on]:bg-"]),
+[data-slot="toggle-group"][data-variant="outline"] [data-slot="toggle-group-item"][data-state="on"],
 [data-slot="tabs-trigger"][data-state="active"] {
-  background-color: var(--card);
+  background-color: color-mix(in oklch, var(--foreground) 10%, var(--card));
   color: var(--foreground);
-  box-shadow: inset 0 1px 0 var(--edge), 0 1px 3px oklch(0 0 0 / 0.25);
+  box-shadow: inset 0 1px 0 var(--edge), 0 1px 2px oklch(0 0 0 / 0.2);
+}
+[data-slot="toggle-group-item"]:not([data-state="on"]),
+[data-slot="tabs-trigger"]:not([data-state="active"]) {
+  color: var(--muted-foreground);
+}
+[data-slot="toggle-group-item"]:focus-visible,
+[data-slot="tabs-trigger"]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  box-shadow: none;
 }
 [data-slot="tabs-list"][data-variant="default"] {
   border-radius: calc(var(--radius) - 2px);
@@ -212,6 +222,45 @@
 .tile-solid {
   background: var(--primary);
   color: var(--primary-foreground);
+}
+
+/* Shimmer: loading surfaces get a soft light sweep; loading text gets a moving highlight. */
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes shimmer-text {
+  to {
+    background-position: -200% 0;
+  }
+}
+[data-slot="skeleton"] {
+  position: relative;
+  overflow: hidden;
+  background-color: color-mix(in oklch, var(--foreground) 7%, transparent);
+}
+.shimmer-text {
+  color: var(--muted-foreground);
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot="skeleton"] {
+    animation: none;
+  }
+  [data-slot="skeleton"]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in oklch, var(--foreground) 7%, transparent), transparent);
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+  .shimmer-text {
+    background: linear-gradient(90deg, var(--muted-foreground) 35%, var(--foreground) 50%, var(--muted-foreground) 65%) 0 0 / 200% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer-text 2s linear infinite;
+  }
 }
 
 /* Map tiles have no dark style: invert them so the map sits in the dark UI. */

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { FlaskConical, Play } from 'lucide-react'
+import { FlaskConical, Hourglass, Inbox, Play, Timer, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { runEvals, runSimulation } from '#/fns'
@@ -26,18 +26,21 @@ function Roi() {
       <PageTitle title="ROI & simulator" sub="Measured from this system's own event history (last 7 days), plus a controlled day simulation against a human-office baseline." />
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
+          icon={Timer}
           label="Median first response"
           value={k.medianResponseSec == null ? '—' : k.medianResponseSec < 90 ? `${Math.round(k.medianResponseSec)} s` : `${Math.round(k.medianResponseSec / 60)} min`}
           hint="industry norm: hours, or a missed call"
           tone="good"
         />
-        <Stat label="Requests handled" value={k.requests} hint={`${k.afterHours} after hours · ${pct(k.bookingRate)} booked`} />
+        <Stat label="Requests handled" icon={Inbox} value={k.requests} hint={`${k.afterHours} after hours · ${pct(k.bookingRate)} booked`} />
         <Stat
+          icon={Wallet}
           label="Collected / invoiced"
           value={`${money(k.collectedCents)} / ${money(k.invoicedCents)}`}
           hint={k.daysToPaid != null ? `${k.daysToPaid.toFixed(1)} days to paid` : 'no payments yet'}
         />
         <Stat
+          icon={Hourglass}
           label="Office time saved"
           value={`${hoursSaved.toFixed(1)} h`}
           hint={`AI cost at list price: $${aiCost.toFixed(2)} (${(k.tokensIn + k.tokensOut).toLocaleString()} tokens)`}
@@ -103,7 +106,7 @@ function Simulator() {
             </SelectContent>
           </Select>
           <Button size="sm" disabled={sim.busy} onClick={() => sim.run()}>
-            <Play /> {sim.busy ? 'Simulating…' : 'Run'}
+            <Play /> {sim.busy ? <span className="shimmer-text">Simulating…</span> : 'Run'}
           </Button>
         </div>
       }

@@ -43,6 +43,9 @@ export class VoiceCall {
   private callId = 0
   private transcript: Turn[] = []
   private closed = false
+  /** Taps on the caller's mic and the receptionist's voice, for the on-screen waveform. */
+  micAnalyser: AnalyserNode | null = null
+  outAnalyser: AnalyserNode | null = null
 
   constructor(
     private on: {
@@ -70,6 +73,9 @@ export class VoiceCall {
         httpOptions: { apiVersion: 'v1alpha' },
       })
       this.outCtx = new AudioContext({ sampleRate: 24000 })
+      this.outAnalyser = this.outCtx.createAnalyser()
+      this.outAnalyser.fftSize = 512
+      this.outAnalyser.connect(this.outCtx.destination)
       this.session = await ai.live.connect({
         model: cfg.model,
         config: {
@@ -128,6 +134,9 @@ export class VoiceCall {
       })
     }
     src.connect(node)
+    this.micAnalyser = this.micCtx.createAnalyser()
+    this.micAnalyser.fftSize = 512
+    src.connect(this.micAnalyser)
   }
 
   private add(role: Turn['role'], text: string) {
@@ -176,7 +185,7 @@ export class VoiceCall {
     for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 0x8000
     const src = ctx.createBufferSource()
     src.buffer = buf
-    src.connect(ctx.destination)
+    src.connect(this.outAnalyser ?? ctx.destination)
     const at = Math.max(ctx.currentTime + 0.03, this.playAt)
     src.start(at)
     this.playAt = at + buf.duration

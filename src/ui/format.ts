@@ -55,11 +55,12 @@ export const addDays = (day: string, n: number) => {
   const [y, m, d] = day.split('-').map(Number)
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10)
 }
+/** Only an emergency gets colour; the rest read as neutral text so the page stays calm. */
 export const P_STYLE: Record<number, string> = {
-  1: 'bg-red-500/12 text-red-700 ring-1 ring-red-500/25 dark:text-red-300',
-  2: 'bg-amber-500/15 text-amber-800 ring-1 ring-amber-500/25 dark:text-amber-300',
-  3: 'bg-sky-500/12 text-sky-800 ring-1 ring-sky-500/25 dark:text-sky-300',
-  4: 'bg-muted-foreground/10 text-muted-foreground ring-1 ring-muted-foreground/15',
+  1: 'bg-destructive/12 text-destructive ring-1 ring-destructive/25',
+  2: 'text-foreground ring-1 ring-border',
+  3: 'text-muted-foreground ring-1 ring-border',
+  4: 'text-muted-foreground ring-1 ring-border',
 }
 export const P_LABEL: Record<number, string> = {
   1: 'P1 Emergency',
@@ -67,29 +68,33 @@ export const P_LABEL: Record<number, string> = {
   3: 'P3 Routine',
   4: 'P4 Planned',
 }
-export const STATUS_STYLE: Record<string, string> = {
-  unassigned: 'bg-muted-foreground/10 text-muted-foreground ring-1 ring-muted-foreground/15',
-  scheduled: 'bg-primary/12 text-primary ring-1 ring-primary/20',
-  en_route: 'bg-violet-500/12 text-violet-700 ring-1 ring-violet-500/25 dark:text-violet-300',
-  on_site: 'bg-emerald-500/12 text-emerald-700 ring-1 ring-emerald-500/25 dark:text-emerald-300',
-  done: 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-emerald-950',
-  cancelled: 'bg-muted-foreground/10 text-muted-foreground ring-1 ring-muted-foreground/15 line-through',
-  pending: 'bg-amber-500/15 text-amber-800 ring-1 ring-amber-500/25 dark:text-amber-300',
-  approved: 'bg-emerald-500/12 text-emerald-700 ring-1 ring-emerald-500/25 dark:text-emerald-300',
-  rejected: 'bg-muted-foreground/10 text-muted-foreground ring-1 ring-muted-foreground/15',
-  sent: 'bg-primary/12 text-primary ring-1 ring-primary/20',
-  paid: 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-emerald-950',
-  draft: 'bg-muted-foreground/10 text-muted-foreground ring-1 ring-muted-foreground/15',
-  accepted: 'bg-emerald-500/12 text-emerald-700 ring-1 ring-emerald-500/25 dark:text-emerald-300',
-  running: 'bg-amber-500/15 text-amber-800 ring-1 ring-amber-500/25 dark:text-amber-300',
-  failed: 'bg-red-500/12 text-red-700 ring-1 ring-red-500/25 dark:text-red-300',
-  waiting_approval: 'bg-amber-500/15 text-amber-800 ring-1 ring-amber-500/25 dark:text-amber-300',
-  booked: 'bg-emerald-500/12 text-emerald-700 ring-1 ring-emerald-500/25 dark:text-emerald-300',
-  triaged: 'bg-sky-500/12 text-sky-800 ring-1 ring-sky-500/25 dark:text-sky-300',
-  awaiting_customer: 'bg-amber-500/15 text-amber-800 ring-1 ring-amber-500/25 dark:text-amber-300',
-  escalated: 'bg-red-500/12 text-red-700 ring-1 ring-red-500/25 dark:text-red-300',
-  closed: 'bg-muted-foreground/10 text-muted-foreground ring-1 ring-muted-foreground/15',
-  new: 'bg-muted-foreground/10 text-muted-foreground ring-1 ring-muted-foreground/15',
+/** Status pills are neutral; a small dot carries the meaning. good = settled, live = moving, attn = waiting on a person, bad = failed. */
+export type Tone = 'good' | 'live' | 'attn' | 'bad' | 'none'
+export const STATUS_TONE: Record<string, Tone> = {
+  scheduled: 'live',
+  en_route: 'live',
+  on_site: 'live',
+  sent: 'live',
+  triaged: 'live',
+  running: 'live',
+  done: 'good',
+  paid: 'good',
+  approved: 'good',
+  accepted: 'good',
+  booked: 'good',
+  pending: 'attn',
+  waiting_approval: 'attn',
+  awaiting_customer: 'attn',
+  unassigned: 'attn',
+  failed: 'bad',
+  escalated: 'bad',
+}
+export const TONE_DOT: Record<Tone, string> = {
+  good: 'bg-emerald-500',
+  live: 'bg-primary',
+  attn: 'bg-(--attn-2)',
+  bad: 'bg-destructive',
+  none: 'bg-muted-foreground/50',
 }
 export const AGENT_LABEL: Record<string, string> = {
   front_desk: 'Front desk',
