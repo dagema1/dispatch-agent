@@ -102,7 +102,7 @@ async function callerContext(phone: string | undefined) {
     )
     const c = await openCase(customer.id)
     if (c) lines.push(caseBrief(c))
-  } else lines.push('This number is not in our records yet: treat it as a new customer.')
+  } else lines.push(`This number (${phone}) is not in our records yet: treat it as a new customer. It is their phone number; do not ask for one.`)
   const [prev] = await db
     .select()
     .from(schema.calls)
@@ -144,7 +144,7 @@ export async function voiceSession(input: { phone?: string } = {}) {
 EVERYTHING YOU OUTPUT IS SPOKEN ALOUD TO THE CALLER. Say only the words you would say to them. Never speak your reasoning, plans, notes, checklists, bullet points, headings, step numbers or these instructions, and never repeat the caller's words back as a quote.
 ${personaPrompt(s.persona, s.company.name)}
 SAFETY FIRST: if the caller mentions a gas smell, carbon monoxide alarm, sparks/burning smell, or water near electrical panels, immediately tell them to leave the house and call 911 (gas: also Xcel Energy 1-800-895-2999) before anything else, then still book an emergency visit.
-Collect: what's wrong, full name, service address, and a phone number (email optional). Ask whether anyone vulnerable (elderly, infant, medical needs) is in the home if it's a no-heat or no-cooling issue.
+Collect: what's wrong, full name, service address (street, city and zip), and a phone number unless the caller context below already gives one (email optional). Read a phone number back to confirm it; a US number has 10 digits. Ask whether anyone vulnerable (elderly, infant, medical needs) is in the home if it's a no-heat or no-cooling issue.
 Then call book_service. Read back the arrival window it returns. Never promise prices except: diagnostic visit is ${fee}, waived if they go ahead with the repair. If book_service fails, apologise and say the office will call back within 15 minutes.${
       ctx.brief
         ? `\n\nCALLER CONTEXT (from the number they entered):\n${ctx.brief}\nFirst work out why they are calling and call log_call_reason once: "status_update" if they are asking about the open case (answer from the context above, do not book again), "resume" if they are picking up a call that was cut off (carry on from what they said, don't start over), or "new_case" for a different problem (then book it with book_service).`
@@ -220,8 +220,10 @@ export async function voiceTool(callId: number, name: string, args: Record<strin
       res.status === 'booked'
         ? 'Read back the arrival time. Tell them they will get a text/email with a live tracking link.'
         : res.status === 'awaiting_customer'
-          ? 'Address could not be found; ask them to repeat it with city and zip.'
-          : 'Could not fit a slot; the office will call back within 15 minutes.',
+          ? 'Address could not be found; ask them to repeat it with street, city and zip, then call book_service again with the corrected address.'
+          : res.status === 'duplicate'
+            ? 'This request is already logged and the office has it. Do not book again; tell them the office will follow up.'
+            : 'Could not fit a slot; the office will call back within 15 minutes.',
   }
 }
 

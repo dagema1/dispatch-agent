@@ -4,7 +4,7 @@ import { defaultWindow, replan } from '../domain/dispatch'
 import { alertOwner, firstName, messageCustomer, messageTechnician } from '../domain/messaging'
 import { personalize } from '../domain/persona'
 import { getSettings } from '../domain/settings'
-import { safetyCheck, triage } from '../domain/triage'
+import { safetyCheck, type Triage, triage } from '../domain/triage'
 import type { Media } from '../integrations/gemini'
 import { geocode, haversineKm } from '../integrations/routing'
 import { getWeather } from '../integrations/weather'
@@ -46,12 +46,21 @@ registerExecutor('send_customer_message', async (a) => messageCustomer(a as Para
  * Each side effect goes through the policy engine; every step is traced.
  */
 export async function handleInbound(input: Inbound): Promise<IntakeResult> {
-  const receivedAt = new Date()
   if (input.externalId) {
     const [dup] = await db.select().from(schema.requests).where(eq(schema.requests.externalId, input.externalId))
-    if (dup) return { requestId: dup.id, customerId: dup.customerId ?? 0, priority: dup.priority ?? 3, safety: dup.safetyFlag, replyText: '', status: 'duplicate' }
+    // The same call or thread trying again after we asked for a better address picks the request
+    // back up; anything else with this id is a repeat and is not booked twice.
+    if (dup && !(dup.status === 'awaiting_customer' && dup.customerId && input.customer?.address))
+      return { requestId: dup.id, customerId: dup.customerId ?? 0, priority: dup.priority ?? 3, safety: dup.safetyFlag, replyText: '', status: 'duplicate' }
+    if (dup) return intake(input, dup)
   }
-  const run = await Run.start('front_desk', input.channel, input.text.slice(0, 80))
+  return intake(input)
+}
+
+/** `resumed`: a request we stopped on (no usable address) that now has corrected details and carries on to booking. */
+async function intake(input: Inbound, resumed?: typeof schema.requests.$inferSelect): Promise<IntakeResult> {
+  const receivedAt = new Date()
+  const run = await Run.start('front_desk', input.channel, resumed ? `request #${resumed.id} (corrected details)` : input.text.slice(0, 80))
   try {
     const settings = await getSettings()
 
@@ -59,13 +68,16 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
     const safety = safetyCheck(input.text)
     if (safety) await run.step('policy', 'safety_rule', { text: input.text.slice(0, 200) }, safety)
 
-    // 2. Identify or create the customer.
-    let customer = await findCustomer(input.customer)
+    // 2. Identify or create the customer (a resumed request already has one).
+    let customer = resumed?.customerId
+      ? ((await db.select().from(schema.customers).where(eq(schema.customers.id, resumed.customerId)))[0] ?? null)
+      : await findCustomer(input.customer)
     const weatherAt = customer?.lat != null ? { lat: customer.lat, lng: customer.lng! } : settings.company.hq
-    const weather = await run.timed('tool', 'weather', weatherAt, () => getWeather(weatherAt))
+    const weather = resumed ? null : await run.timed('tool', 'weather', weatherAt, () => getWeather(weatherAt))
 
-    // 3. Triage (rules + model + weather).
-    const t = await triage(input.text, weather, run)
+    // 3. Triage (rules + model + weather). A resumed request keeps the triage it already has.
+    const t = resumed?.extracted ? (resumed.extracted as unknown as Triage) : await triage(input.text, weather, run)
+    if (resumed) await run.step('tool', 'resume_request', { requestId: resumed.id, address: input.customer?.address }, { priority: t.priority, issue: t.issue })
     if (!customer)
       customer = await createCustomer(run, {
         ...input.customer,
@@ -81,33 +93,37 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
       if (loc) [customer] = await db.update(schema.customers).set({ address: addr, lat: loc.lat, lng: loc.lng }).where(eq(schema.customers.id, customer.id)).returning()
     }
 
-    const [req] = await db
-      .insert(schema.requests)
-      .values({
-        channel: input.channel,
-        externalId: input.externalId,
-        customerId: customer?.id,
-        rawText: input.text,
-        summary: t.summary,
-        extracted: { ...t, weatherF: weather ? Math.round((weather.tempC * 9) / 5 + 32) : null },
-        priority: t.priority,
-        trade: t.trade,
-        skill: t.skill,
-        safetyFlag: t.safety,
-        estMinutes: t.estMinutes,
-        estValueCents: t.estValueCents,
-        status: 'triaged',
-        createdAt: receivedAt,
-      })
-      .returning()
-    await publish('request.created', { requestId: req.id, channel: input.channel, priority: t.priority, issue: t.issue, customer: customer?.name ?? null, safety: t.safety })
+    const [req] = resumed
+      ? [resumed]
+      : await db
+          .insert(schema.requests)
+          .values({
+            channel: input.channel,
+            externalId: input.externalId,
+            customerId: customer?.id,
+            rawText: input.text,
+            summary: t.summary,
+            extracted: { ...t, weatherF: weather ? Math.round((weather.tempC * 9) / 5 + 32) : null },
+            priority: t.priority,
+            trade: t.trade,
+            skill: t.skill,
+            safetyFlag: t.safety,
+            estMinutes: t.estMinutes,
+            estValueCents: t.estValueCents,
+            status: 'triaged',
+            createdAt: receivedAt,
+          })
+          .returning()
+    if (!resumed)
+      await publish('request.created', { requestId: req.id, channel: input.channel, priority: t.priority, issue: t.issue, customer: customer?.name ?? null, safety: t.safety })
 
-    if (safety) await alertOwner(`P1 SAFETY (${safety.flag}) from ${customer?.name ?? 'unknown caller'}: ${t.issue}`)
+    if (safety && !resumed) await alertOwner(`P1 SAFETY (${safety.flag}) from ${customer?.name ?? 'unknown caller'}: ${t.issue}`)
 
     // 4. Missing essentials → ask one clarifying question instead of guessing.
     if (!customer || customer.lat == null) {
       const ask = `${safety ? `${safety.script}\n\n` : ''}Thanks for contacting ${settings.company.name}. So we can send the right technician, please reply with your full name, service address and a phone number.`
-      if (customer && !input.dryRun)
+      // a caller is still on the line and the receptionist asks out loud; written channels get a message
+      if (customer && !input.dryRun && input.channel !== 'voice')
         await act(run, {
           policy: 'send_customer_message',
           tool: 'send_customer_message',
