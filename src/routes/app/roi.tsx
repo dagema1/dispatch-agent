@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Building2, CloudSun, FlaskConical, Hourglass, Inbox, Play, Snowflake, Sparkles, Sun, Timer, Wallet } from 'lucide-react'
+import { CloudSun, FlaskConical, Hourglass, Inbox, Play, Snowflake, Sun, Timer, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { runEvals, runSimulation } from '#/fns'
@@ -140,18 +140,39 @@ function Simulator() {
       ) : (
         <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
           <div>
-            <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <Legend color="bg-primary" label="AI front office" icon={Sparkles} />
-              <Legend color="bg-muted-foreground/40" label="Human office" icon={Building2} />
-              <span className="ml-auto tabular-nums">
-                {r.requests} contacts · {r.outdoorTempF}°F · {r.ms} ms
-              </span>
+            <div className="mb-3 text-xs text-muted-foreground tabular-nums">
+              {r.requests} contacts · {r.outdoorTempF}°F · simulated in {r.ms} ms
             </div>
-            <ul className="divide-y">
-              {ROWS.map((row) => (
-                <CompareRow key={row.label} row={row} ai={r.ai} human={r.human} />
+            <ul className="grid gap-3 sm:grid-cols-3">
+              {ROWS.filter((x) => x.key).map((row) => (
+                <Headline key={row.label} row={row} ai={r.ai} human={r.human} />
               ))}
             </ul>
+            <table className="mt-5 w-full text-sm">
+              <thead>
+                <tr className="text-[11px] tracking-wider text-muted-foreground uppercase">
+                  <th className="py-2 text-left font-medium">Metric</th>
+                  <th className="py-2 text-right font-medium">Human</th>
+                  <th className="py-2 text-right font-medium">AI</th>
+                  <th className="py-2 pl-3 text-right font-medium max-sm:hidden">Change</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y border-t">
+                {ROWS.filter((x) => !x.key).map((row) => {
+                  const d = diff(row, r.ai, r.human)
+                  return (
+                    <tr key={row.label}>
+                      <td className="py-2.5 pr-3 text-muted-foreground">{row.label}</td>
+                      <td className="py-2.5 text-right text-muted-foreground tabular-nums">{row.f(r.human)}</td>
+                      <td className={cn('py-2.5 text-right tabular-nums', d.better ? 'font-semibold' : 'text-muted-foreground')}>{row.f(r.ai)}</td>
+                      <td className="py-2.5 pl-3 text-right max-sm:hidden">
+                        <Change d={d} />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
           <div className="space-y-3">
             <div className="well rounded-xl p-3">
@@ -187,51 +208,42 @@ function Simulator() {
   )
 }
 
-const Legend = ({ color, label, icon: I }: { color: string; label: string; icon: React.ComponentType<{ className?: string }> }) => (
-  <span className="inline-flex items-center gap-1.5">
-    <span className={cn('h-2 w-4 rounded-full', color)} aria-hidden />
-    <I className="size-3.5" /> {label}
+/** How the AI compares with the human office on one row, and whether that direction is good. */
+function diff(row: (typeof ROWS)[number], ai: Metrics, human: Metrics) {
+  const a = row.v(ai)
+  const h = row.v(human)
+  if (a == null || h == null || a === h) return { text: 'same', better: false, worse: false }
+  const better = row.higher ? a > h : a < h
+  const rel = h === 0 ? null : Math.abs(a - h) / Math.abs(h)
+  const text = rel == null ? (better ? 'better' : 'worse') : rel >= 10 ? `${Math.round(a / h)}×` : `${a > h ? '+' : '−'}${Math.round(rel * 100)}%`
+  return { text, better, worse: !better }
+}
+
+const Change = ({ d }: { d: ReturnType<typeof diff> }) => (
+  <span
+    className={cn(
+      'inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums',
+      d.better ? 'bg-primary/15 text-primary' : d.worse ? 'bg-destructive/12 text-destructive' : 'text-muted-foreground',
+    )}
+  >
+    {d.text}
   </span>
 )
 
-/** One metric: two bars on a shared scale and a chip saying how much better or worse the AI did. */
-function CompareRow({ row, ai, human }: { row: (typeof ROWS)[number]; ai: Metrics; human: Metrics }) {
-  const a = row.v(ai)
-  const h = row.v(human)
-  const max = Math.max(a ?? 0, h ?? 0) || 1
-  const delta = a != null && h != null && h !== 0 ? (a - h) / Math.abs(h) : null
-  const better = delta != null && (row.higher ? delta > 0 : delta < 0)
+/** Headline result: the AI number large, the human office's beneath it for comparison. */
+function Headline({ row, ai, human }: { row: (typeof ROWS)[number]; ai: Metrics; human: Metrics }) {
+  const d = diff(row, ai, human)
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 py-3">
-      <div className={cn('text-sm', row.key ? 'font-medium' : 'text-muted-foreground')}>{row.label}</div>
-      {delta != null && Math.abs(delta) >= 0.01 ? (
-        <span
-          className={cn(
-            'justify-self-end rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums',
-            better ? 'bg-primary/15 text-primary' : 'bg-foreground/8 text-muted-foreground',
-          )}
-        >
-          {delta > 0 ? '+' : '−'}
-          {Math.abs(delta) >= 10 ? `${Math.round(Math.abs(delta))}×` : `${Math.round(Math.abs(delta) * 100)}%`}
-        </span>
-      ) : (
-        <span className="justify-self-end text-[11px] text-muted-foreground">same</span>
-      )}
-      <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-x-3 gap-y-1">
-        <Bar value={a} max={max} className="bg-primary" />
-        <span className="text-right text-sm font-semibold tabular-nums">{row.f(ai)}</span>
-        <Bar value={h} max={max} className="bg-muted-foreground/35" />
-        <span className="text-right text-sm text-muted-foreground tabular-nums">{row.f(human)}</span>
+    <li className="well rounded-xl p-4">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-xs text-muted-foreground">{row.label}</span>
+        <Change d={d} />
       </div>
+      <div className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{row.f(ai)}</div>
+      <div className="mt-0.5 text-xs text-muted-foreground tabular-nums">Human office: {row.f(human)}</div>
     </li>
   )
 }
-
-const Bar = ({ value, max, className }: { value: number | null; max: number; className: string }) => (
-  <span className="well block h-2 overflow-hidden rounded-full">
-    <span className={cn('block h-full rounded-full motion-safe:transition-[width] motion-safe:duration-700', className)} style={{ width: `${((value ?? 0) / max) * 100}%` }} />
-  </span>
-)
 
 /* ---------- Evals ---------- */
 
