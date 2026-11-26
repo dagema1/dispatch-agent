@@ -118,8 +118,11 @@ function Requests() {
         <ul className="divide-y">
           {rows.map((r) => {
             const ex = (r.extracted ?? {}) as { reasons?: string[]; issue?: string; weatherF?: number }
-            const resp = r.firstResponseAt ? Math.round((+new Date(r.firstResponseAt) - +new Date(r.createdAt)) / 1000) : null
-            const name = r.customerId ? snap.customers[r.customerId]?.name : null
+            // clock skew between intake and reply can make this negative; never show a negative time
+            const resp = r.firstResponseAt ? Math.max(0, Math.round((+new Date(r.firstResponseAt) - +new Date(r.createdAt)) / 1000)) : null
+            const cust = r.customerId ? snap.customers[r.customerId] : null
+            const name = cust?.name ?? null
+            const reasons = (ex.reasons ?? []).filter((x) => !/^model priority/i.test(x))
             return (
               <li key={r.id} className={cn(isNew(r.id) && 'arrive')}>
                 <details className="group">
@@ -161,11 +164,29 @@ function Requests() {
                         </Badge>
                       )}
                     </div>
-                    {ex.reasons?.length ? (
+                    {reasons.length ? (
                       <div className="text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">Why P{r.priority}:</span> {ex.reasons.join(' · ')}
+                        <span className="font-medium text-foreground">Why P{r.priority}:</span> {reasons.join(' · ')}
                       </div>
                     ) : null}
+                    {(cust?.phone || cust?.email) && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {cust.phone && (
+                          <Button size="sm" asChild>
+                            <a href={`tel:${cust.phone.replace(/[^\d+]/g, '')}`}>
+                              <Phone /> Call {name?.split(' ')[0]}
+                            </a>
+                          </Button>
+                        )}
+                        {cust.email && (
+                          <Button size="sm" variant="outline" asChild>
+                            <a href={`mailto:${cust.email}?subject=${encodeURIComponent(ex.issue ?? r.summary ?? 'Your request')}`}>
+                              <Mail /> Email
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </details>
               </li>
@@ -245,13 +266,19 @@ function Messages() {
                           </span>
                           <ChannelTag c={m.channel} />
                         </div>
-                        <Muted className="shrink-0 whitespace-nowrap">{dayTime(m.createdAt)}</Muted>
+                        <Muted className="shrink-0 whitespace-nowrap" title={dayTime(m.createdAt)}>
+                          {ago(m.createdAt)}
+                        </Muted>
                       </div>
                       {m.subject && <div className="text-sm font-medium">{m.subject}</div>}
                       <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground group-open:line-clamp-none group-open:whitespace-pre-wrap group-open:text-foreground/85">
                         {m.body}
                       </p>
-                      {out && !m.delivered && <p className="text-xs text-muted-foreground">Not delivered: channel not connected</p>}
+                      {out && !m.delivered && (
+                        <p className="inline-flex items-center gap-1.5 rounded-full bg-(--attn-2)/15 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                          Not delivered: no email or text channel connected
+                        </p>
+                      )}
                     </div>
                   </summary>
                 </details>
@@ -285,13 +312,19 @@ function Calls() {
                     <Phone className="size-4" />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold">{c.customerId ? snap.customers[c.customerId]?.name : `Caller #${c.id}`}</div>
-                    <p className="mt-0.5 truncate text-sm text-muted-foreground">{last ? `${last.role === 'agent' ? 'Agent' : 'Caller'}: ${last.text}` : 'No transcript'}</p>
+                    <div className="text-sm font-semibold">{c.customerId ? snap.customers[c.customerId]?.name : 'Unknown caller'}</div>
+                    <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                      {c.summary ? c.summary : last ? `${last.role === 'agent' ? 'Agent' : 'Caller'}: ${last.text}` : 'No transcript'}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="text-right">
-                      <Muted className="block whitespace-nowrap">{dayTime(c.startedAt)}</Muted>
-                      <Muted className="block">{c.transcript.length} turns</Muted>
+                      <Muted className="block whitespace-nowrap" title={dayTime(c.startedAt)}>
+                        {ago(c.startedAt)}
+                      </Muted>
+                      <Muted className="block">
+                        {c.transcript.length} {c.transcript.length === 1 ? 'turn' : 'turns'}
+                      </Muted>
                     </div>
                     <ChevronRight className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
                   </div>

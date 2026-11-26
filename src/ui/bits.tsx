@@ -13,10 +13,25 @@ export const Priority = ({ p, short }: { p: number | null | undefined; short?: b
     </Badge>
   ) : null
 
-export const Status = ({ s }: { s: string }) => (
-  <Badge variant="outline" className={cn('gap-1.5 border-border font-normal text-muted-foreground capitalize', s === 'cancelled' && 'line-through')}>
-    <span className={cn('size-1.5 rounded-full', TONE_DOT[STATUS_TONE[s] ?? 'none'])} aria-hidden />
-    {s.replaceAll('_', ' ')}
+/** Sentence case for stored states: "awaiting_customer" → "Awaiting customer". */
+export const stateLabel = (s: string) => {
+  const t = s.replaceAll('_', ' ')
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+/** A stored state as a quiet chip. `undelivered` marks a run that finished but whose customer message never left. */
+export const Status = ({ s, undelivered }: { s: string; undelivered?: boolean }) => (
+  <Badge
+    variant="outline"
+    className={cn(
+      'gap-1.5 border-border font-normal text-muted-foreground',
+      s === 'cancelled' && 'line-through',
+      undelivered && 'border-(--attn-2)/50 text-amber-800 dark:text-amber-300',
+    )}
+  >
+    <span className={cn('size-1.5 rounded-full', undelivered ? 'bg-(--attn-2)' : TONE_DOT[STATUS_TONE[s] ?? 'none'])} aria-hidden />
+    {stateLabel(s)}
+    {undelivered && ' · not delivered'}
   </Badge>
 )
 
@@ -77,7 +92,7 @@ export function Stat({
               </div>
             )}
           </div>
-          {ratio != null && (
+          {ratio != null && ratio > 0 && (
             <span className="max-sm:hidden">
               <Ring value={ratio} />
             </span>
@@ -129,8 +144,10 @@ export const PageTitle = ({ title, sub, right }: { title: string; sub?: string; 
   </div>
 )
 
-export const Muted = ({ children, className }: { children: React.ReactNode; className?: string }) => (
-  <span className={cn('text-xs text-muted-foreground', className)}>{children}</span>
+export const Muted = ({ children, className, title }: { children: React.ReactNode; className?: string; title?: string }) => (
+  <span className={cn('text-xs text-muted-foreground', className)} title={title}>
+    {children}
+  </span>
 )
 
 const AGENT_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -155,3 +172,11 @@ export const AgentTile = ({ agent, className }: { agent: string; className?: str
     </span>
   )
 }
+
+/** One colour per priority, used everywhere a priority appears: red P1, amber P2, blue P3, grey P4. */
+export const PRIORITY_TILE: Record<number, string> = { 1: 'tile-red', 2: 'tile-attn', 3: 'tile-action', 4: 'tile-quiet' }
+export const PriorityTile = ({ p, className }: { p: number; className?: string }) => (
+  <span className={cn('tile size-8 shrink-0 text-[11px] font-semibold', PRIORITY_TILE[p] ?? 'tile-quiet', className)} title={`Priority ${p}`}>
+    P{p}
+  </span>
+)

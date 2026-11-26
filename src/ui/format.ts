@@ -103,6 +103,54 @@ export const AGENT_LABEL: Record<string, string> = {
   revenue: 'Revenue',
   ops: 'Ops',
 }
+/** What started a run, in the owner's words. */
+const TRIGGER_LABEL: Record<string, string> = {
+  email: 'Email',
+  voice: 'Phone call',
+  web: 'Web form',
+  photos: 'Customer photos',
+  owner_chat: 'Your chat',
+  cron_morning: 'Morning plan',
+  cron_weather: 'Weather check',
+  tech_late: 'Tech running late',
+  tech_voice_note: 'Tech voice note',
+  evals: 'Accuracy check',
+}
+/** What a step did, in plain words. Unknown names fall back to sentence case. */
+const STEP_LABEL: Record<string, string> = {
+  'triage.extract': 'Read and triaged the request',
+  'triage.fallback': 'Triaged by rules (model unavailable)',
+  safety_rule: 'Safety rule',
+  send_customer_message: 'Messaged the customer',
+  send_invoice: 'Sent the invoice',
+  create_job: 'Created the job',
+  geocode: 'Looked up the address',
+  weather: 'Checked the weather',
+  optimiser: 'Planned routes',
+  'invoice.price': 'Priced the invoice',
+  'quote.build': 'Built the quote',
+  'report.from_voice': 'Wrote the job report',
+  'eval.summary': 'Scored the results',
+  business_snapshot: 'Checked the numbers',
+  find_customer: 'Looked up a customer',
+  get_schedule: 'Read the schedule',
+  mark_technician_out: 'Marked a tech out',
+  mark_technician_back: 'Brought a tech back',
+  move_job: 'Moved a visit',
+  run_weather_campaign: 'Drafted a weather campaign',
+  simulate_weather: 'Set demo weather',
+  intake: 'Intake',
+}
+const sentence = (s: string) => {
+  const t = s.replace(/[_.]+/g, ' ').trim()
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+export const triggerLabel = (t: string) => TRIGGER_LABEL[t] ?? sentence(t)
+export const stepLabel = (n: string) => STEP_LABEL[n] ?? sentence(n)
+/** Gemini Flash list price (about $0.30 per million tokens in, $2.50 out). The free tier costs $0, so this is for scale. */
+export const aiCost = (tokensIn: number, tokensOut: number) => (tokensIn * 0.3 + tokensOut * 2.5) / 1e6
+export const usd = (n: number) => (n === 0 ? '$0' : n < 0.01 ? '<$0.01' : `$${n.toFixed(2)}`)
+
 export const fileToMedia = (f: File) =>
   new Promise<{ mimeType: string; data: string }>((resolve, reject) => {
     // downscale big phone photos so uploads stay small

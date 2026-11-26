@@ -16,10 +16,10 @@ export const TECHS: Array<{
   home: { lat: number; lng: number }
 }> = [
   { name: 'Carlos Medina', skills: ['hvac_repair', 'hvac_install'], level: 'senior', color: '#2563eb', home: { lat: 39.676, lng: -105.03 } },
-  { name: 'Priya Shah', skills: ['hvac_repair', 'water_heater'], level: 'standard', color: '#16a34a', home: { lat: 39.79, lng: -104.95 } },
-  { name: 'Jake Thompson', skills: ['plumbing', 'drain', 'water_heater'], level: 'senior', color: '#d97706', home: { lat: 39.735, lng: -105.08 } },
+  { name: 'Priya Shah', skills: ['hvac_repair', 'water_heater'], level: 'standard', color: '#15803d', home: { lat: 39.79, lng: -104.95 } },
+  { name: 'Jake Thompson', skills: ['plumbing', 'drain', 'water_heater'], level: 'senior', color: '#0e7490', home: { lat: 39.735, lng: -105.08 } },
   { name: 'Aisha Bello', skills: ['plumbing', 'drain'], level: 'standard', color: '#9333ea', home: { lat: 39.705, lng: -104.9 } },
-  { name: 'Tom Nguyen', skills: ['hvac_repair', 'plumbing', 'water_heater'], level: 'standard', color: '#dc2626', home: { lat: 39.76, lng: -105.0 } },
+  { name: 'Tom Nguyen', skills: ['hvac_repair', 'plumbing', 'water_heater'], level: 'standard', color: '#57534e', home: { lat: 39.76, lng: -105.0 } },
 ]
 
 export const PRICE_BOOK: Array<{ code: string; name: string; trade: string; cents: number; minutes: number }> = [

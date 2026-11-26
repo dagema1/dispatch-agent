@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { runEvals, runSimulation } from '#/fns'
 import { ErrorText, Muted, PageTitle, Stat } from '#/ui/bits'
-import { money } from '#/ui/format'
+import { aiCost, money, usd } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -18,8 +18,7 @@ const pct = (x: number | null | undefined) => (x == null ? '—' : `${Math.round
 function Roi() {
   const snap = useSnap()
   const k = snap.kpis
-  // Gemini Flash list price is ~$0.30/M in, $2.50/M out; free tier costs $0, shown for scale
-  const aiCost = (k.tokensIn * 0.3 + k.tokensOut * 2.5) / 1e6
+  const cost = aiCost(k.tokensIn, k.tokensOut)
   const hoursSaved = k.minutesSaved / 60
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -40,7 +39,7 @@ function Roi() {
           hint={k.daysToPaid != null ? `${k.daysToPaid.toFixed(1)} days to paid` : 'no payments yet'}
           ratio={k.invoicedCents ? k.collectedCents / k.invoicedCents : undefined}
         />
-        <Stat icon={Hourglass} label="Office time saved" value={`${hoursSaved.toFixed(1)} h`} hint={`AI cost at list price: $${aiCost.toFixed(2)}`} tone="good" />
+        <Stat icon={Hourglass} label="Office time saved" value={`${hoursSaved.toFixed(1)} h`} hint={`AI cost at list price: ${usd(cost)}`} tone="good" />
       </div>
       <Simulator />
       <Evals />

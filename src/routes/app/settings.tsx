@@ -246,7 +246,7 @@ function Integrations() {
       icon: Mail,
       ok: !!i.googleAccount,
       what: i.googleAccount ? `Gmail and Calendar as ${i.googleAccount}` : 'Email intake, replies, calendar',
-      how: i.google ? 'Connect your account' : 'GOOGLE_CLIENT_ID / SECRET',
+      how: i.google ? 'Connect your account' : 'Needs Google keys in the server setup',
       action: i.google ? (
         <Button variant="outline" size="sm" asChild>
           <a href="/api/google/start">{i.googleAccount ? 'Reconnect' : 'Connect'}</a>
@@ -372,8 +372,8 @@ function Automation() {
             {(
               [
                 ['off', CloudSun, 'Real weather', 'Live Denver forecast'],
-                ['cold_snap', Snowflake, 'Cold snap', '−14°C, furnaces fail'],
-                ['heat_wave', Sun, 'Heat wave', '36°C, AC calls spike'],
+                ['cold_snap', Snowflake, 'Cold snap', '0°F, furnaces fail'],
+                ['heat_wave', Sun, 'Heat wave', '97°F, AC calls spike'],
               ] as const
             ).map(([v, I, title, sub]) => (
               <label

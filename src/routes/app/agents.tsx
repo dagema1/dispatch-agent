@@ -2,8 +2,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { ChevronLeft, ChevronRight, CircleAlert, ShieldQuestion, Sparkles, StickyNote, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getTrace } from '#/fns'
+import { AgentsTabs } from '#/ui/AgentsTabs'
 import { AgentTile, Empty, Muted, PageTitle, Section, Status } from '#/ui/bits'
-import { AGENT_LABEL, ago } from '#/ui/format'
+import { AGENT_LABEL, ago, aiCost, stepLabel, triggerLabel, usd } from '#/ui/format'
 import { useSnap } from '#/ui/live'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -34,12 +35,13 @@ function Agents() {
   const navigate = Route.useNavigate()
   const sel = run ?? runs[0]?.id ?? null
   const setSel = (id: string) => navigate({ search: { run: id } })
-  const tokens = snap.runs.reduce((a, r) => a + r.tokensIn + r.tokensOut, 0)
+  const cost = snap.runs.reduce((a, r) => a + aiCost(r.tokensIn, r.tokensOut), 0)
   return (
     <div>
+      <AgentsTabs />
       <PageTitle
         title="Agent traces"
-        sub={`${snap.runs.length} recent runs · ${tokens.toLocaleString()} tokens`}
+        sub={`${snap.runs.length} recent runs · ${usd(cost)} AI cost at list price`}
         right={
           <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger className="w-44" aria-label="Filter by agent">
@@ -77,15 +79,15 @@ function Agents() {
                       <span className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 text-sm">
                           <span className="font-medium">{AGENT_LABEL[r.agent] ?? r.agent}</span>
-                          <Muted>· {r.trigger}</Muted>
+                          <Muted>· {triggerLabel(r.trigger)}</Muted>
                           <span className="ml-auto">
-                            <Status s={r.status} />
+                            <Status s={r.status} undelivered={r.undelivered} />
                           </span>
                         </div>
                         <div className="truncate text-xs text-muted-foreground">{r.outcome ?? r.subject}</div>
                         <div className="text-[10px] text-muted-foreground/80 tabular-nums">
                           {ago(r.startedAt)} {r.latencyMs != null ? `· ${(r.latencyMs / 1000).toFixed(1)}s` : ''}{' '}
-                          {r.tokensIn + r.tokensOut > 0 ? `· ${(r.tokensIn + r.tokensOut).toLocaleString()} tok` : ''}
+                          {r.tokensIn + r.tokensOut > 0 ? `· ${usd(aiCost(r.tokensIn, r.tokensOut))}` : ''}
                         </div>
                       </span>
                     </button>
@@ -141,7 +143,7 @@ function TraceView({ runId }: { runId: string }) {
       </Section>
     )
   return (
-    <Section title={`${AGENT_LABEL[t.run.agent] ?? t.run.agent} · ${t.run.trigger}`} right={<Muted>{t.run.model ?? 'rules only'}</Muted>}>
+    <Section title={`${AGENT_LABEL[t.run.agent] ?? t.run.agent} · ${triggerLabel(t.run.trigger)}`} right={<Muted>{t.run.model ?? 'rules only'}</Muted>}>
       <p className="mb-3 text-sm text-muted-foreground">{t.run.outcome ?? t.run.subject}</p>
       <ol>
         {t.steps.map((s, i) => {
@@ -155,7 +157,9 @@ function TraceView({ runId }: { runId: string }) {
               </span>
               <div className="min-w-0 flex-1 pt-1">
                 <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                  <span className="font-medium">{s.name}</span>
+                  <span className="font-medium" title={s.name}>
+                    {stepLabel(s.name)}
+                  </span>
                   <Muted className="capitalize">{s.kind === 'llm' ? 'model' : s.kind}</Muted>
                   {s.ms != null && <Muted className="ml-auto tabular-nums">{s.ms} ms</Muted>}
                 </div>

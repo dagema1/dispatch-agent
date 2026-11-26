@@ -40,12 +40,16 @@ function Photos() {
   return (
     <CustomerShell company={d.company}>
       <h1 className="text-2xl font-semibold tracking-tight text-balance">Send us a few photos</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        For: {d.request.summary}. A photo of the unit's label (model and serial) and any error light helps us bring the right parts and price your options upfront.
+      <p className="mt-1 text-sm text-pretty text-muted-foreground">
+        A photo of the unit's label (model and serial) and any error light helps us bring the right parts and price your options upfront.
       </p>
+      <blockquote className="mt-3 rounded-2xl border border-(--edge) bg-(--glass) px-4 py-3 text-sm">
+        <span className="block text-xs text-muted-foreground">You told us</span>“{d.request.words}
+        {d.request.words.length >= 160 ? '…' : ''}”
+      </blockquote>
       <Card className="mt-4">
         <CardContent className="space-y-3">
-          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground transition-colors hover:bg-muted">
+          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground transition-colors hover:bg-foreground/5">
             <Camera className="size-6" /> {files.length ? `${files.length} photo(s) selected` : 'Tap to take or choose photos'}
             <input type="file" accept="image/*" capture="environment" multiple className="sr-only" onChange={(e) => setFiles([...(e.target.files ?? [])])} />
           </label>

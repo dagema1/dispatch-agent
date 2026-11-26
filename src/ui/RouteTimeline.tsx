@@ -62,13 +62,22 @@ export function RouteTimeline({
           <div className="w-48 shrink-0" />
           <div className="relative h-6 flex-1 text-[11px] text-muted-foreground tabular-nums">
             {HOURS.map((h, i) => (
-              <span key={h} className={cn('absolute top-0', i === 0 ? '' : i === HOURS.length - 1 ? '-translate-x-full' : '-translate-x-1/2')} style={{ left: pct(h * 60) }}>
+              <span
+                key={h}
+                // the Now pill sits on the axis; drop the hour label it would cover
+                className={cn(
+                  'absolute top-0',
+                  i === 0 ? '' : i === HOURS.length - 1 ? '-translate-x-full' : '-translate-x-1/2',
+                  showNow && Math.abs(h * 60 - nowMin) < 40 && 'invisible',
+                )}
+                style={{ left: pct(h * 60) }}
+              >
                 {hourLabel(h)}
               </span>
             ))}
             {showNow && (
               <span
-                className="absolute top-0 z-10 -translate-x-1/2 rounded-full bg-primary px-1.5 text-[10px] leading-4 font-semibold text-primary-foreground"
+                className="absolute top-0 z-10 -translate-x-1/2 rounded-full bg-primary px-2 text-[11px] leading-[18px] font-semibold text-primary-foreground"
                 style={{ left: pct(nowMin) }}
               >
                 Now
@@ -107,9 +116,9 @@ export function RouteTimeline({
                           onClick={() => onToggleTech(t.id, false)}
                           disabled={toggleBusy}
                           aria-label={`Mark ${t.name.split(' ')[0]} out`}
-                          className="ml-auto rounded opacity-0 outline-none hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/row:opacity-100 [@media(hover:none)]:opacity-100"
+                          className="-my-2 -mr-2 ml-auto grid size-9 shrink-0 place-items-center rounded-full opacity-0 outline-none hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/row:opacity-100 [@media(hover:none)]:opacity-100"
                         >
-                          <UserX className="size-3.5" />
+                          <UserX className="size-4" />
                         </button>
                       </div>
                     ) : (

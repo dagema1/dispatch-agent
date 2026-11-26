@@ -25,14 +25,13 @@ function Book() {
   const [mode, setMode] = useState<'call' | 'form'>('call')
   return (
     <CustomerShell wide sub="Denver metro · open 24/7 for emergencies">
-      <div className="flex flex-col items-center pt-4 pb-8 text-center sm:pt-8">
-        <span className="inline-flex items-center gap-2 rounded-full border border-(--edge) bg-(--glass) px-3 py-1 text-xs text-muted-foreground backdrop-blur-md">
-          <span className="size-1.5 rounded-full bg-primary motion-safe:animate-pulse" aria-hidden /> Open 24/7 for emergencies
-        </span>
-        <h1 className="mt-5 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+      <div className="flex flex-col items-center pt-2 pb-8 text-center sm:pt-6">
+        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
           How can we <span className="font-display text-[1.12em] text-primary">help</span>?
         </h1>
-        <p className="mt-4 max-w-md text-pretty text-muted-foreground">Talk to our receptionist or send the details. You'll get a confirmed arrival window in under a minute.</p>
+        <p className="mt-4 max-w-md text-pretty text-muted-foreground">
+          No heat, a leak, a dead AC? Talk to our receptionist or send the details. You'll get a confirmed arrival window in under a minute.
+        </p>
       </div>
       <fieldset aria-label="How to reach us" className="grid grid-cols-2 gap-3">
         <Choice on={mode === 'call'} onPick={() => setMode('call')} icon={Phone} tile="tile-action" title="Talk to us" sub="Voice call · about 2 min" />
@@ -45,9 +44,7 @@ function Book() {
       <div className={cn('mt-3', mode !== 'form' && 'hidden')}>
         <FormPanel />
       </div>
-      <p className="mt-8 text-center text-xs text-muted-foreground">
-        Smell gas? Leave the house and call Xcel Energy at 1-800-895-2999 or 911 from outside. · Demo company, fictional data.
-      </p>
+      <p className="mt-8 text-center text-xs text-muted-foreground">Demo company with fictional data.</p>
     </CustomerShell>
   )
 }

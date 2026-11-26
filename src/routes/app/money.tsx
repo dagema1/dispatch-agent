@@ -58,7 +58,7 @@ function Money() {
               key: 'invoice',
               label: 'Invoice',
               sort: (i) => i.id,
-              cell: (i) => <Cell2 top={`#${i.id}`} sub={i.lines.map((l) => l.code).join(' · ')} />,
+              cell: (i) => <Cell2 top={`#${i.id}`} sub={i.lines.map((l) => l.name).join(' · ')} />,
             },
             {
               key: 'customer',

@@ -213,7 +213,12 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
         job.id,
       )
     }
-    await run.end('done', booking ? `booked #${job.id} with ${tech!.name} ${booking.startText} (moved ${plan.moved.length} others)` : `job #${job.id} unplaced, escalated`)
+    await run.end(
+      'done',
+      booking
+        ? `booked #${job.id} with ${tech!.name} ${booking.startText} (moved ${plan.moved.length} other ${plan.moved.length === 1 ? 'visit' : 'visits'})`
+        : `job #${job.id} unplaced, escalated`,
+    )
     return {
       requestId: req.id,
       customerId: customer.id,

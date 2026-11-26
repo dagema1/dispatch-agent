@@ -4,12 +4,13 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { replanNow, setTechActive } from '#/fns'
 import type { Snapshot } from '#/server/api/views'
-import { Empty, ErrorText, Muted, PageTitle, Section, Stat } from '#/ui/bits'
+import { Empty, ErrorText, Muted, PageTitle, PriorityTile, Section, Stat } from '#/ui/bits'
 import { useConfirm } from '#/ui/confirm'
 import { addDays, ago, dayLabel, dayOf, dayTime, minutesOfDay, money, time } from '#/ui/format'
 import { JobDialog } from '#/ui/JobDialog'
 import { useAction, useLive, useSnap } from '#/ui/live'
 import { useArrivals } from '#/ui/motion'
+import { NeedsYou, waitingP1 } from '#/ui/NeedsYou'
 import { RouteTimeline } from '#/ui/RouteTimeline'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -63,7 +64,8 @@ function Board() {
   const unassigned = snap.jobs.filter((j) => j.status === 'unassigned')
   const isNew = useArrivals(snap.jobs.map((j) => j.id))
   const todays = snap.jobs.filter((j) => j.scheduledStart && dayOf(j.scheduledStart) === snap.today)
-  const openP1 = snap.jobs.filter((j) => j.priority === 1 && !['done', 'cancelled'].includes(j.status)).length
+  // a P1 is open from the moment it is triaged, whether or not a job exists yet
+  const openP1 = snap.jobs.filter((j) => j.priority === 1 && !['done', 'cancelled'].includes(j.status)).length + waitingP1(snap).length
   const nowMin = minutesOfDay(snap.now)
   const w = snap.weather
   const open = openId != null ? (snap.jobs.find((j) => j.id === openId) ?? null) : null
@@ -131,6 +133,7 @@ function Board() {
         </Button>
       </Dock>
       <ErrorText error={replan.error ?? toggle.error} />
+      <NeedsYou snap={snap} onReplan={askReplan} replanBusy={replan.busy} />
 
       <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Stat
@@ -151,7 +154,7 @@ function Board() {
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">
           <Section title="Technician routes" right={<Muted>{day === snap.today ? 'Today' : dayLabel(day)} · 7am to 7pm</Muted>}>
             <RouteTimeline
@@ -204,12 +207,18 @@ function Board() {
                       className="flex w-full items-center gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-secondary"
                       onClick={() => setOpenId(j.id)}
                     >
-                      <span className={cn('tile size-8 shrink-0 text-[11px] font-semibold', j.priority === 1 ? 'tile-red' : 'tile-attn')}>P{j.priority}</span>
+                      <PriorityTile p={j.priority} />
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium">{j.title}</span>
-                        <Muted className="block truncate">
-                          {j.customer.name} · window ends {dayTime(j.windowEnd)}
-                        </Muted>
+                        {+new Date(j.windowEnd) < Date.parse(snap.now) ? (
+                          <span className="block truncate text-xs font-medium text-red-600 dark:text-red-400">
+                            {j.customer.name} · window missed {dayTime(j.windowEnd)}
+                          </span>
+                        ) : (
+                          <Muted className="block truncate">
+                            {j.customer.name} · window ends {dayTime(j.windowEnd)}
+                          </Muted>
+                        )}
                       </span>
                     </button>
                   </li>
@@ -270,7 +279,7 @@ function Dock({ children }: { children: React.ReactNode }) {
     <div
       role="toolbar"
       aria-label="Board controls"
-      className="slab fixed inset-x-3 bottom-3 z-30 flex items-center justify-between gap-2 overflow-x-auto rounded-full border bg-(--glass-strong) p-1.5 sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2 md:left-[calc(50%+var(--rail,4.5rem)/2)]"
+      className="slab fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-30 flex max-w-[calc(100vw-1.5rem)] items-center justify-between gap-2 overflow-x-auto rounded-full border bg-(--glass-strong) p-1.5 sm:inset-x-auto sm:left-1/2 md:bottom-4 sm:-translate-x-1/2 md:left-[calc(50%+var(--rail,4.5rem)/2)]"
     >
       {children}
     </div>,

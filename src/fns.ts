@@ -75,7 +75,7 @@ export const setWeather = createServerFn({ method: 'POST' })
   .validator(z.object({ mode: z.enum(['cold_snap', 'heat_wave', 'off']) }))
   .handler(async ({ data }) => {
     const { setWeatherOverride } = await import('./server/integrations/weather')
-    setWeatherOverride(data.mode === 'cold_snap' ? { tempC: -14, minC: -20, maxC: -8 } : data.mode === 'heat_wave' ? { tempC: 36, minC: 22, maxC: 38 } : null)
+    setWeatherOverride(data.mode === 'cold_snap' ? { tempC: -18, minC: -23, maxC: -12 } : data.mode === 'heat_wave' ? { tempC: 36, minC: 22, maxC: 38 } : null)
     return { ok: true }
   })
 

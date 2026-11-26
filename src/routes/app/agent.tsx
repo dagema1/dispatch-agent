@@ -151,7 +151,7 @@ function AgentChat() {
   return (
     <div className="mx-auto flex h-[calc(100dvh-10rem)] max-w-3xl flex-col">
       <header className="flex items-center gap-3 pb-3">
-        <Orb name={name} size="sm" />
+        {!empty && <Orb name={name} size="sm" />}
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-semibold tracking-tight">{name}</h1>
           <p className="truncate text-xs text-muted-foreground">Operations agent · reads the live board · risky actions wait in Approvals</p>

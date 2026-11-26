@@ -32,6 +32,22 @@ export async function snapshot() {
     getWeather(settings.company.hq),
     googleAccount(),
   ])
+  // a run that "finished" but whose customer message never left is not really done; flag it for the trace list
+  const sendSteps = runs.length
+    ? await db
+        .select({ runId: schema.agentSteps.runId, output: schema.agentSteps.output })
+        .from(schema.agentSteps)
+        .where(
+          and(
+            inArray(
+              schema.agentSteps.runId,
+              runs.map((r) => r.id),
+            ),
+            eq(schema.agentSteps.name, 'send_customer_message'),
+          ),
+        )
+    : []
+  const undeliveredRuns = new Set(sendSteps.filter((st) => /"delivered":\s*false/.test(JSON.stringify(st.output ?? {}))).map((st) => st.runId))
   const jobs = jobRows
     .filter(({ j }) => j.status === 'unassigned' || (j.scheduledStart && j.scheduledStart >= from && j.scheduledStart < to) || (j.completedAt && j.completedAt >= from))
     .map(({ j, c }) => ({
@@ -47,7 +63,10 @@ export async function snapshot() {
     ),
   ]
   const customers = custIds.length
-    ? await db.select({ id: schema.customers.id, name: schema.customers.name, email: schema.customers.email }).from(schema.customers).where(inArray(schema.customers.id, custIds))
+    ? await db
+        .select({ id: schema.customers.id, name: schema.customers.name, email: schema.customers.email, phone: schema.customers.phone })
+        .from(schema.customers)
+        .where(inArray(schema.customers.id, custIds))
     : []
   return {
     now: new Date().toISOString(),
@@ -63,7 +82,7 @@ export async function snapshot() {
     approvals,
     invoices,
     quotes: quotes.map((q) => ({ ...q, url: `/c/quote/${sign('quote', q.id)}` })),
-    runs,
+    runs: runs.map((r) => ({ ...r, undelivered: undeliveredRuns.has(r.id) })),
     campaigns,
     calls,
     customers: Object.fromEntries(customers.map((c) => [c.id, c])),
@@ -169,7 +188,7 @@ export async function photosView(token: string) {
   const [r] = await db.select().from(schema.requests).where(eq(schema.requests.id, id))
   if (!r) return null
   const settings = await getSettings()
-  return { company: settings.company, request: { id: r.id, summary: r.summary } }
+  return { company: settings.company, request: { id: r.id, words: r.rawText.replace(/\s+/g, ' ').trim().slice(0, 160) } }
 }
 
 export async function paidView(invoiceId: number) {

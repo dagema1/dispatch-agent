@@ -1,8 +1,8 @@
 import { ClientOnly, createFileRoute, useRouter } from '@tanstack/react-router'
-import { CheckCircle2, Clock, Truck, Wrench } from 'lucide-react'
+import { CheckCircle2, Clock, Phone, Truck, Wrench } from 'lucide-react'
 import { lazy, Suspense, useEffect } from 'react'
 import { getTrack } from '#/fns'
-import { CustomerShell, NotFound } from '#/ui/CustomerShell'
+import { CustomerShell, NotFound, telHref } from '#/ui/CustomerShell'
 import { dayTime, time } from '#/ui/format'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -36,6 +36,8 @@ function Track() {
     STEPS.findIndex((x) => x.s === d.job.status),
   )
   const live = d.tech?.live
+  // no slot yet: say "Requested", never "Booked", until a time exists
+  const steps = d.job.scheduledStart ? STEPS : [{ ...STEPS[0], label: 'Requested' }, ...STEPS.slice(1)]
   return (
     <CustomerShell company={d.company}>
       <h1 className="text-2xl font-semibold tracking-tight text-balance">Hi {d.customer.firstName}, here's your visit</h1>
@@ -43,7 +45,7 @@ function Track() {
       <Card className="mt-4">
         <CardContent>
           <div className="flex justify-between">
-            {STEPS.map((x, i) => (
+            {steps.map((x, i) => (
               <div key={x.s} className={cn('flex flex-1 flex-col items-center text-center text-xs', i <= idx ? 'font-medium text-primary' : 'text-muted-foreground')}>
                 <div className={cn('grid size-9 place-items-center rounded-full', i <= idx ? 'bg-primary text-primary-foreground' : 'bg-muted')}>
                   <x.icon className="size-4" />
@@ -68,7 +70,17 @@ function Track() {
                 </div>
               </>
             ) : (
-              <div className="text-sm text-muted-foreground">We're finding the first available technician. We'll update you shortly.</div>
+              <div className="space-y-3">
+                <p className="text-sm text-pretty text-muted-foreground">
+                  We have your request and we're fitting you into the schedule. You'll get a text with your arrival window as soon as a technician is assigned.
+                </p>
+                <a
+                  href={telHref(d.company.phone)}
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-(--edge) bg-(--glass) px-4 text-sm font-medium hover:bg-foreground/8"
+                >
+                  <Phone className="size-4" /> Need us sooner? Call {d.company.phone}
+                </a>
+              </div>
             )}
           </div>
         </CardContent>

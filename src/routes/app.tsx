@@ -1,6 +1,5 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
-  Activity,
   ArrowUpRight,
   Bot,
   CalendarRange,
@@ -9,6 +8,7 @@ import {
   ExternalLink,
   Inbox,
   LogOut,
+  Menu,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -21,8 +21,11 @@ import { useEffect, useState } from 'react'
 import { getSession, getSnapshot, logout } from '#/fns'
 import { ConfirmProvider } from '#/ui/confirm'
 import { LiveProvider, useLive } from '#/ui/live'
+import { RouteMotif } from '#/ui/RouteMotif'
 import { ThemeToggle } from '#/ui/theme'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -47,9 +50,8 @@ const NAV = [
     badge: 'approvals',
   },
   { to: '/app/money', label: 'Quotes & invoices', icon: CircleDollarSign },
-  { to: '/app/agent', label: 'Agent', icon: Sparkles },
-  { to: '/app/team', label: 'Agent team', icon: Bot },
-  { to: '/app/agents', label: 'Agent traces', icon: Activity },
+  { to: '/app/agent', label: 'Agent chat', icon: Sparkles },
+  { to: '/app/team', label: 'Agents', icon: Bot, also: '/app/agents' },
   { to: '/app/roi', label: 'ROI & simulator', icon: ChartNoAxesCombined },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ] as const
@@ -62,7 +64,7 @@ function AppSkeleton() {
   return (
     <div className="canvas flex min-h-screen flex-col md:flex-row" aria-busy="true">
       <output className="sr-only">Loading the front office…</output>
-      <div className={cn(railClass, 'md:w-18 md:items-center md:px-0 rail-open:md:w-60 rail-open:md:items-stretch rail-open:md:px-3')}>
+      <div className={cn(railClass, 'max-md:hidden md:w-18 md:items-center md:px-0 rail-open:md:w-60 rail-open:md:items-stretch rail-open:md:px-3')}>
         <div className="mr-1 flex shrink-0 items-center gap-2.5 md:mr-0 md:mb-3 rail-open:md:px-0.5">
           <Skeleton className="size-9 shrink-0 rounded-xl" />
           <div className="hidden flex-1 space-y-1.5 rail-open:md:block">
@@ -186,8 +188,9 @@ function Shell() {
     !open && 'md:justify-center',
   )
   return (
-    <div className="canvas flex min-h-screen flex-col md:flex-row">
-      <aside data-open={open} className={cn(railClass, open ? 'md:w-60 md:px-3' : 'md:w-18 md:items-center md:px-0')}>
+    <div className="canvas isolate flex min-h-screen flex-col md:flex-row">
+      <RouteMotif className="absolute inset-x-0 top-0 -z-10 h-56 w-full opacity-60" />
+      <aside data-open={open} className={cn(railClass, 'max-md:hidden', open ? 'md:w-60 md:px-3' : 'md:w-18 md:items-center md:px-0')}>
         <div className={cn('mr-1 flex shrink-0 items-center gap-2.5 md:mr-0 md:mb-3', open && 'md:px-0.5')}>
           <div className="tile tile-solid size-9 shrink-0 rounded-full" title={snap?.company.name}>
             <Wrench size={17} />
@@ -209,6 +212,7 @@ function Shell() {
                 className={cn(
                   item,
                   'data-[status=active]:bg-foreground/8 data-[status=active]:font-medium data-[status=active]:text-foreground data-[status=active]:[&>svg]:text-primary',
+                  'also' in n && path.startsWith(n.also) && 'bg-foreground/8 font-medium text-foreground [&>svg]:text-primary',
                 )}
               >
                 <n.icon size={18} className="shrink-0" />
@@ -278,15 +282,18 @@ function Shell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center gap-3 px-4 pt-4 md:px-6">
           <div className="flex min-w-0 items-center gap-2 text-sm">
+            <span className="tile tile-solid size-8 shrink-0 md:hidden" aria-hidden>
+              <Wrench size={15} />
+            </span>
             <span className="truncate font-medium">{snap?.company.name ?? 'Northline'}</span>
             <span className="flex items-center gap-1.5 rounded-full bg-(--glass) px-2 py-0.5 text-xs text-muted-foreground shadow-[inset_0_1px_0_var(--edge)]">
               <span className={`size-1.5 rounded-full ${connected ? 'bg-primary' : 'bg-muted-foreground/40'}`} />
               {connected ? 'Agents live' : 'Connecting'}
             </span>
           </div>
-          <AskBar name={(snap?.settings.persona as { agentName?: string } | undefined)?.agentName ?? 'the agent'} />
+          {path !== '/app/agent' && <AskBar name={(snap?.settings.persona as { agentName?: string } | undefined)?.agentName ?? 'the agent'} />}
         </header>
-        <main className="min-w-0 flex-1 p-4 pb-28 md:p-6 md:pb-28">
+        <main className="min-w-0 flex-1 p-4 pb-44 md:p-6 md:pb-28">
           {snap ? (
             <div key={path} className="route-in mx-auto w-full max-w-[1600px]">
               <ConfirmProvider>
@@ -296,7 +303,87 @@ function Shell() {
           ) : null}
         </main>
       </div>
+      <MobileTabs pending={pending} />
     </div>
+  )
+}
+
+/** Phones: the four places an owner goes most, thumb-reachable at the bottom; everything else under More. */
+const PRIMARY = ['/app', '/app/inbox', '/app/approvals', '/app/money'] as const
+function MobileTabs({ pending }: { pending: number }) {
+  const [more, setMore] = useState(false)
+  const path = useRouterState({ select: (s) => s.location.pathname })
+  const rest = NAV.filter((n) => !(PRIMARY as readonly string[]).includes(n.to))
+  const inRest = rest.some((n) => path.startsWith(n.to) || ('also' in n && path.startsWith(n.also)))
+  const tab = 'relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl py-1.5 text-[11px] text-muted-foreground transition-colors'
+  return (
+    <nav
+      aria-label="Main"
+      className="fixed inset-x-0 bottom-0 z-30 flex gap-1 border-t border-(--edge) bg-(--glass-strong) px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-xl md:hidden"
+    >
+      {NAV.filter((n) => (PRIMARY as readonly string[]).includes(n.to)).map((n) => (
+        <Link
+          key={n.to}
+          to={n.to}
+          activeOptions={{ exact: 'exact' in n }}
+          className={cn(
+            tab,
+            'data-[status=active]:bg-foreground/8 data-[status=active]:font-medium data-[status=active]:text-foreground data-[status=active]:[&>svg]:text-primary',
+          )}
+        >
+          <n.icon size={20} />
+          <span className="truncate">{n.label.split(' ')[0]}</span>
+          {'badge' in n && pending > 0 && (
+            <span className="tile tile-attn absolute top-0.5 right-[calc(50%-1.25rem)] h-4 min-w-4 rounded-full px-1 text-[10px] font-semibold tabular-nums">{pending}</span>
+          )}
+        </Link>
+      ))}
+      <Sheet open={more} onOpenChange={setMore}>
+        <SheetTrigger asChild>
+          <button type="button" className={cn(tab, inRest && 'bg-foreground/8 font-medium text-foreground')}>
+            <Menu size={20} className={cn(inRest && 'text-primary')} />
+            <span>More</span>
+          </button>
+        </SheetTrigger>
+        <SheetContent side="bottom" className="gap-0 rounded-t-3xl pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <SheetHeader>
+            <SheetTitle>More</SheetTitle>
+          </SheetHeader>
+          <ul className="grid gap-1 px-3">
+            {rest.map((n) => (
+              <li key={n.to}>
+                <Link
+                  to={n.to}
+                  onClick={() => setMore(false)}
+                  className="flex h-12 items-center gap-3 rounded-2xl px-3 text-sm text-muted-foreground data-[status=active]:bg-foreground/8 data-[status=active]:font-medium data-[status=active]:text-foreground"
+                >
+                  <n.icon size={18} /> {n.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex items-center gap-2 border-t border-(--edge) px-3 pt-3">
+            <Button asChild className="flex-1">
+              <a href="/book" target="_blank" rel="noreferrer">
+                <ExternalLink /> Customer page
+              </a>
+            </Button>
+            <ThemeToggle className="size-9 rounded-full" />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Sign out"
+              onClick={async () => {
+                await logout()
+                location.href = '/'
+              }}
+            >
+              <LogOut />
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </nav>
   )
 }
 

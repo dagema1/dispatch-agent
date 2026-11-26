@@ -57,50 +57,70 @@ export function RichTable<T>({
           <Empty>{empty}</Empty>
         </div>
       ) : (
-        <Table>
-          <TableHeader className="bg-muted/40">
-            <TableRow className="hover:bg-transparent">
-              {columns.map((c) => {
-                const active = sort?.key === c.key
-                const Icon = active ? (sort?.dir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
-                return (
-                  <TableHead
-                    key={c.key}
-                    aria-sort={active ? (sort?.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-                    className={cn('h-10 px-5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase', c.align === 'right' && 'text-right', c.className)}
-                  >
-                    {c.sort ? (
-                      <button
-                        type="button"
-                        onClick={() => toggle(c.key)}
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded uppercase outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
-                          active && 'text-foreground',
-                        )}
-                      >
-                        {c.label}
-                        <Icon className={cn('size-3', !active && 'opacity-50')} />
-                      </button>
-                    ) : (
-                      c.label
-                    )}
-                  </TableHead>
-                )
-              })}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <>
+          {/* phones: each row becomes a stacked card, so nothing hides off-screen in a sideways scroll */}
+          <ul className="divide-y border-t sm:hidden">
             {sorted.map((r) => (
-              <TableRow key={rowKey(r)}>
-                {columns.map((c) => (
-                  <TableCell key={c.key} className={cn('px-5 py-3 align-middle', c.align === 'right' && 'text-right', c.className)}>
-                    {c.cell(r)}
-                  </TableCell>
-                ))}
-              </TableRow>
+              <li key={rowKey(r)} className="space-y-2 px-4 py-3">
+                <div className="min-w-0">{columns[0]?.cell(r)}</div>
+                <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1.5 text-sm">
+                  {columns.slice(1).map((c) => (
+                    <div key={c.key} className="contents">
+                      <dt className="text-[11px] font-medium tracking-wider text-muted-foreground uppercase">{c.label}</dt>
+                      <dd className="min-w-0 justify-self-end text-right">{c.cell(r)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
             ))}
-          </TableBody>
-        </Table>
+          </ul>
+          <div className="max-sm:hidden">
+            <Table>
+              <TableHeader className="bg-muted/40">
+                <TableRow className="hover:bg-transparent">
+                  {columns.map((c) => {
+                    const active = sort?.key === c.key
+                    const Icon = active ? (sort?.dir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
+                    return (
+                      <TableHead
+                        key={c.key}
+                        aria-sort={active ? (sort?.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                        className={cn('h-10 px-5 text-[11px] font-medium tracking-wider text-muted-foreground uppercase', c.align === 'right' && 'text-right', c.className)}
+                      >
+                        {c.sort ? (
+                          <button
+                            type="button"
+                            onClick={() => toggle(c.key)}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded uppercase outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+                              active && 'text-foreground',
+                            )}
+                          >
+                            {c.label}
+                            <Icon className={cn('size-3', !active && 'opacity-50')} />
+                          </button>
+                        ) : (
+                          c.label
+                        )}
+                      </TableHead>
+                    )
+                  })}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sorted.map((r) => (
+                  <TableRow key={rowKey(r)}>
+                    {columns.map((c) => (
+                      <TableCell key={c.key} className={cn('px-5 py-3 align-middle', c.align === 'right' && 'text-right', c.className)}>
+                        {c.cell(r)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
     </Card>
   )

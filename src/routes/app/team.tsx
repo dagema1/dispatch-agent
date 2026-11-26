@@ -3,9 +3,10 @@ import { Activity, Eye, Save, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { setAgentConfig } from '#/fns'
 import type { AgentConfig } from '#/server/domain/settings'
+import { AgentsTabs } from '#/ui/AgentsTabs'
 import { AgentTile, ErrorText, Muted, PageTitle } from '#/ui/bits'
 import { useConfirm } from '#/ui/confirm'
-import { AGENT_LABEL, ago } from '#/ui/format'
+import { AGENT_LABEL, ago, aiCost, usd } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -68,6 +69,7 @@ function Team() {
   const supervised = ROSTER.filter((r) => configs[r.key]?.supervised).length
   return (
     <div className="mx-auto max-w-6xl">
+      <AgentsTabs />
       <PageTitle
         title="Agent team"
         sub={`Five specialists behind ${name}. Customers only ever meet ${name}.`}
@@ -96,7 +98,7 @@ function AgentCard({ r, cfg }: { r: (typeof ROSTER)[number]; cfg: AgentConfig })
   const save = useAction((next: AgentConfig) => setAgentConfig({ data: { agent: r.key, ...next } }))
   const runs = snap.runs.filter((x) => x.agent === r.key)
   const failed = runs.filter((x) => x.status === 'failed').length
-  const tokens = runs.reduce((a, x) => a + x.tokensIn + x.tokensOut, 0)
+  const cost = runs.reduce((a, x) => a + aiCost(x.tokensIn, x.tokensOut), 0)
   const last = runs[0]
   const dirty = notes.trim() !== cfg.instructions.trim()
 
@@ -151,7 +153,7 @@ function AgentCard({ r, cfg }: { r: (typeof ROSTER)[number]; cfg: AgentConfig })
       <dl className="grid grid-cols-3 border-y text-center">
         <Stat k="Recent runs" v={runs.length} />
         <Stat k="Failed" v={failed} warn={failed > 0} />
-        <Stat k="Tokens" v={tokens ? tokens.toLocaleString() : '—'} />
+        <Stat k="AI cost" v={cost ? usd(cost) : '—'} />
       </dl>
 
       <div className="space-y-4 p-5">
