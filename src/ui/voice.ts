@@ -85,7 +85,7 @@ export class VoiceCall {
           inputAudioTranscription: {},
           outputAudioTranscription: {},
           speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } },
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: cfg.voice ?? 'Aoede' } },
           },
         },
         callbacks: {

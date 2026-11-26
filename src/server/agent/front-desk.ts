@@ -2,6 +2,7 @@ import { eq, ilike, or } from 'drizzle-orm'
 import { db, schema } from '../db'
 import { defaultWindow, replan } from '../domain/dispatch'
 import { alertOwner, firstName, messageCustomer, messageTechnician } from '../domain/messaging'
+import { personalize } from '../domain/persona'
 import { getSettings } from '../domain/settings'
 import { safetyCheck, triage } from '../domain/triage'
 import type { Media } from '../integrations/gemini'
@@ -109,7 +110,14 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
         })
       await db.update(schema.requests).set({ status: 'awaiting_customer' }).where(eq(schema.requests.id, req.id))
       await run.end('done', 'asked for address')
-      return { requestId: req.id, customerId: customer?.id ?? 0, priority: t.priority, safety: t.safety, replyText: ask, status: 'awaiting_customer' }
+      return {
+        requestId: req.id,
+        customerId: customer?.id ?? 0,
+        priority: t.priority,
+        safety: t.safety,
+        replyText: personalize(ask, customer?.name, settings.persona),
+        status: 'awaiting_customer',
+      }
     }
     const distance = haversineKm(settings.company.hq, { lat: customer.lat, lng: customer.lng! })
     if (distance > settings.company.serviceRadiusKm) {
@@ -183,7 +191,7 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
     }
     if (quoteId) parts.push(`From your photos we've prepared repair and replacement options with upfront prices: ${links.quote(quoteId)}`)
     else if (t.priority > 1) parts.push(`If you can, send photos of the unit and its label here so the technician brings the right parts: ${links.photos(req.id)}`)
-    const reply = parts.join('\n\n')
+    const reply = personalize(parts.join('\n\n'), customer.name, settings.persona)
 
     if (input.channel !== 'voice') {
       await act(run, {

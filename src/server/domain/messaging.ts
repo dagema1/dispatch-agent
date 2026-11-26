@@ -4,6 +4,8 @@ import { gmailConnected, sendGmail } from '../integrations/google'
 import { esc, sendTelegram } from '../integrations/telegram'
 import { publish } from '../lib/bus'
 import { env } from '../lib/env'
+import { personalize } from './persona'
+import { getSettings } from './settings'
 
 /**
  * Outbound communication. Every message is stored (the inbox shows full history); delivery goes
@@ -20,6 +22,8 @@ export async function messageCustomer(opts: {
 }) {
   const [c] = await db.select().from(schema.customers).where(eq(schema.customers.id, opts.customerId))
   if (!c) throw new Error('customer not found')
+  // the persona's salutation and sign-off apply to every customer message, whichever agent wrote it
+  opts = { ...opts, body: personalize(opts.body, c.name, (await getSettings()).persona) }
   let delivered = false
   if ((opts.channel ?? 'email') === 'email' && c.email && (await gmailConnected())) {
     try {

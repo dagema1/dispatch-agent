@@ -4,6 +4,7 @@ import { handleInbound } from '../agent/front-desk'
 import { db, schema } from '../db'
 import { replan } from '../domain/dispatch'
 import { alertOwner, firstName, messageCustomer } from '../domain/messaging'
+import { personaPrompt } from '../domain/persona'
 import { getSettings } from '../domain/settings'
 import type { Media } from '../integrations/gemini'
 import { createLiveToken } from '../integrations/gemini'
@@ -87,7 +88,9 @@ export async function voiceSession() {
     token,
     model,
     callId: call.id,
-    system: `You are the friendly phone receptionist for ${s.company.name}, a residential heating, cooling and plumbing company in Denver. Speak naturally and briefly, one question at a time.
+    voice: s.persona.voice,
+    system: `You are the phone receptionist for ${s.company.name}, a residential heating, cooling and plumbing company in Denver. Speak naturally and briefly, one question at a time.
+${personaPrompt(s.persona, s.company.name)}
 SAFETY FIRST: if the caller mentions a gas smell, carbon monoxide alarm, sparks/burning smell, or water near electrical panels, immediately tell them to leave the house and call 911 (gas: also Xcel Energy 1-800-895-2999) before anything else, then still book an emergency visit.
 Collect: what's wrong, full name, service address, and a phone number (email optional). Ask whether anyone vulnerable (elderly, infant, medical needs) is in the home if it's a no-heat or no-cooling issue.
 Then call book_service. Read back the arrival window it returns. Never promise prices except: diagnostic visit is $89, waived if they go ahead with the repair. If book_service fails, apologise and say the office will call back within 15 minutes.`,

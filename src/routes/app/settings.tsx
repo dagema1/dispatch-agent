@@ -4,6 +4,7 @@ import { resetDemo, runCronNow, setPolicy, setWeather } from '#/fns'
 import { ErrorText, Muted, PageTitle, Section } from '#/ui/bits'
 import { useConfirm } from '#/ui/confirm'
 import { useAction, useSnap } from '#/ui/live'
+import { PersonaSettings } from '#/ui/PersonaSettings'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -98,6 +99,7 @@ function SettingsPage() {
     <div>
       <PageTitle title="Settings" />
       <div className="grid gap-4 xl:grid-cols-2">
+        <PersonaSettings />
         <Section title="Integrations">
           <ul className="space-y-3">
             {items.map(([name, ok, what, how]) => (

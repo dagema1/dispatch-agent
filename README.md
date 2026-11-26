@@ -18,6 +18,7 @@ An agent that does the dispatcher / CSR job at a residential HVAC and plumbing c
 | **Office group** | A pinned **button panel** (Brief, Board, Approvals with a live count, Re-plan, Ask the copilot). Answers are **ephemeral** (Bot API 10.2/10.4): only whoever tapped sees them. Approval cards can be approved or rejected by anyone in the group; the card shows who decided. | Telegram group |
 | **Ops copilot** | Chat with the business: "Tom called in sick, re-plan", "simulate a cold snap and draft a campaign", "which invoices are unpaid?". | Ops copilot, Ask button in Telegram |
 | **Guardrails** | Every action passes a policy engine: *auto*, *needs approval* or *never*, per action type. Low model confidence forces approval. Every model call, tool call and policy decision is traced. | Approvals, Agent traces, Settings |
+| **Agent persona** | Name, call voice (Gemini Live prebuilt), tone, how customers are addressed, call opening line and message sign-off. Applied to the voice prompt and to every outbound customer message. | Settings |
 | **Proof** | A day simulator (AI office vs a human-office baseline, same demand, same fleet) and a labelled triage eval set with a held-out split. | ROI & simulator |
 
 ### Proactive (scheduled) work

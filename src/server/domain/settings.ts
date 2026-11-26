@@ -30,13 +30,38 @@ export const DEFAULT_SETTINGS = {
     paymentReminderDays: [1, 3, 7],
   },
   hours: { open: '08:00', close: '17:00' },
+  /** How the customer-facing agents introduce themselves and sound. Edited in Settings → Agent persona. */
+  persona: {
+    agentName: 'Riley',
+    voice: 'Aoede',
+    tone: 'warm',
+    address: 'first',
+    greeting: '',
+    signOff: '',
+  } as Persona,
 } as const
+
+export const VOICES = ['Aoede', 'Kore', 'Puck', 'Charon', 'Leda', 'Orus', 'Zephyr', 'Fenrir'] as const
+export type Persona = {
+  /** What the receptionist calls itself. */
+  agentName: string
+  /** Gemini Live prebuilt voice for calls. */
+  voice: (typeof VOICES)[number]
+  tone: 'warm' | 'brief' | 'formal'
+  /** first: "Hi Linda" · full: "Hello Linda Okafor" · neutral: "Hello" */
+  address: 'first' | 'full' | 'neutral'
+  /** Optional opening line for calls; empty lets the agent greet in its own words. */
+  greeting: string
+  /** Optional line appended to every customer message. */
+  signOff: string
+}
 
 export type Settings = {
   company: (typeof DEFAULT_SETTINGS)['company']
   policies: Record<string, Policy>
   thresholds: (typeof DEFAULT_SETTINGS)['thresholds']
   hours: { open: string; close: string }
+  persona: Persona
 }
 
 let cache: { at: number; value: Settings } | undefined

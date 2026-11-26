@@ -54,6 +54,23 @@ export const setPolicy = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
+export const setPersona = createServerFn({ method: 'POST' })
+  .validator(
+    z.object({
+      agentName: z.string().trim().min(1).max(40),
+      voice: z.enum(['Aoede', 'Kore', 'Puck', 'Charon', 'Leda', 'Orus', 'Zephyr', 'Fenrir']),
+      tone: z.enum(['warm', 'brief', 'formal']),
+      address: z.enum(['first', 'full', 'neutral']),
+      greeting: z.string().trim().max(200),
+      signOff: z.string().trim().max(120),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { saveSetting } = await import('./server/domain/settings')
+    await saveSetting('persona', data)
+    return { ok: true }
+  })
+
 export const setTechActive = createServerFn({ method: 'POST' })
   .validator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ data }) => {
