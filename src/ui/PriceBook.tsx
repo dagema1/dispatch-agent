@@ -1,7 +1,7 @@
 import { Camera, FileText, Phone, Plus, ShieldCheck, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { deletePriceItem, getPriceBook, savePriceItem } from '#/fns'
-import { ErrorText, Muted } from '#/ui/bits'
+import { ErrorText, Muted, PanelHead } from '#/ui/bits'
 import { useConfirm } from '#/ui/confirm'
 import { money } from '#/ui/format'
 import { Button } from '@/components/ui/button'
@@ -58,11 +58,10 @@ export function PriceBook() {
   const groups = (['any', 'hvac', 'plumbing'] as Trade[]).map((t) => ({ t, rows: (items ?? []).filter((i) => i.trade === t) }))
   return (
     <div className="space-y-4">
-      <Card size="sm">
-        <CardContent>
-          <h2 className="text-sm font-semibold">How prices are set</h2>
-          <Muted className="block">Flat-rate pricing: one price per task, parts and labour included. The agents never invent a number.</Muted>
-          <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <Card className="gap-0 py-0">
+        <PanelHead title="How prices are set" sub="Flat-rate pricing: one price per task, parts and labour included. The agents never invent a number." />
+        <CardContent className="py-4">
+          <ol className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {HOW.map((h, i) => (
               <li key={h.title} className="well rounded-2xl p-3.5">
                 <div className="flex items-center gap-2 text-sm font-medium">

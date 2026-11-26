@@ -45,8 +45,8 @@
   --well: oklch(0.945 0 0);
   --dot: oklch(0.5 0.24 268 / 0.1);
   --edge: oklch(1 0 0 / 0.9);
-  --glass: oklch(1 0 0);
-  --glass-strong: oklch(1 0 0 / 0.96);
+  --glass: oklch(1 0 0 / 0.58);
+  --glass-strong: oklch(1 0 0 / 0.84);
   --slab-border: oklch(0.91 0.005 255);
   --slab-shadow: 0 1px 2px oklch(0.3 0.02 260 / 0.06), 0 2px 6px -2px oklch(0.3 0.03 260 / 0.06);
   --well-shadow: inset 0 1px 2px oklch(0.3 0.02 260 / 0.1);
@@ -146,7 +146,7 @@
 /* The canvas: near-black with electric-blue light falling from the top edge (--dot holds the glow). */
 .canvas {
   background-color: var(--background);
-  background-image: radial-gradient(90% 55% at 50% -8%, var(--dot), transparent 70%);
+  background-image: radial-gradient(115% 62% at 50% -6%, var(--dot), transparent);
   background-repeat: no-repeat;
   background-attachment: fixed;
 }
@@ -247,9 +247,14 @@
   box-shadow: inset 0 1px 0 var(--edge), var(--slab-shadow);
 }
 
-/* Light mode separates surfaces with a hairline and a small shadow instead of frost. */
+/* Light mode: frosted white panels, separated by a hairline and a small shadow. The edge highlight
+   is white on white, so it is dropped. Segmented tracks stay flat with a hairline. */
 :root:not(.dark) [data-slot="card"],
-:root:not(.dark) .slab,
+:root:not(.dark) .slab {
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.9), var(--slab-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+}
 :root:not(.dark) .segmented,
 :root:not(.dark) [data-slot="tabs-list"][data-variant="default"],
 :root:not(.dark) [data-slot="toggle-group"][data-variant="outline"] {
@@ -270,7 +275,7 @@
   backdrop-filter: blur(22px) saturate(1.4);
 }
 :root:not(.dark) .rail-glass {
-  background-color: oklch(1 0 0 / 0.88);
+  background-color: oklch(1 0 0 / 0.66);
   border-color: var(--slab-border);
   box-shadow: var(--slab-shadow);
 }
@@ -475,6 +480,14 @@
     animation: enter-up 240ms var(--ease-out);
   }
 
+  /* Agent trace: the header fades in and each step follows a beat after the one above. */
+  .trace-in > p {
+    animation: enter-up 240ms var(--ease-out) both;
+  }
+  .trace-in > ol > li {
+    animation: enter-up 280ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 35ms + 40ms);
+  }
   /* Page tabs: content enters from the side the user moved toward. */
   .tab-in[data-dir="next"] {
     animation: tab-from-right 280ms var(--ease-out);

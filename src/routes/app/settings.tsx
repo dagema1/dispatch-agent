@@ -4,6 +4,7 @@ import {
   Bot,
   Building2,
   CalendarClock,
+  Camera,
   Check,
   CircleDashed,
   Clock,
@@ -30,9 +31,9 @@ import {
   Zap,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { getSetup, resetDemo, runCronNow, saveApiKeys, saveCompany, setPolicy, setSandbox, setWeather } from '#/fns'
+import { addDemoQuote, getSetup, resetDemo, runCronNow, saveApiKeys, saveCompany, setPolicy, setSandbox, setWeather } from '#/fns'
 import { ApiKeyFields, type KeyPatch, type KeyStatus, typedKeys } from '#/ui/ApiKeys'
-import { ErrorText, Muted, PageTitle } from '#/ui/bits'
+import { ErrorText, Muted, PageTitle, PanelHead } from '#/ui/bits'
 import { CompanyFields, type CompanyValues } from '#/ui/CompanyForm'
 import { useConfirm } from '#/ui/confirm'
 import { useAction, useSnap } from '#/ui/live'
@@ -180,10 +181,7 @@ function Permissions() {
       <ErrorText error={pol.error} />
       {POLICY_GROUPS.map((g) => (
         <Card key={g.title} className="gap-0 py-0">
-          <div className="flex items-center gap-2.5 border-b px-5 py-3.5">
-            <g.icon className="size-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold">{g.title}</h2>
-          </div>
+          <PanelHead icon={g.icon} title={g.title} />
           <ul className="divide-y">
             {g.items.map(([k, label, hint]) => (
               <li key={k} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5">
@@ -343,16 +341,12 @@ function Keys() {
   })
   const dirty = Object.keys(typedKeys(v)).length > 0
   return (
-    <Card size="sm">
-      <CardContent>
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <span className="tile tile-quiet size-10 shrink-0 rounded-xl">
-            <KeyRound className="size-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold">API keys</h2>
-            <Muted className="block">Saved keys override the server’s defaults and apply straight away. A new Telegram bot token needs a server restart.</Muted>
-          </div>
+    <Card className="gap-0 py-0">
+      <PanelHead
+        icon={KeyRound}
+        title="API keys"
+        sub="Saved keys override the server’s defaults and apply straight away. A new Telegram bot token needs a server restart."
+        right={
           <Button
             disabled={!dirty || save.busy}
             onClick={() => {
@@ -370,7 +364,9 @@ function Keys() {
               'Save keys'
             )}
           </Button>
-        </div>
+        }
+      />
+      <CardContent className="py-4">
         {keys ? <ApiKeyFields keys={keys} value={v} onChange={setV} /> : <Muted>Loading…</Muted>}
         <ErrorText error={save.error} />
       </CardContent>
@@ -393,8 +389,9 @@ function Company() {
     setDone(r.located ? 'Saved.' : 'Saved, but the address could not be found on the map; the service area still uses the old location.')
   })
   return (
-    <Card size="sm">
-      <CardContent>
+    <Card className="gap-0 py-0">
+      <PanelHead title="Company" sub="Used in every customer message, call and page." />
+      <CardContent className="py-4">
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -403,10 +400,6 @@ function Company() {
           }}
           className="space-y-5"
         >
-          <div>
-            <h2 className="text-sm font-semibold">Company</h2>
-            <Muted className="block">Used in every customer message, call and page.</Muted>
-          </div>
           <CompanyFields value={v} onChange={setV} />
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" disabled={save.busy}>
@@ -455,10 +448,7 @@ function Automation() {
   return (
     <div className="space-y-4">
       <Card className="gap-0 py-0">
-        <div className="flex items-center justify-between gap-2 border-b px-5 py-3.5">
-          <h2 className="text-sm font-semibold">Scheduled jobs</h2>
-          <Muted className="max-sm:hidden">Run by Cloud Scheduler in production</Muted>
-        </div>
+        <PanelHead title="Scheduled jobs" right={<Muted className="max-sm:hidden">Run by Cloud Scheduler in production</Muted>} />
         <ul className="divide-y">
           {jobs.map(([k, title, when, desc]) => (
             <li key={k} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5">
@@ -481,12 +471,9 @@ function Automation() {
       </Card>
       <ErrorText error={cron.error} />
 
-      <Card size="sm">
-        <CardContent className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold">Demo weather</h2>
-            <Muted className="block">Pretend a cold snap or heat wave is here. Triage, the weather scan and the copilot all use it.</Muted>
-          </div>
+      <Card className="gap-0 py-0">
+        <PanelHead title="Demo weather" sub="Pretend a cold snap or heat wave is here. Triage, the weather scan and the copilot all use it." />
+        <CardContent className="space-y-3 py-4">
           <fieldset aria-label="Demo weather" className="grid gap-2 sm:grid-cols-3">
             {(
               [
@@ -539,21 +526,42 @@ function Demo() {
     })
     if (ok) reset.run()
   }
+  const quote = useAction(async () => {
+    await addDemoQuote()
+    navigate({ to: '/app/money' })
+  })
   return (
-    <Card size="sm">
-      <CardContent className="flex flex-wrap items-center gap-4">
-        <span className="tile tile-red size-10 shrink-0 rounded-xl">
-          <RotateCcw className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold">Reset the demo company</h2>
-          <Muted className="block">Back to 5 technicians, 40 fictional customers and a partly booked schedule for the next 3 days.</Muted>
-        </div>
-        <Button variant="destructive" disabled={reset.busy} onClick={ask}>
-          {reset.busy ? 'Resetting…' : 'Reset'}
-        </Button>
-        <ErrorText error={reset.error} />
-      </CardContent>
-    </Card>
+    <div className="space-y-3">
+      <Card size="sm">
+        <CardContent className="flex flex-wrap items-center gap-4">
+          <span className="tile tile-action size-10 shrink-0 rounded-xl">
+            <Camera className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold">Add a sample photo quote</h2>
+            <Muted className="block">A 17-year-old furnace diagnosed from photos, quoted good, better and best from the price book. Nothing else changes.</Muted>
+          </div>
+          <Button variant="outline" disabled={quote.busy} onClick={() => quote.run()}>
+            {quote.busy ? 'Adding…' : 'Add quote'}
+          </Button>
+          <ErrorText error={quote.error} />
+        </CardContent>
+      </Card>
+      <Card size="sm">
+        <CardContent className="flex flex-wrap items-center gap-4">
+          <span className="tile tile-red size-10 shrink-0 rounded-xl">
+            <RotateCcw className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold">Reset the demo company</h2>
+            <Muted className="block">Back to 5 technicians, 40 fictional customers and a partly booked schedule for the next 3 days.</Muted>
+          </div>
+          <Button variant="destructive" disabled={reset.busy} onClick={ask}>
+            {reset.busy ? 'Resetting…' : 'Reset'}
+          </Button>
+          <ErrorText error={reset.error} />
+        </CardContent>
+      </Card>
+    </div>
   )
 }

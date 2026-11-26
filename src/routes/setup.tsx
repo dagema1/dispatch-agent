@@ -46,6 +46,7 @@ function Setup() {
   const [step, setStep] = useState(0)
   const [mode, setMode] = useState<Mode>(data.setup.mode)
   const [fresh, setFresh] = useState(true)
+  const [sample, setSample] = useState(data.setup.mode === 'demo')
   const [values, setValues] = useState<CompanyValues>(() => ({
     company: { ...data.company, email: data.company.email ?? '', address: data.company.address ?? '' },
     hours: data.hours,
@@ -56,6 +57,7 @@ function Setup() {
 
   const pick = (m: Mode) => {
     setMode(m)
+    setSample(m === 'demo')
     // the demo company comes with its details; your own starts from whatever is saved
     if (m === 'demo') setValues(DEMO)
   }
@@ -64,7 +66,7 @@ function Setup() {
     setBusy(true)
     setError(null)
     try {
-      await completeSetup({ data: { mode, loadData: fresh, ...values, keys: mode === 'own' ? typedKeys(keys) : undefined } })
+      await completeSetup({ data: { mode, loadData: fresh, sampleQuote: sample, ...values, keys: mode === 'own' ? typedKeys(keys) : undefined } })
       await router.navigate({ to: '/app' })
     } catch (e) {
       setError((e as Error).message)
@@ -143,6 +145,15 @@ function Setup() {
                   </span>
                 </span>
               </label>
+              <label className="well flex cursor-pointer items-start gap-3 rounded-2xl p-3.5 text-sm">
+                <input type="checkbox" checked={sample} onChange={(e) => setSample(e.target.checked)} className="mt-0.5 size-4 accent-(--primary)" />
+                <span>
+                  <span className="font-medium">Add a sample photo quote</span>
+                  <span className="block text-xs text-muted-foreground">
+                    A 17-year-old furnace diagnosed from photos, with good, better and best options from the price book. Shows up in Quotes & invoices.
+                  </span>
+                </span>
+              </label>
             </div>
           )}
 
@@ -198,6 +209,7 @@ function Setup() {
               <dl className="grid gap-2 text-sm sm:grid-cols-2">
                 <Row label="Starting with" value={mode === 'demo' ? 'Demo company' : 'My company'} />
                 <Row label="Data" value={fresh ? (mode === 'demo' ? 'Fresh demo week' : 'Empty, sample techs') : 'Keep current'} />
+                <Row label="Sample quote" value={sample ? 'Furnace, from photos' : 'None'} />
                 <Row label="Company" value={values.company.name} />
                 <Row label="Office phone" value={values.company.phone} />
                 <Row label="Shop" value={values.company.address} />

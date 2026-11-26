@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { replan } from '../domain/dispatch'
 import { addDays, dayOf, zoned } from '../lib/time'
+import { seedDemoQuote } from './demo-quote'
 import { db, getPool, schema } from './index'
 import { runMigrations } from './migrate'
 import { makeCustomers, PRICE_BOOK, ROUTINE_JOBS, rng, TECHS } from './seed-data'
@@ -8,9 +9,10 @@ import { makeCustomers, PRICE_BOOK, ROUTINE_JOBS, rng, TECHS } from './seed-data
 /**
  * Reset the demo company to a clean, realistic state: 5 technicians, 40 customers, a partly booked week.
  * `empty` keeps only the technicians and price book (a company starting on its own data).
+ * `quote` adds one sample photo quote.
  * Setup is cleared too, so the next visit to the dashboard opens the setup wizard.
  */
-export async function seed({ quiet = false, empty = false } = {}) {
+export async function seed({ quiet = false, empty = false, quote = false } = {}) {
   await runMigrations()
   const links = new Map((await db.select().from(schema.technicians)).map((t) => [t.name, t.telegramChatId]))
   await db.execute(
@@ -28,7 +30,11 @@ export async function seed({ quiet = false, empty = false } = {}) {
 
   await db.insert(schema.priceItems).values(PRICE_BOOK)
 
-  if (empty) return replan({ reason: 'fresh start' })
+  if (empty) {
+    const plan = await replan({ reason: 'fresh start' })
+    if (quote) await seedDemoQuote()
+    return plan
+  }
 
   const customers = makeCustomers(40)
   const custRows = await db
@@ -66,6 +72,7 @@ export async function seed({ quiet = false, empty = false } = {}) {
   }
   await db.insert(schema.jobs).values(jobs)
   const plan = await replan({ reason: 'seed', now })
+  if (quote) await seedDemoQuote()
   if (!quiet)
     console.log(
       `seeded ${techRows.length} techs, ${custRows.length} customers, ${jobs.length} jobs; scheduled ${plan.scheduled}, unassigned ${plan.unassigned.length} (matrix: ${plan.source})`,
@@ -74,7 +81,7 @@ export async function seed({ quiet = false, empty = false } = {}) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  seed()
+  seed({ quote: true })
     .then(() => getPool().end())
     .then(() => process.exit(0))
     .catch((e) => {

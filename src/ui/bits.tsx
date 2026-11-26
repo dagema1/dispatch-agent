@@ -1,7 +1,7 @@
 import { Bot, CircleAlert, CircleDashed, Headset, Receipt, Route, Stethoscope } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { AGENT_LABEL, P_LABEL, P_STYLE, STATUS_TONE, TONE_DOT } from './format'
 
@@ -104,14 +104,76 @@ export function Stat({
   )
 }
 
-export function Section({ title, right, children, className }: { title: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; className?: string }) {
+/**
+ * The one card header: title (with an optional icon, count badge and one-line description) over a
+ * hairline, actions on the right. Every titled card uses it, through <Section> or directly.
+ */
+export function PanelHead({
+  title,
+  sub,
+  icon: Icon,
+  badge,
+  right,
+  className,
+}: {
+  title: React.ReactNode
+  sub?: React.ReactNode
+  icon?: React.ComponentType<{ className?: string }>
+  badge?: React.ReactNode
+  right?: React.ReactNode
+  className?: string
+}) {
   return (
-    <Card className={className}>
-      <CardHeader className="border-b">
-        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-        {right && <CardAction className="self-center">{right}</CardAction>}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
+    <div data-slot="panel-head" className={cn('flex min-h-13 flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-3 sm:px-5', className)}>
+      {Icon && <Icon className="size-4 shrink-0 text-muted-foreground" />}
+      <div className="min-w-0 flex-1">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          {badge}
+          {title}
+        </h2>
+        {sub && <p className="mt-0.5 text-xs text-pretty text-muted-foreground">{sub}</p>}
+      </div>
+      {right && <div className="flex shrink-0 flex-wrap items-center gap-2">{right}</div>}
+    </div>
+  )
+}
+
+/** Count chip for a PanelHead badge or title. */
+export const CountChip = ({ children, tone }: { children: React.ReactNode; tone?: 'red' | 'attn' }) => (
+  <span
+    className={cn(
+      'grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums',
+      tone === 'red' ? 'bg-red-500 text-white' : tone === 'attn' ? 'bg-(--attn-2) text-black' : 'bg-foreground/8 font-medium text-muted-foreground',
+    )}
+  >
+    {children}
+  </span>
+)
+
+/** A titled card: PanelHead over padded content (`flush` for lists and tables that run edge to edge). */
+export function Section({
+  title,
+  sub,
+  icon,
+  badge,
+  right,
+  children,
+  className,
+  flush,
+}: {
+  title: React.ReactNode
+  sub?: React.ReactNode
+  icon?: React.ComponentType<{ className?: string }>
+  badge?: React.ReactNode
+  right?: React.ReactNode
+  children: React.ReactNode
+  className?: string
+  flush?: boolean
+}) {
+  return (
+    <Card className={cn('gap-0 py-0', className)}>
+      <PanelHead title={title} sub={sub} icon={icon} badge={badge} right={right} />
+      <div className={cn('min-w-0', !flush && 'p-4 sm:px-5')}>{children}</div>
     </Card>
   )
 }

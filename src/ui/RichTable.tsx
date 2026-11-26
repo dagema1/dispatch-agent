@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { Empty } from './bits'
+import { CountChip, Empty, PanelHead } from './bits'
 
 export type Column<T> = {
   key: string
@@ -73,18 +73,15 @@ export function RichTable<T>({
 
   return (
     <Card className="gap-0 overflow-hidden py-0">
-      <div className="flex items-center gap-2.5 px-5 py-4">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        <span className="rounded-full bg-foreground/8 px-2 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">{rows.length} total</span>
-      </div>
+      <PanelHead title={title} right={<CountChip>{rows.length} total</CountChip>} />
       {rows.length === 0 ? (
-        <div className="border-t px-5">
+        <div className="px-5">
           <Empty>{empty}</Empty>
         </div>
       ) : (
         <>
           {/* phones: each row becomes a stacked card, so nothing hides off-screen in a sideways scroll */}
-          <ul className="divide-y border-t sm:hidden">
+          <ul className="divide-y sm:hidden">
             {sorted.map((r) => (
               <li key={rowKey(r)} className={cn('space-y-2 px-4 py-3', rowCls)} {...clickable(r)}>
                 <div className="min-w-0">{columns[0]?.cell(r)}</div>

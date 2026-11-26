@@ -2,7 +2,9 @@ import { Link } from '@tanstack/react-router'
 import { CircleCheck, Clock, MailX, Phone, RefreshCw, ShieldQuestion, Siren } from 'lucide-react'
 import type { Snapshot } from '#/server/api/views'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { CountChip, PanelHead } from './bits'
 import { ago } from './format'
 
 const OPEN_REQUEST = new Set(['new', 'triaged', 'awaiting_customer', 'escalated'])
@@ -102,14 +104,9 @@ export function NeedsYou({ snap, onReplan, replanBusy }: { snap: Snapshot; onRep
 
   const red = items.some((i) => i.tone === 'red')
   return (
-    <section aria-label="Needs you" className={cn('slab h-full overflow-hidden rounded-2xl border', red ? 'border-red-500/40' : 'border-(--attn-2)/40')}>
-      <h2 className="flex items-center gap-2 px-4 pt-3 pb-1 text-sm font-semibold">
-        <span className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] tabular-nums', red ? 'bg-red-500 text-white' : 'bg-(--attn-2) text-black')}>
-          {items.length}
-        </span>
-        Needs you
-      </h2>
-      <ul className="divide-y divide-(--edge)">
+    <Card aria-label="Needs you" className="h-full gap-0 py-0">
+      <PanelHead title="Needs you" badge={<CountChip tone={red ? 'red' : 'attn'}>{items.length}</CountChip>} />
+      <ul className="divide-y">
         {items.map((i) => (
           <li key={i.key} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
             <span className={cn('tile size-8 shrink-0', i.tone === 'red' ? 'tile-red' : 'tile-attn')}>
@@ -123,6 +120,6 @@ export function NeedsYou({ snap, onReplan, replanBusy }: { snap: Snapshot; onRep
           </li>
         ))}
       </ul>
-    </section>
+    </Card>
   )
 }

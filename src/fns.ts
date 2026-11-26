@@ -145,8 +145,17 @@ export const resetDemo = createServerFn({ method: 'POST' })
   .middleware([owner])
   .handler(async () => {
     await boot()
-    await (await import('./server/db/seed')).seed({ quiet: true })
+    await (await import('./server/db/seed')).seed({ quiet: true, quote: true })
     return { ok: true }
+  })
+
+/** Demo: add one sample photo quote without touching anything else. */
+export const addDemoQuote = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .handler(async () => {
+    await boot()
+    const { quote } = await (await import('./server/db/demo-quote')).seedDemoQuote()
+    return { id: quote.id }
   })
 
 /** Demo inbox: drop a customer email into the pipeline exactly as the Gmail poller would. */
@@ -342,11 +351,12 @@ export const saveApiKeys = createServerFn({ method: 'POST' })
 /** Finish first-run setup: load demo or empty data, then company, hours and keys. */
 export const completeSetup = createServerFn({ method: 'POST' })
   .middleware([owner])
-  .validator(z.object({ mode: z.enum(['demo', 'own']), loadData: z.boolean(), company, hours, keys: keyPatch.optional() }))
+  .validator(z.object({ mode: z.enum(['demo', 'own']), loadData: z.boolean(), sampleQuote: z.boolean().default(false), company, hours, keys: keyPatch.optional() }))
   .handler(async ({ data }) => {
     await boot()
     // seeding clears settings, so it runs first
-    if (data.loadData) await (await import('./server/db/seed')).seed({ quiet: true, empty: data.mode === 'own' })
+    if (data.loadData) await (await import('./server/db/seed')).seed({ quiet: true, empty: data.mode === 'own', quote: data.sampleQuote })
+    else if (data.sampleQuote) await (await import('./server/db/demo-quote')).seedDemoQuote()
     const { saveSetting } = await import('./server/domain/settings')
     await storeCompany(data.company)
     await saveSetting('hours', data.hours)

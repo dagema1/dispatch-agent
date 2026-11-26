@@ -2,11 +2,11 @@ import { Link } from '@tanstack/react-router'
 import { CarFront, Check, CheckCircle2, Clock, Hand, MapPin, Navigation, NotebookPen, Power, Send, Timer, UserCheck, Wrench } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { fieldAct, getField } from '#/fns'
-import { Empty, ErrorText, Muted, PriorityTile } from '#/ui/bits'
+import { Empty, ErrorText, Muted, PanelHead, PriorityTile } from '#/ui/bits'
 import { ago, dayTime, time } from '#/ui/format'
 import { useLive } from '#/ui/live'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -74,11 +74,9 @@ export function FieldSim() {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_20rem]">
       {/* who you are playing */}
-      <Card size="sm" className="h-fit">
-        <CardHeader>
-          <CardTitle className="text-sm">Play as</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
+      <Card size="sm" className="h-fit gap-0 pt-0">
+        <PanelHead title={<>Play as</>} />
+        <CardContent className="pt-3">
           <ul className="flex gap-1.5 overflow-x-auto lg:flex-col" aria-label="Technicians">
             {view.techs.map((t) => {
               const on = t.id === techId
@@ -156,11 +154,9 @@ export function FieldSim() {
           </Card>
         )}
 
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="text-sm">Today’s route</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
+        <Card size="sm" className="gap-0 pt-0">
+          <PanelHead title={<>Today’s route</>} />
+          <CardContent className="pt-3">
             {!tech?.jobs.length ? (
               <Empty icon={Clock}>{tech?.active ? 'Nothing on this route yet. Take a visit from the unassigned list.' : 'Off duty.'}</Empty>
             ) : (
@@ -243,11 +239,9 @@ export function FieldSim() {
 
       {/* what's up for grabs, and what just happened */}
       <div className="min-w-0 space-y-4 lg:col-span-2 xl:col-span-1">
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="text-sm">Unassigned ({view.unassigned.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
+        <Card size="sm" className="gap-0 pt-0">
+          <PanelHead title={<>Unassigned ({view.unassigned.length})</>} />
+          <CardContent className="pt-3">
             {view.unassigned.length === 0 ? (
               <Empty icon={Hand}>Every visit has a technician.</Empty>
             ) : (
@@ -268,14 +262,16 @@ export function FieldSim() {
             )}
           </CardContent>
         </Card>
-        <Card size="sm">
-          <CardHeader className="flex-row items-center">
-            <CardTitle className="text-sm">What happened</CardTitle>
-            <Link to="/app" className="ml-auto text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-              See the board
-            </Link>
-          </CardHeader>
-          <CardContent className="pt-0">
+        <Card size="sm" className="gap-0 pt-0">
+          <PanelHead
+            title={<>What happened</>}
+            right={
+              <Link to="/app" className="ml-auto text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                See the board
+              </Link>
+            }
+          />
+          <CardContent className="pt-3">
             {log.length === 0 ? (
               <Empty icon={Send}>Actions you take show here, with what the customer was told.</Empty>
             ) : (

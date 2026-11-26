@@ -194,7 +194,7 @@ function Shell() {
   )
   return (
     <div className="canvas isolate flex min-h-screen flex-col md:flex-row">
-      <RouteMotif className="absolute inset-x-0 top-0 -z-10 h-56 w-full opacity-60" />
+      <RouteMotif className="absolute inset-x-0 top-0 -z-10 h-[55vh] min-h-96 w-full opacity-60" />
       <aside data-open={open} className={cn(railClass, 'max-md:hidden', open ? 'md:w-64 md:px-3' : 'md:w-20 md:items-center md:px-0')}>
         <div className={cn('mr-1 flex shrink-0 items-center gap-2.5 md:mr-0 md:mb-3', open && 'md:px-0.5')}>
           <div className="tile tile-solid size-9 shrink-0 rounded-full" title={snap?.company.name}>

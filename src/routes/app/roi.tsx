@@ -3,7 +3,7 @@ import { CloudSun, FlaskConical, Hourglass, Inbox, Play, Snowflake, Sun, Timer, 
 import { useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { runEvals, runSimulation } from '#/fns'
-import { ErrorText, Muted, PageTitle, Stat } from '#/ui/bits'
+import { ErrorText, PageTitle, PanelHead, Stat } from '#/ui/bits'
 import { aiCost, money, usd } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
 import { Button } from '@/components/ui/button'
@@ -92,10 +92,7 @@ function Simulator() {
 
   return (
     <Card className="gap-0 py-0">
-      <div className="border-b px-5 py-4">
-        <h2 className="text-sm font-semibold">Day simulator</h2>
-        <Muted className="block">Same demand, same five technicians. The AI front office against one receptionist and one dispatcher working 8 to 5.</Muted>
-      </div>
+      <PanelHead title="Day simulator" sub="Same demand, same five technicians. The AI front office against one receptionist and one dispatcher working 8 to 5." />
 
       <div className="flex flex-wrap items-end gap-4 border-b px-5 py-4">
         <fieldset aria-label="Scenario" className="grid flex-1 grid-cols-3 gap-2 max-xl:basis-full">
@@ -262,23 +259,21 @@ function Evals() {
   const latest = evalModel ?? evalRules
   return (
     <Card className="gap-0 py-0">
-      <div className="flex flex-wrap items-center gap-3 border-b px-5 py-4">
-        <span className="tile tile-quiet size-9 shrink-0">
-          <FlaskConical className="size-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold">Triage accuracy</h2>
-          <Muted className="block">45 labelled messages, including prompt injection and Spanish. Bars show the held-out set; the dev set is in small print.</Muted>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={ev.busy} onClick={() => ev.run(false)}>
-            Run rules only
-          </Button>
-          <Button size="sm" disabled={ev.busy || !snap.integrations.gemini} onClick={() => ev.run(true)} title={snap.integrations.gemini ? '' : 'needs GEMINI_API_KEY'}>
-            {ev.busy ? <span className="shimmer-text">Running…</span> : 'Run with Gemini'}
-          </Button>
-        </div>
-      </div>
+      <PanelHead
+        icon={FlaskConical}
+        title="Triage accuracy"
+        sub="45 labelled messages, including prompt injection and Spanish. Bars show the held-out set; the dev set is in small print."
+        right={
+          <>
+            <Button variant="outline" size="sm" disabled={ev.busy} onClick={() => ev.run(false)}>
+              Run rules only
+            </Button>
+            <Button size="sm" disabled={ev.busy || !snap.integrations.gemini} onClick={() => ev.run(true)} title={snap.integrations.gemini ? '' : 'needs GEMINI_API_KEY'}>
+              {ev.busy ? <span className="shimmer-text">Running…</span> : 'Run with Gemini'}
+            </Button>
+          </>
+        }
+      />
       <div className="px-5">
         <ErrorText error={ev.error} />
       </div>

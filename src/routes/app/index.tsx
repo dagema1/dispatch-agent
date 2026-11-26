@@ -4,7 +4,7 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { replanNow, setTechActive } from '#/fns'
 import type { Snapshot } from '#/server/api/views'
-import { Empty, ErrorText, Muted, PageTitle, PriorityTile, Section, Stat } from '#/ui/bits'
+import { Empty, ErrorText, Muted, PageTitle, PanelHead, PriorityTile, Section, Stat } from '#/ui/bits'
 import { useConfirm } from '#/ui/confirm'
 import { addDays, ago, dayLabel, dayOf, dayTime, minutesOfDay, money, time } from '#/ui/format'
 import { JobDialog } from '#/ui/JobDialog'
@@ -13,7 +13,7 @@ import { useArrivals } from '#/ui/motion'
 import { NeedsYou, waitingP1 } from '#/ui/NeedsYou'
 import { RouteTimeline } from '#/ui/RouteTimeline'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -203,15 +203,17 @@ function Board() {
 
         <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
           <div className="min-w-0 lg:col-span-2">
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold tracking-tight">Live map</CardTitle>
-                <CardDescription>
-                  {mapTechs.filter((t) => t.live).length} of {mapTechs.length} technicians sharing location · {dayJobs.length} visits{' '}
-                  {day === snap.today ? 'today' : `on ${dayLabel(day)}`}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+            <Card className="h-full gap-0 pt-0">
+              <PanelHead
+                title="Live map"
+                sub={
+                  <>
+                    {mapTechs.filter((t) => t.live).length} of {mapTechs.length} technicians sharing location · {dayJobs.length} visits{' '}
+                    {day === snap.today ? 'today' : `on ${dayLabel(day)}`}
+                  </>
+                }
+              />
+              <CardContent className="pt-4">
                 <div className="relative overflow-hidden rounded-2xl ring-1 ring-border">
                   <ClientOnly fallback={<Skeleton className="h-[420px] rounded-none" />}>
                     <Suspense fallback={<Skeleton className="h-[420px] rounded-none" />}>

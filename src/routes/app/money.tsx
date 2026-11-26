@@ -316,7 +316,7 @@ function QuoteDialog({ quote, onClose }: { quote: Quote | null; onClose: () => v
               {facts.map(([k, v]) => (
                 <div key={k} className="contents">
                   <dt className="text-muted-foreground">{k}</dt>
-                  <dd className="text-right capitalize">{v}</dd>
+                  <dd className={cn('text-right', k === 'Equipment' && 'capitalize')}>{v}</dd>
                 </div>
               ))}
             </dl>

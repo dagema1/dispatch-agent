@@ -7,15 +7,15 @@ Dispatch software for a trades office, open all day on a big monitor and checked
 | Layer | Class / slot | Dark | Light | Use |
 |---|---|---|---|---|
 | Canvas | `.canvas` | `--background` `oklch(0.085 0 0)` + top blue glow | white `oklch(1 0 0)` | Ground behind every working area |
-| Glass | `[data-slot=card]`, `.slab`, sidebar, segmented tracks, outline buttons | `--glass` `oklch(0.17 0 0 / 0.62)` + `backdrop-blur(18px)` | solid white, no blur, `--slab-border` hairline + small shadow | Panels. Dark: 1px `--edge` top highlight. Light separates with border and shadow, never frost |
-| Strong glass | select, dialog, alert dialog, sheet, tooltip | `--glass-strong` `oklch(0.19 0 0 / 0.82)` + blur 24px | `oklch(1 0 0 / 0.86)` | Overlays, so text stays readable over anything |
+| Glass | `[data-slot=card]`, `.slab`, sidebar, segmented tracks, outline buttons | `--glass` `oklch(0.17 0 0 / 0.62)` + `backdrop-blur(18px)` | white at 58% + blur 20px, `--slab-border` hairline + small shadow | Panels. Dark: 1px `--edge` top highlight. Light: frosted white with a hairline and soft shadow |
+| Strong glass | select, dialog, alert dialog, sheet, tooltip | `--glass-strong` `oklch(0.19 0 0 / 0.82)` + blur 24px | `oklch(1 0 0 / 0.84)` | Overlays, so text stays readable over anything |
 | Well | `.well`, inputs, textarea | `--well` `oklch(0.12 0 0)` | `oklch(0.945 0 0)` | Recessed: fields, timeline rows, quoted text |
 
 Every card and slab has a real 1px `--slab-border` (shadcn Card's ring-1 is removed: the slab shadow replaced it). Shadows stay soft. No heavy drop shadows, no coloured glows on components (the top light belongs to the canvas only).
 
 ## Signature: the route motif
 
-`src/ui/RouteMotif.tsx`. A 60px street grid at 6% ink with one dashed blue route through four stops ending at the van (filled ring = "now"), masked to fade downward. It sits behind the top of the app canvas (`h-56`, 60% opacity) and inside `Backdrop` on signed-out pages (sign-in, book). It comes from the work itself, a tech's day on the map. It is the only decoration: never repeat it inside cards, never animate it, never add a second motif.
+`src/ui/RouteMotif.tsx`. A 60px street grid at 6% ink with one dashed blue route through four stops ending at the van (filled ring = "now"), masked to fade downward. It sits behind the top half of the app canvas (`h-[55vh]`, 60% opacity; the blue top light also fades out around mid-screen) and inside `Backdrop` on signed-out pages (sign-in, book). It comes from the work itself, a tech's day on the map. It is the only decoration: never repeat it inside cards, never animate it, never add a second motif.
 
 ## Colour roles
 
@@ -25,6 +25,10 @@ Every card and slab has a real 1px `--slab-border` (shadcn Card's ring-1 is remo
 - **Quiet** (`--muted`): routine agent activity, P4.
 - **Priority tiles** (`PriorityTile` in `bits.tsx`): P1 red, P2 gold, P3 blue, P4 quiet. Same mapping everywhere a request shows.
 - **Technician colours** appear only on the timeline and map, where they identify a person. Five distinct hues, none blue or red, so a tech never reads as an action or an emergency (Carlos #2563eb is the one blue; keep it off the primary hue).
+
+## Card headers
+
+Every titled card uses `PanelHead` (`bits.tsx`): title at `text-sm` semibold, optional icon, count chip (`CountChip`) and one-line description, actions right, hairline below. `Section` is a Card with a PanelHead and padded content (`flush` for edge-to-edge lists and tables). Single-row action cards (icon tile, title, one button) have no header.
 
 ## Tiles
 
@@ -68,7 +72,7 @@ One EventSource per browser, not per tab: a Web Locks leader owns it and relays 
 
 ## Motion
 
-All inside `prefers-reduced-motion: no-preference`. Overlays: dialogs and alert dialogs fade, rise 0.75rem and settle from 97% scale in 260ms; sheets slide the full way in 380ms (`cubic-bezier(0.32,0.72,0,1)`); closing is 180ms; backdrops fade with a 2px blur. Radix marks state with `data-state`, so `data-open:` / `data-closed:` are custom variants in `styles.css`. Press scale 0.97; new feed items slide in with a brief blue wash (`.arrive`); re-planned visits glide (`.job-block`, 450ms); route change settles up (`.route-in`); theme switch cross-fades via View Transitions. Ease `cubic-bezier(0.16, 1, 0.3, 1)`, no bounce.
+All inside `prefers-reduced-motion: no-preference`. Overlays: dialogs and alert dialogs fade, rise 0.75rem and settle from 97% scale in 260ms; sheets slide the full way in 380ms (`cubic-bezier(0.32,0.72,0,1)`); closing is 180ms; backdrops fade with a 2px blur. Radix marks state with `data-state`, so `data-open:` / `data-closed:` are custom variants in `styles.css`. Press scale 0.97; new feed items slide in with a brief blue wash (`.arrive`); re-planned visits glide (`.job-block`, 450ms); route change settles up (`.route-in`); theme switch cross-fades via View Transitions; the agent-trace selection glides between runs (300ms) and the chosen trace's steps cascade in 35ms apart. Ease `cubic-bezier(0.16, 1, 0.3, 1)`, no bounce.
 
 ## Don'ts
 
