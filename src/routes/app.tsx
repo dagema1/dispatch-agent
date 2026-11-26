@@ -57,38 +57,65 @@ const NAV = [
 /** Stable keys for fixed-length placeholder lists. */
 const keys = (p: string, n: number) => Array.from({ length: n }, (_, i) => `${p}${i}`)
 
-/** First load: the shell's shape in shimmer, so the layout never jumps when data lands. */
+/** First load: the shell's exact shape in shimmer (same rail width, header and page frame), so nothing jumps when data lands. */
 function AppSkeleton() {
   return (
     <div className="canvas flex min-h-screen flex-col md:flex-row" aria-busy="true">
       <output className="sr-only">Loading the front office…</output>
-      <div className="flex gap-2 border-b border-(--edge) bg-(--glass) p-2 md:h-screen md:w-18 md:flex-col md:items-center md:border-r md:border-b-0 md:py-3">
-        {keys('rail', 9).map((k) => (
-          <Skeleton key={k} className="size-10 shrink-0 rounded-xl" />
-        ))}
-      </div>
-      <div className="flex-1 space-y-4 p-4 md:p-6">
-        <Skeleton className="h-9 w-full max-w-xs rounded-xl sm:ml-auto" />
-        <Skeleton className="h-7 w-48" />
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {keys('kpi', 4).map((k) => (
-            <div key={k} className="slab space-y-3 rounded-xl border p-4">
-              <div className="flex items-center gap-3">
-                <Skeleton className="size-11 rounded-xl" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-5 w-16" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-              </div>
-              <Skeleton className="h-3 w-28" />
+      <div className={cn(railClass, 'md:w-18 md:items-center md:px-0 rail-open:md:w-60 rail-open:md:items-stretch rail-open:md:px-3')}>
+        <div className="mr-1 flex shrink-0 items-center gap-2.5 md:mr-0 md:mb-3 rail-open:md:px-0.5">
+          <Skeleton className="size-9 shrink-0 rounded-xl" />
+          <div className="hidden flex-1 space-y-1.5 rail-open:md:block">
+            <Skeleton className="h-3.5 w-20" />
+            <Skeleton className="h-2.5 w-14" />
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-1 gap-1 overflow-hidden md:flex-none md:flex-col">
+          {keys('rail', NAV.length).map((k) => (
+            <div key={k} className="flex h-10 w-10 shrink-0 items-center justify-center gap-3 rail-open:md:w-full rail-open:md:justify-start rail-open:md:px-3">
+              <Skeleton className="size-[18px] shrink-0 rounded-md" />
+              <Skeleton className="hidden h-3 w-24 rail-open:md:block" />
             </div>
           ))}
         </div>
-        <div className="slab space-y-3 rounded-xl border p-5">
-          <Skeleton className="h-4 w-40" />
-          {keys('row', 5).map((k) => (
-            <Skeleton key={k} className="h-11 w-full rounded-lg" />
-          ))}
+        <div className="flex shrink-0 items-center gap-1 md:mt-auto md:flex-col md:items-stretch">
+          <Skeleton className="h-10 w-10 rounded-full md:mb-1 rail-open:md:w-full" />
+          <div className="hidden flex-col items-center gap-1 md:flex rail-open:flex-row rail-open:justify-between">
+            {keys('foot', 3).map((k) => (
+              <Skeleton key={k} className="size-10 rounded-xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex flex-wrap items-center gap-3 px-4 pt-4 md:px-6">
+          <Skeleton className="h-5 w-56" />
+          <Skeleton className="ml-auto h-9 w-full rounded-xl sm:w-80" />
+        </div>
+        <div className="min-w-0 flex-1 p-4 md:p-6">
+          <div className="mx-auto w-full max-w-[1600px] space-y-4">
+            <Skeleton className="h-7 w-48" />
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              {keys('kpi', 4).map((k) => (
+                <div key={k} className="slab space-y-3 rounded-xl border p-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="size-11 rounded-xl" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-16" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-3 w-28" />
+                </div>
+              ))}
+            </div>
+            <div className="slab space-y-3 rounded-xl border p-5">
+              <Skeleton className="h-4 w-40" />
+              {keys('row', 5).map((k) => (
+                <Skeleton key={k} className="h-11 w-full rounded-lg" />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -105,18 +132,26 @@ function AppLayout() {
 }
 
 const RAIL_KEY = 'rail'
+/** Shared by the rail and its loading skeleton so both are the same box. */
+const railClass =
+  'sticky top-0 z-20 flex items-center gap-1 border-b border-(--edge) bg-(--glass) px-2 py-2 shadow-(--slab-shadow) backdrop-blur-xl md:h-screen md:shrink-0 md:flex-col md:items-stretch md:border-r md:border-b-0 md:py-3 motion-safe:md:transition-[width] motion-safe:md:duration-200'
+
+/** Read synchronously (the dashboard renders client-only) so the first frame already has the right width. */
+const readRail = () => {
+  try {
+    return localStorage.getItem(RAIL_KEY) === 'open'
+  } catch {
+    return false
+  }
+}
 
 /** Sidebar width preference: collapsed icon rail (default) or labelled list. Kept per browser. */
 function useRail() {
-  const [open, setOpen] = useState(false)
-  useEffect(() => {
-    try {
-      setOpen(localStorage.getItem(RAIL_KEY) === 'open')
-    } catch {}
-  }, [])
+  const [open, setOpen] = useState(readRail)
   useEffect(() => {
     // the board's floating dock centres itself on the work area using this width
     document.documentElement.style.setProperty('--rail', open ? '15rem' : '4.5rem')
+    document.documentElement.dataset.rail = open ? 'open' : 'closed'
   }, [open])
   const toggle = () =>
     setOpen((o) => {
@@ -152,13 +187,7 @@ function Shell() {
   )
   return (
     <div className="canvas flex min-h-screen flex-col md:flex-row">
-      <aside
-        data-open={open}
-        className={cn(
-          'sticky top-0 z-20 flex items-center gap-1 border-b border-(--edge) bg-(--glass) px-2 py-2 shadow-(--slab-shadow) backdrop-blur-xl md:h-screen md:shrink-0 md:flex-col md:items-stretch md:border-r md:border-b-0 md:py-3 motion-safe:md:transition-[width] motion-safe:md:duration-200',
-          open ? 'md:w-60 md:px-3' : 'md:w-18 md:items-center md:px-0',
-        )}
-      >
+      <aside data-open={open} className={cn(railClass, open ? 'md:w-60 md:px-3' : 'md:w-18 md:items-center md:px-0')}>
         <div className={cn('mr-1 flex shrink-0 items-center gap-2.5 md:mr-0 md:mb-3', open && 'md:px-0.5')}>
           <div className="tile tile-solid size-9 shrink-0 rounded-full" title={snap?.company.name}>
             <Wrench size={17} />

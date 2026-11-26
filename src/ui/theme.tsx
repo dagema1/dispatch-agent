@@ -8,7 +8,7 @@ export type ThemePref = 'light' | 'dark' | 'system'
 const KEY = 'theme'
 
 /** Runs in <head> before first paint so the page never flashes the wrong theme. */
-export const THEME_BOOT = `(function(){try{var p=localStorage.getItem('${KEY}')||'dark';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d)}catch(e){}})()`
+export const THEME_BOOT = `(function(){try{var p=localStorage.getItem('${KEY}')||'dark';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.dataset.rail=localStorage.getItem('rail')==='open'?'open':'closed'}catch(e){}})()`
 
 function read(): ThemePref {
   try {

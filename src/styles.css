@@ -5,6 +5,8 @@
 @import "leaflet/dist/leaflet.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Sidebar expanded, set on <html> before first paint so the loading skeleton matches. */
+@custom-variant rail-open (&:is([data-rail="open"] *));
 @custom-variant data-horizontal (&[data-orientation="horizontal"]);
 @custom-variant data-vertical (&[data-orientation="vertical"]);
 @custom-variant data-active (&:is([data-state="active"], [data-active]:not([data-active="false"])));
