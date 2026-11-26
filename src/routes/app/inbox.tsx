@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { ArrowDownLeft, ArrowUpRight, ChevronRight, Globe, Inbox, Mail, MessageSquare, Phone, Send, ShieldAlert, Thermometer, Timer } from 'lucide-react'
 import { useState } from 'react'
 import { simulateEmail } from '#/fns'
-import { Empty, ErrorText, Muted, PageTitle, Priority, Section, Status } from '#/ui/bits'
+import { Empty, ErrorText, Muted, PageTitle, Priority, Status } from '#/ui/bits'
 import { ago, dayTime } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
 import { useArrivals } from '#/ui/motion'
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -51,34 +52,29 @@ function InboxPage() {
   const snap = useSnap()
   return (
     <div>
-      <PageTitle title="Inbox & calls" sub="Every channel lands in one pipeline: safety check → triage → booking → reply. First responses are measured." />
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <Tabs defaultValue="requests" className="min-w-0">
-          <TabsList className="h-9">
-            <TabsTrigger value="requests" className="px-3">
-              <Inbox /> Requests <Count n={snap.requests.length} />
-            </TabsTrigger>
-            <TabsTrigger value="messages" className="px-3">
-              <MessageSquare /> Messages <Count n={snap.messages.length} />
-            </TabsTrigger>
-            <TabsTrigger value="calls" className="px-3">
-              <Phone /> Calls <Count n={snap.calls.length} />
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="requests" className="mt-2">
-            <Requests />
-          </TabsContent>
-          <TabsContent value="messages" className="mt-2">
-            <Messages />
-          </TabsContent>
-          <TabsContent value="calls" className="mt-2">
-            <Calls />
-          </TabsContent>
-        </Tabs>
-        <div className="xl:sticky xl:top-4">
-          <SimulateEmail />
-        </div>
-      </div>
+      <PageTitle title="Inbox & calls" right={<TestEmailButton />} />
+      <Tabs defaultValue="requests" className="min-w-0">
+        <TabsList className="h-9">
+          <TabsTrigger value="requests" className="px-3">
+            <Inbox /> Requests <Count n={snap.requests.length} />
+          </TabsTrigger>
+          <TabsTrigger value="messages" className="px-3">
+            <MessageSquare /> Messages <Count n={snap.messages.length} />
+          </TabsTrigger>
+          <TabsTrigger value="calls" className="px-3">
+            <Phone /> Calls <Count n={snap.calls.length} />
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="requests" className="mt-2">
+          <Requests />
+        </TabsContent>
+        <TabsContent value="messages" className="mt-2">
+          <Messages />
+        </TabsContent>
+        <TabsContent value="calls" className="mt-2">
+          <Calls />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
@@ -115,7 +111,7 @@ function Requests() {
             Needs follow-up
           </ToggleGroupItem>
         </ToggleGroup>
-        <Muted>{rows.length} shown</Muted>
+        {filter !== 'all' && <Muted>{rows.length} shown</Muted>}
       </div>
       {rows.length === 0 ? (
         <Empty>{snap.requests.length ? 'Nothing matches this filter.' : 'No requests yet. Book from the customer page or send a test email.'}</Empty>
@@ -133,7 +129,6 @@ function Requests() {
                     <div className="min-w-0">
                       <div className="flex items-baseline gap-2">
                         <span className="truncate text-sm font-semibold">{name ?? 'Unknown sender'}</span>
-                        <ChannelTag c={r.channel} />
                       </div>
                       <div className="truncate text-sm">{ex.issue ?? r.summary ?? 'Request'}</div>
                       <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground group-open:hidden">{r.rawText}</p>
@@ -184,7 +179,7 @@ function Requests() {
 const ChannelTile = ({ c, p }: { c: string; p: number | null }) => {
   const I = channelIcon(c)
   return (
-    <span className={cn('tile size-9', TILE[p ?? 4])} aria-hidden>
+    <span className={cn('tile size-9', TILE[p ?? 4])} role="img" aria-label={`via ${c}`} title={`via ${c}`}>
       <I className="size-4" />
     </span>
   )
@@ -218,7 +213,7 @@ function Messages() {
             Sent by agents
           </ToggleGroupItem>
         </ToggleGroup>
-        <Muted>{rows.length} shown</Muted>
+        {dir !== 'all' && <Muted>{rows.length} shown</Muted>}
       </div>
       {rows.length === 0 ? (
         <Empty>No messages yet.</Empty>
@@ -326,7 +321,7 @@ function SimulateEmail() {
     return r
   })
   return (
-    <Section title="Send a test email" right={<Muted>same path as the Gmail poller</Muted>}>
+    <div className="px-4 pb-6">
       <div className="mb-3 flex flex-wrap gap-1">
         {SAMPLES.map((s) => (
           <Button key={s.subject} variant={f.subject === s.subject ? 'secondary' : 'ghost'} size="xs" onClick={() => setF(s)}>
@@ -361,6 +356,26 @@ function SimulateEmail() {
           </div>
         )}
       </div>
-    </Section>
+    </div>
+  )
+}
+
+/** Demo tool, kept out of the way: a test email goes through the same path as the Gmail poller. */
+function TestEmailButton() {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Mail /> Send a test email
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>Send a test email</SheetTitle>
+          <SheetDescription>Goes through the same path as the Gmail poller. The new request appears in the inbox live.</SheetDescription>
+        </SheetHeader>
+        <SimulateEmail />
+      </SheetContent>
+    </Sheet>
   )
 }

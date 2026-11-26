@@ -19,7 +19,7 @@ function Money() {
   const accepted = snap.quotes.filter((q) => q.status === 'accepted')
   return (
     <div>
-      <PageTitle title="Quotes & invoices" sub="Photo quotes are priced only from the price book. Invoices go out with a Stripe test-mode link and get chased automatically." />
+      <PageTitle title="Quotes & invoices" sub="Quotes use only the price book. Payment links are Stripe test mode." />
       <ErrorText error={check.error} />
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat

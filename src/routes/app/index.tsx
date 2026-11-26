@@ -1,5 +1,5 @@
 import { ClientOnly, createFileRoute } from '@tanstack/react-router'
-import { Activity, ArrowUpRight, BellRing, CalendarCheck, Check, CircleDollarSign, Inbox, MapPin, RefreshCw, Siren, Snowflake, Sun, Truck, UserX, Wrench, Zap } from 'lucide-react'
+import { Activity, BellRing, CalendarCheck, Check, CircleDollarSign, Inbox, MapPin, RefreshCw, Siren, Snowflake, Sun, Truck, UserX, Wrench, Zap } from 'lucide-react'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { completeJob, replanNow, setTechActive } from '#/fns'
@@ -83,7 +83,6 @@ function Board() {
     <div>
       <PageTitle
         title="Dispatch board"
-        sub="The dispatch agent re-plans the whole fleet on every new request, delay or cancellation."
         right={
           w ? (
             <span
@@ -149,7 +148,7 @@ function Board() {
                 {snap.techs.map((t) => {
                   const jobs = dayJobs.filter((j) => j.technicianId === t.id)
                   return (
-                    <div key={t.id} className="flex items-center py-1">
+                    <div key={t.id} className="group/row flex items-center py-1">
                       <div className="w-36 shrink-0 pr-2">
                         <div className="flex items-center gap-1.5 text-sm font-medium">
                           <span className="size-2.5 rounded-full" style={{ background: t.color }} />
@@ -173,7 +172,12 @@ function Board() {
                         <Button
                           variant="link"
                           size="xs"
-                          className={cn('h-auto px-0 text-[11px]', t.active ? 'text-muted-foreground hover:text-destructive' : 'font-medium text-destructive')}
+                          className={cn(
+                            'h-auto px-0 text-[11px]',
+                            t.active
+                              ? 'text-muted-foreground opacity-0 group-focus-within/row:opacity-100 group-hover/row:opacity-100 hover:text-destructive [@media(hover:none)]:opacity-100'
+                              : 'font-medium text-destructive',
+                          )}
                           onClick={() => toggle.run(t.id, !t.active)}
                           disabled={toggle.busy}
                         >
@@ -252,7 +256,7 @@ function Board() {
                 <span className="pointer-events-none absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-xs font-medium ring-1 ring-border">
                   <MapPin className="size-3.5" /> Denver metro
                 </span>
-                <MapInsight unassigned={unassigned.length} openP1={openP1} busy={replan.busy} onReplan={() => replan.run()} />
+                <MapInsight unassigned={unassigned.length} openP1={openP1} />
               </div>
             </CardContent>
           </Card>
@@ -338,13 +342,13 @@ function Dock({ children }: { children: React.ReactNode }) {
 }
 
 /** One line of judgement floating over the map, like a dispatcher looking over your shoulder. */
-function MapInsight({ unassigned, openP1, busy, onReplan }: { unassigned: number; openP1: number; busy: boolean; onReplan: () => void }) {
+function MapInsight({ unassigned, openP1 }: { unassigned: number; openP1: number }) {
   const msg =
     openP1 > 0
-      ? { title: `${openP1} emergenc${openP1 === 1 ? 'y' : 'ies'} open`, sub: 'Emergencies jump the queue on the next re-plan.', act: true }
+      ? { title: `${openP1} emergenc${openP1 === 1 ? 'y' : 'ies'} open`, sub: 'Emergencies jump the queue on the next re-plan.' }
       : unassigned > 0
-        ? { title: `${unassigned} visit${unassigned === 1 ? '' : 's'} without a slot`, sub: 'Re-plan to fit them in, or mark someone back in.', act: true }
-        : { title: 'Every visit has a slot', sub: 'Routes are re-planned automatically on every change.', act: false }
+        ? { title: `${unassigned} visit${unassigned === 1 ? '' : 's'} without a slot`, sub: 'Re-plan from the dock to fit them in.' }
+        : { title: 'Every visit has a slot', sub: 'Routes are re-planned automatically on every change.' }
   return (
     <div className="absolute inset-x-3 bottom-3 z-10 flex items-center gap-3 rounded-2xl border bg-popover/95 p-3 shadow-(--slab-shadow)">
       <span className={cn('tile size-9 shrink-0 rounded-full', openP1 ? 'tile-red' : 'tile-quiet')}>
@@ -354,11 +358,6 @@ function MapInsight({ unassigned, openP1, busy, onReplan }: { unassigned: number
         <div className="truncate text-sm font-medium">{msg.title}</div>
         <div className="truncate text-xs text-muted-foreground">{msg.sub}</div>
       </div>
-      {msg.act && (
-        <Button size="sm" className="shrink-0 rounded-full px-3.5" onClick={onReplan} disabled={busy}>
-          Re-plan <ArrowUpRight />
-        </Button>
-      )}
     </div>
   )
 }

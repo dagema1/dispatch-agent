@@ -70,7 +70,7 @@ function SettingsPage() {
   ] as const
   return (
     <div>
-      <PageTitle title="Settings" sub="Connections, scheduled jobs, and the rules for what agents may do without you." />
+      <PageTitle title="Settings" />
       <div className="grid gap-4 xl:grid-cols-2">
         <Section title="Integrations">
           <ul className="space-y-3">

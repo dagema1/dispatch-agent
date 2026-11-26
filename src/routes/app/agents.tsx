@@ -31,7 +31,7 @@ function Agents() {
     <div>
       <PageTitle
         title="Agent traces"
-        sub={`Every model call, tool call and policy decision, with timings. ${snap.runs.length} recent runs · ${tokens.toLocaleString()} tokens.`}
+        sub={`${snap.runs.length} recent runs · ${tokens.toLocaleString()} tokens`}
         right={
           <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger className="w-44" aria-label="Filter by agent">

@@ -20,7 +20,7 @@ function Approvals() {
   const done = snap.approvals.filter((a) => a.status !== 'pending')
   return (
     <div>
-      <PageTitle title="Approvals" sub="Actions the policy engine held for you: by policy, low model confidence, or after-hours. Change the rules in Settings." />
+      <PageTitle title="Approvals" sub="Held by policy, low model confidence or after-hours. Rules live in Settings." />
       <ErrorText error={act.error} />
       <Section title={`Waiting (${pending.length})`} className="mb-4">
         {pending.length === 0 ? (
@@ -49,10 +49,8 @@ function Approvals() {
           </ul>
         )}
       </Section>
-      <Section title="History">
-        {done.length === 0 ? (
-          <Empty>No decisions yet.</Empty>
-        ) : (
+      {done.length > 0 && (
+        <Section title="History">
           <ul className="divide-y">
             {done.map((a) => (
               <li key={a.id} className="flex items-center gap-2 py-2 text-sm first:pt-0 last:pb-0">
@@ -62,8 +60,8 @@ function Approvals() {
               </li>
             ))}
           </ul>
-        )}
-      </Section>
+        </Section>
+      )}
     </div>
   )
 }

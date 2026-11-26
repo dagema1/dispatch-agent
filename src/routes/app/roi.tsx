@@ -23,7 +23,7 @@ function Roi() {
   const hoursSaved = k.minutesSaved / 60
   return (
     <div>
-      <PageTitle title="ROI & simulator" sub="Measured from this system's own event history (last 7 days), plus a controlled day simulation against a human-office baseline." />
+      <PageTitle title="ROI & simulator" sub="Last 7 days of real events, plus a simulated day against a human-office baseline." />
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           icon={Timer}

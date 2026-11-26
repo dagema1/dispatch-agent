@@ -155,7 +155,6 @@ function Shell() {
           <div className="tile tile-solid size-9 shrink-0" title={snap?.company.name}>
             <Wrench size={17} />
           </div>
-          {open && <span className="hidden min-w-0 line-clamp-2 text-sm leading-tight font-semibold md:block">{snap?.company.name ?? 'Northline'}</span>}
         </div>
         <nav aria-label="Main" className="flex min-w-0 flex-1 gap-1 overflow-x-auto md:flex-none md:flex-col md:overflow-visible">
           {NAV.map((n) => (

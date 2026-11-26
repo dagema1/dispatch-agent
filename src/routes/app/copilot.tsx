@@ -60,7 +60,7 @@ function Copilot() {
   })
   return (
     <div className="flex h-[calc(100dvh-11rem)] flex-col">
-      <PageTitle title="Ops copilot" sub="Ask about the business or give an instruction. Reads are instant; schedule changes and customer messages go through the policy engine." />
+      <PageTitle title="Ops copilot" sub="Schedule changes and customer messages still pass the approval rules." />
       {!snap.integrations.gemini && (
         <Alert className="mb-3">
           <CircleAlert />
