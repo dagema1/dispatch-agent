@@ -166,6 +166,22 @@ export const resolveRequest = createServerFn({ method: 'POST' })
   .validator(z.object({ requestId: z.number().int(), note: z.string().max(500).optional() }))
   .handler(async ({ data }) => (await import('./server/domain/attention')).resolveRequest(data.requestId, data.note))
 
+export const fixAndBook = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(
+    z.object({
+      requestId: z.number().int(),
+      name: z.string().trim().min(1).max(120),
+      phone: z.string().trim().max(40).optional(),
+      email: z.union([z.string().trim().email().max(200), z.literal('')]).optional(),
+      address: z.string().trim().min(5).max(300),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { requestId, ...details } = data
+    return (await import('./server/agent/front-desk')).fixAndBook(requestId, details)
+  })
+
 export const cancelVisit = createServerFn({ method: 'POST' })
   .middleware([owner])
   .validator(z.object({ jobId: z.number().int() }))

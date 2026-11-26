@@ -14,6 +14,7 @@ import {
   MessageSquare,
   MessagesSquare,
   Navigation,
+  Pencil,
   Phone,
   Receipt,
   ShieldAlert,
@@ -25,9 +26,12 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { getRequestStory } from '#/fns'
+import { fixAndBook, getRequestStory } from '#/fns'
 import type { RequestStory as Story } from '#/server/api/story'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -93,6 +97,8 @@ function StoryBody({ requestId }: { requestId: number }) {
   const resp = r.firstResponseAt ? Math.max(0, Math.round((+new Date(r.firstResponseAt) - +new Date(r.createdAt)) / 1000)) : null
   const reasons = (ex.reasons ?? []).filter((x) => !/^model priority/i.test(x))
   const steps = timeline(s)
+  // intake stopped short (usually an address the map couldn't place) and nothing is booked yet
+  const stuck = !s.jobs.some((j) => j.status !== 'cancelled') && ['new', 'triaged', 'awaiting_customer', 'escalated'].includes(r.status)
 
   return (
     <>
@@ -138,6 +144,8 @@ function StoryBody({ requestId }: { requestId: number }) {
             </>
           )}
         </section>
+
+        {stuck && c && <FixDetails requestId={r.id} customer={c} />}
 
         <section className="space-y-2">
           <h3 className={LABEL}>How it came in</h3>
@@ -365,6 +373,9 @@ function timeline(s: Story): Step[] {
       case 'sla.breach':
         step(BellRing, 'tile-attn', 'No reply in time', 'The office was alerted')
         break
+      case 'request.fixed':
+        step(Pencil, 'tile-quiet', 'You fixed the details', p.address ? `Address: ${p.address}` : undefined)
+        break
       case 'request.resolved':
         step(CircleCheck, 'tile-quiet', 'You marked it handled', (p.note as string) || undefined)
         break
@@ -406,5 +417,119 @@ function MessageBody({ subject, body }: { subject: string | null; body: string }
         </button>
       )}
     </div>
+  )
+}
+
+/**
+ * Intake couldn't book (no address the map could place, missing contact): the owner fills in what
+ * we heard and the request carries on to booking through the same pipeline as a new one.
+ */
+function FixDetails({ requestId, customer: c }: { requestId: number; customer: NonNullable<Story['customer']> }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState<string | null>(null)
+  const unplaced = c.lat == null
+  const [f, setF] = useState({
+    name: c.name,
+    phone: c.phone ?? '',
+    email: c.email ?? '',
+    address: c.address === 'unknown' ? '' : c.address,
+  })
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((v) => ({ ...v, [k]: e.target.value }))
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fixAndBook({ data: { requestId, ...f } })
+      if (!res.ok) setError(res.reason)
+      else {
+        const b = res.result.booking
+        setDone(
+          b
+            ? `Booked: ${b.technician.split(' ')[0]}, ${b.startText}.`
+            : res.result.status === 'escalated'
+              ? 'Saved, but no slot fits yet. It is in Needs you for a manual decision.'
+              : 'Saved. It still could not be booked.',
+        )
+        setOpen(false)
+      }
+    } catch (err) {
+      setError((err as Error).message.includes('email') ? 'That email address doesn’t look right.' : 'Could not save. Check the fields and try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (done) return <output className="block rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-3.5 py-2.5 text-sm text-emerald-800 dark:text-emerald-300">{done}</output>
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-(--attn-2)/40 bg-(--attn-2)/8 px-3.5 py-3">
+        <MapPin className="size-4 shrink-0 text-amber-700 dark:text-amber-300" />
+        <p className="min-w-0 flex-1 text-sm text-pretty">
+          <span className="font-medium">Not booked.</span> {unplaced ? 'We couldn’t place the address on the map.' : 'Intake stopped before booking.'} Fix the details and we’ll
+          book it.
+        </p>
+        <Button size="sm" onClick={() => setOpen(true)}>
+          <Pencil /> Fix details & book
+        </Button>
+      </div>
+      <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={submit} className="grid gap-4">
+            <DialogHeader>
+              <DialogTitle>Fix details & book</DialogTitle>
+              <DialogDescription>We look the address up, then book the visit and assign a technician the same way intake does.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-1.5">
+              <Label htmlFor="fx-name">Name</Label>
+              <Input id="fx-name" required value={f.name} onChange={set('name')} autoComplete="off" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="fx-address">Service address</Label>
+              <Input
+                id="fx-address"
+                required
+                minLength={5}
+                value={f.address}
+                onChange={set('address')}
+                placeholder="Street, city, zip"
+                autoComplete="off"
+                aria-invalid={!!error || undefined}
+                aria-describedby={error ? 'fx-error' : undefined}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+              <div className="grid gap-1.5">
+                <Label htmlFor="fx-phone">Phone</Label>
+                <Input id="fx-phone" type="tel" value={f.phone} onChange={set('phone')} autoComplete="off" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="fx-email">
+                  Email <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Input id="fx-email" type="email" value={f.email} onChange={set('email')} autoComplete="off" />
+              </div>
+            </div>
+            {error && (
+              <p id="fx-error" role="alert" className="text-sm text-red-700 dark:text-red-300">
+                {error}
+              </p>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {busy ? 'Finding address…' : 'Save & book'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

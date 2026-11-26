@@ -260,6 +260,37 @@ async function intake(input: Inbound, resumed?: typeof schema.requests.$inferSel
   }
 }
 
+/**
+ * The owner fills in what intake was missing (usually an address the map could not place) and the
+ * request carries on to booking exactly as if the customer had given it: same triage, same re-plan.
+ */
+export async function fixAndBook(
+  requestId: number,
+  details: { name: string; phone?: string | null; email?: string | null; address: string },
+): Promise<{ ok: false; reason: string } | { ok: true; result: IntakeResult }> {
+  const [req] = await db.select().from(schema.requests).where(eq(schema.requests.id, requestId))
+  if (!req?.customerId) return { ok: false, reason: 'This request has no customer to fix.' }
+  const open = (await db.select().from(schema.jobs).where(eq(schema.jobs.requestId, requestId))).filter((j) => j.status !== 'cancelled')
+  if (open.length) return { ok: false, reason: 'This request already has a visit.' }
+  const address = details.address.trim()
+  const loc = await geocode(address)
+  if (!loc) return { ok: false, reason: `We couldn't find "${address}" on the map. Check the street name and add the city and zip.` }
+  await db
+    .update(schema.customers)
+    .set({
+      name: details.name.trim(),
+      phone: details.phone?.trim() || null,
+      email: details.email?.trim() || null,
+      address,
+      lat: loc.lat,
+      lng: loc.lng,
+    })
+    .where(eq(schema.customers.id, req.customerId))
+  await publish('request.fixed', { requestId, customerId: req.customerId, address })
+  const result = await intake({ channel: req.channel as Inbound['channel'], text: req.rawText, externalId: req.externalId ?? undefined, customer: { address } }, req)
+  return { ok: true, result }
+}
+
 const chan = (i: Inbound) => (i.channel === 'voice' ? 'voice' : i.channel === 'web' ? 'web' : i.channel === 'sms' ? 'sms' : 'email')
 
 export async function findCustomer(c: Inbound['customer']) {

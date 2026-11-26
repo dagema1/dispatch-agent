@@ -22,7 +22,7 @@ export function splitAgentText(text: string): Segment[] {
       continue
     }
     // a note can run straight into the next spoken sentence: "...(Riley, warm).It's always best"
-    const glued = line.match(/^(.*?[.)])([A-Z][^]*)$/)
+    const glued = line.match(/^(.*?[.)])([A-Z][\s\S]*)$/)
     if (glued && /[.?!]$/.test(glued[2].trim())) {
       push('note', clean(glued[1]))
       push('speech', glued[2].trim())

@@ -37,19 +37,17 @@ export function TranscriptDialog({ turns, title, meta, open, onOpenChange }: { t
             // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript; a turn never moves
             <li key={i} className={cn('flex', t.role === 'caller' && 'justify-end')}>
               <Bubble mine={t.role === 'caller'} who={t.role === 'agent' ? 'Agent' : 'Caller'}>
-                {t.parts.map((p, j) =>
+                {t.parts.map((p) =>
                   p.kind === 'note' ? (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: segments of one fixed turn
                     <div
-                      key={j}
+                      key={`${p.kind}:${p.text}`}
                       className="my-1.5 rounded-lg border border-dashed border-(--attn-2)/50 bg-(--attn-2)/8 px-2.5 py-1.5 text-xs text-muted-foreground first:mt-0 last:mb-0"
                     >
                       <div className="mb-0.5 text-[10px] font-semibold tracking-wider text-amber-700 uppercase dark:text-amber-300">Internal note · spoken by mistake</div>
                       {p.text}
                     </div>
                   ) : (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: segments of one fixed turn
-                    <p key={j}>{p.text}</p>
+                    <p key={`${p.kind}:${p.text}`}>{p.text}</p>
                   ),
                 )}
               </Bubble>
