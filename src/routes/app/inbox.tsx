@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, Globe, Inbox, Mail, MessageSquare, Phone, Send, ShieldAlert } from 'lucide-react'
+import { ChevronRight, Globe, Inbox, Mail, MessageSquare, Phone, Send, ShieldAlert, Wrench } from 'lucide-react'
 import { useState } from 'react'
 import { simulateEmail } from '#/fns'
 import { Empty, ErrorText, Muted, PageTitle, Priority, Status } from '#/ui/bits'
+import { ThreadDialog, TranscriptDialog } from '#/ui/Conversation'
 import { ago, dayTime } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
 import { useArrivals } from '#/ui/motion'
@@ -175,82 +176,105 @@ const ChannelTag = ({ c }: { c: string }) => {
   )
 }
 
+type ThreadKey = { customerId?: number; technicianId?: number }
+
+/** Messages grouped into one thread per person, newest conversation first; a thread opens as a chat. */
 function Messages() {
   const snap = useSnap()
-  const [dir, setDir] = useState<'all' | 'in' | 'out'>('all')
-  const isNew = useArrivals(snap.messages.map((m) => m.id))
-  const rows = snap.messages.filter((m) => dir === 'all' || m.direction === dir)
+  const [show, setShow] = useState<'all' | 'customers' | 'techs' | 'undelivered'>('all')
+  const [open, setOpen] = useState<ThreadKey | null>(null)
+  const byKey = new Map<string, { key: ThreadKey; id: string; msgs: typeof snap.messages }>()
+  for (const m of snap.messages) {
+    const id = m.customerId ? `c${m.customerId}` : m.technicianId ? `t${m.technicianId}` : null
+    if (!id) continue
+    const t = byKey.get(id) ?? { key: m.customerId ? { customerId: m.customerId } : { technicianId: m.technicianId ?? undefined }, id, msgs: [] }
+    t.msgs.push(m)
+    byKey.set(id, t)
+  }
+  const all = [...byKey.values()].map((t) => {
+    const last = t.msgs.reduce((a, b) => (+new Date(b.createdAt) > +new Date(a.createdAt) ? b : a))
+    const undelivered = t.msgs.filter((m) => m.direction === 'out' && m.customerId && !m.delivered).length
+    return { ...t, last, undelivered }
+  })
+  all.sort((a, b) => +new Date(b.last.createdAt) - +new Date(a.last.createdAt))
+  const isNew = useArrivals(all.map((t) => t.last.id))
+  const rows = all.filter((t) => (show === 'customers' ? !!t.key.customerId : show === 'techs' ? !!t.key.technicianId : show === 'undelivered' ? t.undelivered > 0 : true))
   return (
     <Card className="gap-0 py-0">
-      <div className="flex items-center justify-between gap-2 border-b px-5 py-3">
-        <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={dir} onValueChange={(v) => v && setDir(v as typeof dir)}>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-3">
+        <ToggleGroup type="single" size="sm" variant="outline" spacing={0} value={show} onValueChange={(v) => v && setShow(v as typeof show)}>
           <ToggleGroupItem value="all" className="px-3 text-xs">
             All
           </ToggleGroupItem>
-          <ToggleGroupItem value="in" className="px-3 text-xs">
-            Received
+          <ToggleGroupItem value="customers" className="px-3 text-xs">
+            Customers
           </ToggleGroupItem>
-          <ToggleGroupItem value="out" className="px-3 text-xs">
-            Sent by agents
+          <ToggleGroupItem value="techs" className="px-3 text-xs">
+            Technicians
+          </ToggleGroupItem>
+          <ToggleGroupItem value="undelivered" className="px-3 text-xs">
+            Not delivered
           </ToggleGroupItem>
         </ToggleGroup>
-        {dir !== 'all' && <Muted>{rows.length} shown</Muted>}
+        <Muted>{rows.length} conversations</Muted>
       </div>
       {rows.length === 0 ? (
-        <Empty>No messages yet.</Empty>
+        <Empty>{all.length ? 'Nothing matches this filter.' : 'No messages yet.'}</Empty>
       ) : (
         <ul className="divide-y">
-          {rows.map((m) => {
-            const to = m.customerId
-              ? snap.customers[m.customerId]?.name
-              : m.technicianId
-                ? (snap.techs.find((t) => t.id === m.technicianId)?.name ?? `Tech #${m.technicianId}`)
-                : 'Office'
-            const out = m.direction === 'out'
+          {rows.map((t) => {
+            const tech = t.key.technicianId ? snap.techs.find((x) => x.id === t.key.technicianId) : undefined
+            const name = t.key.customerId ? (snap.customers[t.key.customerId]?.name ?? 'Customer') : (tech?.name ?? 'Technician')
+            const out = t.last.direction === 'out'
+            const preview = (t.last.channel === 'telegram' ? t.last.body.replace(/<[^>]+>/g, '') : t.last.body).replace(/\s+/g, ' ')
             return (
-              <li key={m.id} className={cn(isNew(m.id) && 'arrive')}>
-                <details className="group">
-                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)] gap-4 px-5 py-4 transition-colors hover:bg-secondary/50">
-                    <Avatar
-                      name={m.customerId || m.technicianId ? to : 'Office'}
-                      color={m.technicianId ? snap.techs.find((t) => t.id === m.technicianId)?.color : undefined}
-                      badge={out ? <ArrowUpRight className="size-3" /> : <ArrowDownLeft className="size-3" />}
-                    />
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                          <span className="text-sm font-semibold">
-                            {out ? 'To' : 'From'} {to}
-                          </span>
-                          <ChannelTag c={m.channel} />
-                        </div>
-                        <Muted className="shrink-0 whitespace-nowrap" title={dayTime(m.createdAt)}>
-                          {ago(m.createdAt)}
-                        </Muted>
-                      </div>
-                      {m.subject && <div className="text-sm font-medium">{m.subject}</div>}
-                      <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground group-open:line-clamp-none group-open:whitespace-pre-wrap group-open:text-foreground/85">
-                        {m.body}
-                      </p>
-                      {out && !m.delivered && (
-                        <p className="inline-flex items-center gap-1.5 rounded-full bg-(--attn-2)/15 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
-                          Not delivered: no email or text channel connected
-                        </p>
-                      )}
+              <li key={t.id} className={cn(isNew(t.last.id) && 'arrive')}>
+                <button
+                  type="button"
+                  onClick={() => setOpen(t.key)}
+                  className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-3.5 text-left transition-colors outline-none hover:bg-secondary/50 focus-visible:bg-foreground/5"
+                >
+                  <Avatar name={name} color={tech?.color} badge={tech ? <Wrench className="size-2.5" /> : undefined} />
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-baseline gap-2">
+                      <span className="truncate text-sm font-semibold">{name}</span>
+                      {tech && <span className="shrink-0 text-[11px] text-muted-foreground">Technician</span>}
+                      <ChannelTag c={t.last.channel} />
                     </div>
-                  </summary>
-                </details>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {out && <span className="text-foreground/70">{tech ? 'Sent: ' : 'You: '}</span>}
+                      {t.last.subject && !tech ? <span className="text-foreground/80">{t.last.subject} · </span> : null}
+                      {preview}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <Muted className="whitespace-nowrap" title={dayTime(t.last.createdAt)}>
+                      {ago(t.last.createdAt)}
+                    </Muted>
+                    <div className="flex items-center gap-1">
+                      {t.undelivered > 0 && (
+                        <span className="rounded-full bg-(--attn-2)/15 px-1.5 text-[11px] font-medium text-amber-800 dark:text-amber-300">{t.undelivered} not delivered</span>
+                      )}
+                      <span className="grid h-5 min-w-5 place-items-center rounded-full bg-foreground/8 px-1.5 text-[11px] text-muted-foreground tabular-nums">
+                        {t.msgs.length}
+                      </span>
+                    </div>
+                  </div>
+                </button>
               </li>
             )
           })}
         </ul>
       )}
+      <ThreadDialog who={open} onClose={() => setOpen(null)} />
     </Card>
   )
 }
 
 function Calls() {
   const snap = useSnap()
+  const [open, setOpen] = useState<(typeof snap.calls)[number] | null>(null)
+  const who = (c: (typeof snap.calls)[number]) => (c.customerId ? (snap.customers[c.customerId]?.name ?? c.callerPhone ?? 'Unknown caller') : (c.callerPhone ?? 'Unknown caller'))
   if (!snap.calls.length)
     return (
       <Card>
@@ -264,57 +288,57 @@ function Calls() {
           const last = c.transcript.at(-1)
           return (
             <li key={c.id}>
-              <details className="group">
-                <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 transition-colors hover:bg-secondary/50">
-                  <span className="tile tile-quiet size-9">
-                    <Phone className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                      {c.customerId ? (snap.customers[c.customerId]?.name ?? c.callerPhone ?? 'Unknown caller') : (c.callerPhone ?? 'Unknown caller')}
-                      {c.reason && (
-                        <span
-                          className={cn(
-                            'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                            c.reason === 'new_case' ? 'bg-primary/12 text-primary' : 'bg-foreground/8 text-muted-foreground',
-                          )}
-                        >
-                          {CALL_REASON[c.reason] ?? c.reason}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                      {c.summary ? c.summary : last ? `${last.role === 'agent' ? 'Agent' : 'Caller'}: ${last.text}` : 'No transcript'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <Muted className="block whitespace-nowrap" title={dayTime(c.startedAt)}>
-                        {ago(c.startedAt)}
-                      </Muted>
-                      <Muted className="block">
-                        {c.transcript.length} {c.transcript.length === 1 ? 'turn' : 'turns'}
-                      </Muted>
-                    </div>
-                    <ChevronRight className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
-                  </div>
-                </summary>
-                <ol className="well mx-5 mb-5 space-y-3 rounded-xl p-4">
-                  {c.transcript.map((t, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript; a turn never moves
-                    <li key={i} className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 text-sm leading-relaxed">
-                      <span className={cn('pt-px text-xs font-medium', t.role === 'agent' ? 'text-primary' : 'text-muted-foreground')}>
-                        {t.role === 'agent' ? 'Agent' : 'Caller'}
+              <button
+                type="button"
+                onClick={() => setOpen(c)}
+                className="grid w-full cursor-pointer text-left outline-none focus-visible:bg-foreground/5 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4 transition-colors hover:bg-secondary/50"
+              >
+                <span className="tile tile-quiet size-9">
+                  <Phone className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                    {c.customerId ? (snap.customers[c.customerId]?.name ?? c.callerPhone ?? 'Unknown caller') : (c.callerPhone ?? 'Unknown caller')}
+                    {c.reason && (
+                      <span
+                        className={cn(
+                          'rounded-full px-2 py-0.5 text-[11px] font-medium',
+                          c.reason === 'new_case' ? 'bg-primary/12 text-primary' : 'bg-foreground/8 text-muted-foreground',
+                        )}
+                      >
+                        {CALL_REASON[c.reason] ?? c.reason}
                       </span>
-                      <span className="text-foreground/90">{t.text}</span>
-                    </li>
-                  ))}
-                </ol>
-              </details>
+                    )}
+                  </div>
+                  <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                    {c.summary ? c.summary : last ? `${last.role === 'agent' ? 'Agent' : 'Caller'}: ${last.text}` : 'No transcript'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="text-right">
+                    <Muted className="block whitespace-nowrap" title={dayTime(c.startedAt)}>
+                      {ago(c.startedAt)}
+                    </Muted>
+                    <Muted className="block">
+                      {c.transcript.length} {c.transcript.length === 1 ? 'turn' : 'turns'}
+                    </Muted>
+                  </div>
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </div>
+              </button>
             </li>
           )
         })}
       </ul>
+      {open && (
+        <TranscriptDialog
+          turns={open.transcript}
+          title={`Call with ${who(open)}`}
+          meta={`${dayTime(open.startedAt)}${open.summary ? ` · ${open.summary}` : ''}`}
+          open
+          onOpenChange={(o) => !o && setOpen(null)}
+        />
+      )}
     </Card>
   )
 }

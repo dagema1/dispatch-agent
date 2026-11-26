@@ -154,6 +154,11 @@ export const getRequestStory = createServerFn({ method: 'GET' })
   .validator(z.object({ requestId: z.number().int() }))
   .handler(async ({ data }) => (await import('./server/api/story')).requestStory(data.requestId))
 
+export const getConversation = createServerFn({ method: 'GET' })
+  .middleware([owner])
+  .validator(z.object({ customerId: z.number().int().optional(), technicianId: z.number().int().optional() }))
+  .handler(async ({ data }) => (await import('./server/api/story')).conversation(data))
+
 /* ---------- Needs you: the owner resolving things by hand ---------- */
 
 export const resolveRequest = createServerFn({ method: 'POST' })

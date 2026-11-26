@@ -12,6 +12,7 @@ import {
   Inbox,
   MapPin,
   MessageSquare,
+  MessagesSquare,
   Navigation,
   Phone,
   Receipt,
@@ -31,6 +32,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { Empty, Priority, Status } from './bits'
+import { ThreadDialog, TranscriptButton } from './Conversation'
 import { AGENT_LABEL, ago, dayOf, dayTime, money, triggerLabel } from './format'
 import { useSnap } from './live'
 import { Composer } from './NeedsYou'
@@ -42,7 +44,9 @@ const LABEL = 'text-[11px] font-medium tracking-wider text-muted-foreground uppe
 export function RequestStorySheet({ requestId, onClose }: { requestId: number | null; onClose: () => void }) {
   return (
     <Sheet open={requestId != null} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-xl">{requestId != null && <StoryBody requestId={requestId} />}</SheetContent>
+      <SheetContent className="gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-xl">
+        {requestId != null && <StoryBody requestId={requestId} />}
+      </SheetContent>
     </Sheet>
   )
 }
@@ -51,6 +55,7 @@ function StoryBody({ requestId }: { requestId: number }) {
   const snap = useSnap()
   // undefined = loading, null = gone
   const [s, setS] = useState<Story | null | undefined>(undefined)
+  const [thread, setThread] = useState(false)
   // reload whenever the live snapshot moves, so a tech arriving shows up while the sheet is open
   // biome-ignore lint/correctness/useExhaustiveDependencies: snap is the refresh signal
   useEffect(() => {
@@ -163,6 +168,9 @@ function StoryBody({ requestId }: { requestId: number }) {
                   </a>
                 </Button>
               )}
+              <Button size="sm" variant="outline" onClick={() => setThread(true)}>
+                <MessagesSquare /> Whole conversation
+              </Button>
               {c.email && <span className="self-center text-xs text-muted-foreground">{c.email}</span>}
             </div>
           )}
@@ -192,6 +200,7 @@ function StoryBody({ requestId }: { requestId: number }) {
           </ol>
         </section>
 
+        <ThreadDialog who={thread && c ? { customerId: c.id } : null} onClose={() => setThread(false)} />
         {c && (
           <section className="border-t pt-5">
             <Composer customerId={c.id} requestId={r.id} jobId={job?.id} hasEmail={!!c.email} subject={`Re: ${ex.issue ?? r.summary ?? 'your request'}`} body="" />
@@ -273,7 +282,9 @@ function timeline(s: Story): Step[] {
       tile: 'tile-action',
       title: `Phone call${c.reason ? ` · ${CALL_REASON[c.reason] ?? c.reason}` : ''}`,
       detail: c.summary ?? `${c.transcript.length} turns${c.endedAt ? ` · ${Math.max(1, Math.round((+new Date(c.endedAt) - +new Date(c.startedAt)) / 60000))} min` : ''}`,
-      body: c.transcript.length ? <Transcript turns={c.transcript} /> : undefined,
+      body: c.transcript.length ? (
+        <TranscriptButton className="mt-1.5" turns={c.transcript} title={`Call with ${s.customer?.name ?? 'caller'}`} meta={dayTime(c.startedAt)} />
+      ) : undefined,
     })
 
   for (const j of s.jobs) {
@@ -395,24 +406,5 @@ function MessageBody({ subject, body }: { subject: string | null; body: string }
         </button>
       )}
     </div>
-  )
-}
-
-function Transcript({ turns }: { turns: Array<{ role: 'caller' | 'agent'; text: string }> }) {
-  return (
-    <details className="group mt-1.5">
-      <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-        <ChevronRight className="size-3 transition-transform group-open:rotate-90" /> Transcript
-      </summary>
-      <ol className="well mt-2 max-h-80 space-y-2 overflow-y-auto rounded-xl p-3">
-        {turns.map((t, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript; a turn never moves
-          <li key={i} className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-2 text-xs leading-relaxed">
-            <span className={cn('font-medium', t.role === 'agent' ? 'text-primary' : 'text-muted-foreground')}>{t.role === 'agent' ? 'Agent' : 'Caller'}</span>
-            <span>{t.text}</span>
-          </li>
-        ))}
-      </ol>
-    </details>
   )
 }

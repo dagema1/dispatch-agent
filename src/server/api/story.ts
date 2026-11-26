@@ -74,3 +74,22 @@ export async function requestStory(requestId: number) {
   return { request, customer: customer ?? null, jobs, techs, calls, messages, quotes, invoices, events, runs }
 }
 export type RequestStory = NonNullable<Awaited<ReturnType<typeof requestStory>>>
+
+/** One person's whole conversation with the business: every message both ways, plus calls for a customer. */
+export async function conversation(who: { customerId?: number; technicianId?: number }) {
+  if (who.customerId) {
+    const [customer] = await db.select().from(schema.customers).where(eq(schema.customers.id, who.customerId))
+    if (!customer) return null
+    const messages = await db.select().from(schema.messages).where(eq(schema.messages.customerId, who.customerId)).orderBy(schema.messages.createdAt).limit(300)
+    const calls = await db.select().from(schema.calls).where(eq(schema.calls.customerId, who.customerId)).orderBy(schema.calls.startedAt)
+    return { kind: 'customer' as const, name: customer.name, email: customer.email, phone: customer.phone, customerId: customer.id, messages, calls }
+  }
+  if (who.technicianId) {
+    const [t] = await db.select().from(schema.technicians).where(eq(schema.technicians.id, who.technicianId))
+    if (!t) return null
+    const messages = await db.select().from(schema.messages).where(eq(schema.messages.technicianId, who.technicianId)).orderBy(schema.messages.createdAt).limit(300)
+    return { kind: 'technician' as const, name: t.name, color: t.color, email: null, phone: null, customerId: null, messages, calls: [] }
+  }
+  return null
+}
+export type Conversation = NonNullable<Awaited<ReturnType<typeof conversation>>>

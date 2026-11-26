@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { CountChip, ErrorText, PanelHead, PriorityTile } from './bits'
+import { TranscriptButton } from './Conversation'
 import { useConfirm } from './confirm'
 import { ago, dayTime } from './format'
 import { useAction } from './live'
@@ -234,24 +235,7 @@ function Emergency({ snap, requestId }: { snap: Snapshot; requestId: number }) {
       </div>
       <ErrorText error={resolve.error} />
       {call && call.transcript.length > 0 && (
-        <details className="group rounded-xl border">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <ChevronRight className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
-            Call transcript
-            <span className="ml-auto text-xs font-normal text-muted-foreground">
-              {call.transcript.length} turns · {dayTime(call.startedAt)}
-            </span>
-          </summary>
-          <ol className="max-h-80 space-y-2.5 overflow-y-auto border-t px-3.5 py-3">
-            {call.transcript.map((t, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript; a turn never moves
-              <li key={i} className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-2 text-sm leading-relaxed">
-                <span className={cn('pt-px text-xs font-medium', t.role === 'agent' ? 'text-primary' : 'text-muted-foreground')}>{t.role === 'agent' ? 'Agent' : 'Caller'}</span>
-                <span>{t.text}</span>
-              </li>
-            ))}
-          </ol>
-        </details>
+        <TranscriptButton turns={call.transcript} title={`Call with ${c?.name ?? 'caller'}`} meta={dayTime(call.startedAt)} className="w-fit" />
       )}
       {r.customerId && (
         <Composer
@@ -428,6 +412,7 @@ export function Composer({
   subject: subject0,
   body: body0,
   onSent,
+  compact,
 }: {
   customerId: number
   requestId?: number
@@ -436,6 +421,8 @@ export function Composer({
   subject: string
   body: string
   onSent?: () => void
+  /** In a thread: no heading, a shorter box, and it clears after sending. */
+  compact?: boolean
 }) {
   const [subject, setSubject] = useState(subject0)
   const [body, setBody] = useState(body0)
@@ -443,6 +430,7 @@ export function Composer({
   const send = useAction(async () => {
     const r = await sendCustomerMessage({ data: { customerId, requestId, jobId, subject, body } })
     setDone(r.delivered ? (r.via === 'test' ? 'Sent to the test inbox.' : 'Sent.') : 'Saved, but not delivered: no email or text channel is connected.')
+    if (compact) setBody('')
     onSent?.()
   })
   return (
@@ -454,9 +442,9 @@ export function Composer({
         send.run()
       }}
     >
-      <h3 className={LABEL}>Message the customer</h3>
+      {!compact && <h3 className={LABEL}>Message the customer</h3>}
       {hasEmail && <Input aria-label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} />}
-      <Textarea aria-label="Message" rows={4} value={body} onChange={(e) => setBody(e.target.value)} />
+      <Textarea aria-label="Message" rows={compact ? 2 : 4} value={body} onChange={(e) => setBody(e.target.value)} />
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" size="sm" disabled={send.busy || body.trim().length < 2}>
           <Send /> {send.busy ? 'Sending…' : hasEmail ? 'Send email' : 'Send text'}
