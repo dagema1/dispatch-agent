@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type BoardRow, boardFits, packBoard } from '../src/server/agent/board-widget'
+import { type BoardRow, boardFits, boardText, packBoard } from '../src/server/agent/board-widget'
 
 describe('office live board widget', () => {
   it('fits Telegram’s widget HTML limits', () => {
@@ -18,5 +18,22 @@ describe('office live board widget', () => {
   it('keeps full titles when they fit', () => {
     const rows: BoardRow[] = [[1, 'Ana', '2f5bd3', 1, 3, 's', '1p', '#7 Basement leak']]
     expect(JSON.parse(packBoard({ d: 'Fri', at: '2p', u: 0, a: 0 }, rows)).t[0][7]).toBe('#7 Basement leak')
+  })
+
+  it('renders the group text board with flags and escaped titles', () => {
+    const text = boardText({
+      day: 'Fri, Nov 27',
+      at: '4:11p',
+      unassigned: 2,
+      pending: 0,
+      rows: [
+        [5, 'Tom', '57534e', 1, 2, 's', '4:26p', '#26 Basement <leak>'],
+        [1, 'Carlos', '2563eb', 0, 0, '-', '', ''],
+      ],
+    })
+    expect(text).toContain('1/2 visits done · ⚠️ 2 unassigned')
+    expect(text).toContain('<b>Tom</b> 1/2 · ⏭ Next 4:26p · #26 Basement &lt;leak&gt;')
+    expect(text).toContain('<b>Carlos</b> 0/0 · — Nothing today')
+    expect(text).not.toContain('approval')
   })
 })

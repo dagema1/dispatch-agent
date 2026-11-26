@@ -3,7 +3,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { db, schema } from '../db'
 import { replan } from '../domain/dispatch'
 import { ownerChatId } from '../domain/messaging'
-import { type TgWidgetQuery, tg } from '../integrations/telegram'
+import { esc, type InlineKeyboard, type TgWidgetQuery, tg } from '../integrations/telegram'
 import { subscribe } from '../lib/bus'
 import { dayOf, fmtTime } from '../lib/time'
 
@@ -39,7 +39,10 @@ const short = (d: Date | null) =>
         .replace(/\s?([AP])M/i, (_, x: string) => x.toLowerCase())
     : ''
 
-export async function boardData(note?: string): Promise<string> {
+export type Snapshot = { day: string; at: string; unassigned: number; pending: number; rows: BoardRow[] }
+
+/** Today across the fleet: one row per active technician, plus what's waiting on the office. */
+async function snapshot(): Promise<Snapshot> {
   const today = dayOf(new Date())
   const techs = await db.select().from(schema.technicians).where(eq(schema.technicians.active, true))
   const jobs = (
@@ -58,18 +61,56 @@ export async function boardData(note?: string): Promise<string> {
     return [t.id, t.name.split(' ')[0], t.color.replace('#', ''), done, mine.length, now, cur ? short(cur.scheduledStart) : '', cur ? `#${cur.id} ${cur.title}` : '']
   })
   const day = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  return packBoard({ d: day, at: short(new Date()), u: unassigned, a: pending, ...(note ? { n: note } : {}) }, rows)
+  return { day, at: short(new Date()), unassigned, pending, rows }
 }
 
-async function stored(): Promise<{ chatId: string; messageId: number } | null> {
+export async function boardData(note?: string): Promise<string> {
+  const s = await snapshot()
+  return packBoard({ d: s.day, at: s.at, u: s.unassigned, a: s.pending, ...(note ? { n: note } : {}) }, s.rows)
+}
+
+const NOW: Record<BoardRow[5], string> = { o: '🔧 On site', e: '🚐 On the way', s: '⏭ Next', f: '✅ Done for the day', '-': '— Nothing today' }
+
+/** The same board as a text message, for groups (Telegram allows widgets only in private chats for now). */
+export function boardText(s: Snapshot, note?: string): string {
+  const total = s.rows.reduce((a, r) => a + r[4], 0)
+  const done = s.rows.reduce((a, r) => a + r[3], 0)
+  const flags = [`${done}/${total} visits done`, s.unassigned ? `⚠️ ${s.unassigned} unassigned` : '', s.pending ? `🟡 ${s.pending} approval${s.pending > 1 ? 's' : ''}` : '']
+    .filter(Boolean)
+    .join(' · ')
+  const lines = s.rows.map((r) => `<b>${esc(r[1])}</b> ${r[3]}/${r[4]} · ${NOW[r[5]]}${r[6] ? ` ${r[6]}` : ''}${r[7] ? ` · ${esc(r[7])}` : ''}`)
+  return [
+    `📋 <b>Live board</b> · ${esc(s.day)} · updated ${s.at}`,
+    flags,
+    '',
+    ...(lines.length ? lines : ['No technicians on today.']),
+    ...(note ? ['', `<i>${esc(note)}</i>`] : []),
+  ].join('\n')
+}
+
+const boardKeyboard = (s: Snapshot): InlineKeyboard => {
+  const techs = s.rows.map((r) => ({ text: `🗺 ${r[1]}`, callback_data: `bd:t:${r[0]}` }))
+  const rows: InlineKeyboard = []
+  for (let i = 0; i < techs.length; i += 3) rows.push(techs.slice(i, i + 3))
+  rows.push([{ text: '🔁 Re-plan', callback_data: 'replan' }])
+  return rows
+}
+
+type Stored = { chatId: string; messageId: number; kind?: 'widget' | 'text' }
+
+async function stored(): Promise<Stored | null> {
   const [row] = await db.select().from(schema.settings).where(eq(schema.settings.key, KEY))
-  return (row?.value as { chatId: string; messageId: number } | undefined) ?? null
+  return (row?.value as Stored | undefined) ?? null
 }
 
-/** Post the board to the office group and pin it. Returns why not when it can't. */
-export async function postBoard(chatId?: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+/**
+ * Post the board to the office group and pin it: the widget where Telegram allows it, else the
+ * text board with buttons. Returns why not when neither works.
+ */
+export async function postBoard(chatId?: string): Promise<{ ok: true; kind: 'widget' | 'text' } | { ok: false; reason: string }> {
   const chat = chatId ?? (await ownerChatId())
   if (!chat) return { ok: false, reason: 'No office group yet. Add the bot to your group and send /owner there.' }
+  let value: Stored | null = null
   try {
     const m = await tg<{ message_id: number }>('sendWidget', {
       chat_id: chat,
@@ -79,27 +120,75 @@ export async function postBoard(chatId?: string): Promise<{ ok: true } | { ok: f
       caption: '📋 Live board · updates itself as the day changes. Tap a technician for their route.',
       disable_notification: true,
     })
-    const value = { chatId: chat, messageId: m.message_id }
-    await db.insert(schema.settings).values({ key: KEY, value }).onConflictDoUpdate({ target: schema.settings.key, set: { value } })
-    await tg('pinChatMessage', { chat_id: chat, message_id: m.message_id, disable_notification: true }).catch(() => {})
-    return { ok: true }
+    value = { chatId: chat, messageId: m.message_id, kind: 'widget' }
   } catch (e) {
-    return { ok: false, reason: `Telegram refused the widget: ${(e as Error).message.slice(0, 160)}` }
+    // production Telegram: widgets only in private chats (INPUT_MEDIA_WIDGET_NOT_ALLOWED in groups)
+    console.warn('[telegram] board widget not allowed here, posting the text board:', (e as Error).message)
   }
+  if (!value) {
+    const s = await snapshot()
+    try {
+      const m = await tg<{ message_id: number }>('sendMessage', {
+        chat_id: chat,
+        text: boardText(s),
+        parse_mode: 'HTML',
+        disable_notification: true,
+        reply_markup: { inline_keyboard: boardKeyboard(s) },
+      })
+      value = { chatId: chat, messageId: m.message_id, kind: 'text' }
+    } catch (e) {
+      return { ok: false, reason: `Telegram refused the board: ${(e as Error).message.slice(0, 160)}` }
+    }
+  }
+  await db.insert(schema.settings).values({ key: KEY, value }).onConflictDoUpdate({ target: schema.settings.key, set: { value } })
+  await tg('pinChatMessage', { chat_id: chat, message_id: value.messageId, disable_notification: true }).catch(() => {})
+  return { ok: true, kind: value.kind ?? 'widget' }
 }
 
 export async function refreshBoard(note?: string) {
   const b = await stored()
   if (!b) return
-  await tg('editMessageWidgetData', { chat_id: b.chatId, message_id: b.messageId, chat_data: await boardData(note) }).catch(async (e) => {
+  const edit =
+    b.kind === 'text'
+      ? snapshot().then((s) =>
+          tg('editMessageText', {
+            chat_id: b.chatId,
+            message_id: b.messageId,
+            text: boardText(s, note),
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: boardKeyboard(s) },
+          }),
+        )
+      : boardData(note).then((data) => tg('editMessageWidgetData', { chat_id: b.chatId, message_id: b.messageId, chat_data: data }))
+  await edit.catch(async (e) => {
     const msg = (e as Error).message
+    if (/not modified/i.test(msg)) return
     console.warn('[telegram] board refresh', msg)
     // deleted or too old to edit: forget it, /menu or Settings posts a new one
     if (/not found|can't be edited|MESSAGE_ID_INVALID/i.test(msg)) await db.delete(schema.settings).where(eq(schema.settings.key, KEY))
   })
 }
 
-/** Taps on the board. Answered within 15 s; a re-plan runs afterwards and the board refreshes itself. */
+/** One technician's route today, as plain lines (widget answer or ephemeral reply). */
+export async function techRoute(id: number): Promise<string> {
+  const [t] = await db.select().from(schema.technicians).where(eq(schema.technicians.id, id))
+  if (!t) return 'Technician not found.'
+  const today = dayOf(new Date())
+  const rows = (
+    await db
+      .select({ j: schema.jobs, c: schema.customers.name })
+      .from(schema.jobs)
+      .innerJoin(schema.customers, eq(schema.customers.id, schema.jobs.customerId))
+      .where(and(eq(schema.jobs.technicianId, id), inArray(schema.jobs.status, ['scheduled', 'en_route', 'on_site', 'done'])))
+  )
+    .filter((r) => r.j.scheduledStart && dayOf(r.j.scheduledStart) === today)
+    .sort((a, b) => +a.j.scheduledStart! - +b.j.scheduledStart!)
+  if (!rows.length) return `${t.name}: nothing on the route today.`
+  const icon: Record<string, string> = { scheduled: '·', en_route: '🚐', on_site: '🔧', done: '✅' }
+  return `${t.name}\n${rows.map((r) => `${icon[r.j.status] ?? '·'} ${short(r.j.scheduledStart)} #${r.j.id}${r.j.priority === 1 ? ' 🚨' : ''} ${r.j.title} (${r.c.split(' ')[0]})`).join('\n')}`
+}
+
+/** Taps on the board widget. Answered within 15 s; a re-plan runs afterwards and the board refreshes itself. */
 export async function onBoardQuery(q: TgWidgetQuery) {
   const answer = (data: string) => tg('answerWidgetQuery', { widget_query_id: q.id, data: data.slice(0, 1000) }).catch((e) => console.warn('[telegram] board answer', e.message))
   const [verb, arg] = q.data.split(':')
@@ -109,26 +198,7 @@ export async function onBoardQuery(q: TgWidgetQuery) {
       .catch((e) => console.error('[replan]', e))
     return answer('Re-planning… the board updates when it’s done.')
   }
-  if (verb === 't') {
-    const id = Number(arg)
-    const [t] = await db.select().from(schema.technicians).where(eq(schema.technicians.id, id))
-    if (!t) return answer('Technician not found.')
-    const today = dayOf(new Date())
-    const rows = (
-      await db
-        .select({ j: schema.jobs, c: schema.customers.name })
-        .from(schema.jobs)
-        .innerJoin(schema.customers, eq(schema.customers.id, schema.jobs.customerId))
-        .where(and(eq(schema.jobs.technicianId, id), inArray(schema.jobs.status, ['scheduled', 'en_route', 'on_site', 'done'])))
-    )
-      .filter((r) => r.j.scheduledStart && dayOf(r.j.scheduledStart) === today)
-      .sort((a, b) => +a.j.scheduledStart! - +b.j.scheduledStart!)
-    if (!rows.length) return answer(`${t.name}: nothing on the route today.`)
-    const icon: Record<string, string> = { scheduled: '·', en_route: '🚐', on_site: '🔧', done: '✅' }
-    return answer(
-      `${t.name}\n${rows.map((r) => `${icon[r.j.status] ?? '·'} ${short(r.j.scheduledStart)} #${r.j.id}${r.j.priority === 1 ? ' 🚨' : ''} ${r.j.title} (${r.c.split(' ')[0]})`).join('\n')}`,
-    )
-  }
+  if (verb === 't') return answer(await techRoute(Number(arg)))
   return answer('Unknown action.')
 }
 

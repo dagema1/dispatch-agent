@@ -319,7 +319,13 @@ function LiveBoard() {
   const [note, setNote] = useState<string | null>(null)
   const post = useAction(async () => {
     const r = await postOfficeBoard()
-    setNote(r.ok ? 'Posted and pinned in the office group.' : r.reason)
+    setNote(
+      r.ok
+        ? r.kind === 'text'
+          ? 'Posted and pinned as a text board: Telegram allows widgets only in private chats for now, so the group gets the same board as a message that edits itself.'
+          : 'Posted and pinned in the office group.'
+        : r.reason,
+    )
     return r
   })
   return (

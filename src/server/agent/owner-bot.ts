@@ -19,7 +19,7 @@ import {
 import { subscribe } from '../lib/bus'
 import { env } from '../lib/env'
 import { dayOf, fmtTime } from '../lib/time'
-import { postBoard } from './board-widget'
+import { postBoard, refreshBoard, techRoute } from './board-widget'
 import { decideApproval } from './policy'
 
 /**
@@ -124,9 +124,14 @@ export async function onOwnerCallback(cb: TgCallback) {
   if (chatId == null || !(await isOwnerChat(chatId))) return answerCallback(cb.id, 'Not allowed from this chat.', true)
   const [kind, idStr, verb] = (cb.data ?? '').split(':')
   if (kind === 'p') return onPanel(cb, chatId, idStr)
+  if (kind === 'bd' && idStr === 't') {
+    await answerCallback(cb.id)
+    return ephemeralCallbackReply(cb.id, chatId, esc(await techRoute(Number(verb))))
+  }
   if (kind === 'replan') {
     await answerCallback(cb.id, 'Re-planning…')
     const res = await replan({ reason: `re-plan requested by ${cb.from.first_name ?? 'owner'} in Telegram` })
+    void refreshBoard()
     return ephemeralCallbackReply(cb.id, chatId, `🔁 Re-planned: ${res.moved.length} visit(s) moved, ${res.unassigned.length} still unassigned.`)
   }
   if (kind !== 'ap') return answerCallback(cb.id)
