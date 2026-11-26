@@ -1,17 +1,18 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
+  Activity,
   Bot,
   CalendarRange,
   ChartNoAxesCombined,
   CircleDollarSign,
   ExternalLink,
   Inbox,
-  MessagesSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
   Settings,
   ShieldCheck,
+  Sparkles,
   Wrench,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -41,9 +42,10 @@ const NAV = [
     badge: 'approvals',
   },
   { to: '/app/money', label: 'Quotes & invoices', icon: CircleDollarSign },
-  { to: '/app/agents', label: 'Agent traces', icon: Bot },
+  { to: '/app/agent', label: 'Agent', icon: Sparkles },
+  { to: '/app/team', label: 'Agent team', icon: Bot },
+  { to: '/app/agents', label: 'Agent traces', icon: Activity },
   { to: '/app/roi', label: 'ROI & simulator', icon: ChartNoAxesCombined },
-  { to: '/app/copilot', label: 'Ops copilot', icon: MessagesSquare },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ] as const
 
@@ -212,11 +214,11 @@ function Shell() {
               {connected ? 'Agents live' : 'Connecting'}
             </span>
           </div>
-          <AskBar />
+          <AskBar name={(snap?.settings.persona as { agentName?: string } | undefined)?.agentName ?? 'the agent'} />
         </header>
         <main className="min-w-0 flex-1 p-4 pb-28 md:p-6 md:pb-28">
           {snap ? (
-            <div key={path} className="route-in">
+            <div key={path} className="route-in mx-auto w-full max-w-[1600px]">
               <ConfirmProvider>
                 <Outlet />
               </ConfirmProvider>
@@ -228,27 +230,27 @@ function Shell() {
   )
 }
 
-/** Top-bar question field: hands the question to the ops copilot, which answers it on arrival. */
-function AskBar() {
+/** Top-bar question field: hands the question to the agent chat, which answers it on arrival. */
+function AskBar({ name }: { name: string }) {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   return (
     <form
-      aria-label="Ask the ops copilot"
+      aria-label={`Ask ${name}`}
       className="ml-auto w-full sm:w-80"
       onSubmit={(e) => {
         e.preventDefault()
         if (!q.trim()) return
-        navigate({ to: '/app/copilot', search: { q: q.trim() } })
+        navigate({ to: '/app/agent', search: { q: q.trim() } })
         setQ('')
       }}
     >
       <div className="relative">
         <label htmlFor="ask" className="sr-only">
-          Ask the ops copilot
+          Ask {name}
         </label>
         <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
-        <Input id="ask" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask the copilot: who is free at 2pm?" className="h-9 rounded-xl pl-9" />
+        <Input id="ask" value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Ask ${name}: who is free at 2pm?`} className="h-9 rounded-xl pl-9" />
       </div>
     </form>
   )

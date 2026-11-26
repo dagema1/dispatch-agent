@@ -22,12 +22,13 @@ Shadows stay soft (`0 1px 2px` + `0 6px 16px -10px`). No glass, no blur, no glow
 
 ## Tiles
 
-`.tile` + one of `tile-action | tile-attn | tile-red | tile-quiet | tile-solid`. Flat icon chips: soft tint of the role colour with the glyph in that colour, no shadow, no gradient. `tile-solid` (filled violet) only for the brand mark and the customer call button. Used for: inbox channel icons (tinted by triage priority), feed event icons, unassigned-job priority.
+`.tile` + one of `tile-action | tile-attn | tile-red | tile-quiet | tile-solid`. Flat icon chips: soft tint of the role colour with the glyph in that colour, no shadow, no gradient. `tile-solid` (filled violet) only for the brand mark and the agent's own mark (its initials orb on the Agent page). Used for: inbox channel icons (tinted by triage priority), feed event icons, unassigned-job priority.
 
 ## Controls
 
 - Buttons: radix-nova shapes. `default` = violet gradient with white text; `outline` = slab with edge highlight.
-- Segmented controls (tabs, toggle groups): a well track with the active segment raised as a small slab.
+- Segmented controls (tabs, toggle groups): a well track with the active segment raised as a small slab. Permission levels add a colour dot to the active segment only (violet on its own, gold ask first, grey never).
+- Confirmations: one shared alert dialog (`useConfirm`) for anything customer-facing, destructive or that widens agent autonomy.
 - Icons: lucide only. No emoji or unicode glyphs as icons.
 
 ## Layout
@@ -35,6 +36,7 @@ Shadows stay soft (`0 1px 2px` + `0 6px 16px -10px`). No glass, no blur, no glow
 - **Sidebar**: 4.5rem icon rail (tooltips) by default; expands to 15rem with labels. Choice stored in `localStorage.rail`. Width published as `--rail` on `<html>`. On mobile it becomes a top scrollable icon bar.
 - **Top bar**: company + live status left, "ask the copilot" field right (navigates to `/app/copilot?q=…`, which sends once).
 - **Floating dock**: page-level controls float at bottom centre of the work area (board: day picker + Re-plan). Rendered via portal; full-width at phone sizes. Main content has bottom padding so it never sits under the dock.
+- **Page widths**: everything caps at 1600px; reading and form pages narrow further (settings and inbox `max-w-5xl`, approvals `max-w-4xl`, agent chat `max-w-3xl`, team and ROI `max-w-6xl`). The board stays wide for the timeline and map.
 - Radius 0.875rem base; panels ~1rem, tiles/controls step down.
 - Type: Geist Variable; tabular numerals for counts and money.
 

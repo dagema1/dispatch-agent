@@ -78,7 +78,7 @@ export async function onGroupMessage(msg: TgMessage) {
     return postPanel(chatId)
   }
   if (!(await isOwnerChat(chatId)) || !msg.from) return
-  // a reply to an "Ask the copilot" prompt is the question
+  // a reply to an "Ask the agent" prompt is the question
   const prompt = msg.reply_to_message?.message_id
   if (prompt && askPrompts.get(prompt) === msg.from.id) {
     askPrompts.delete(prompt)
@@ -109,7 +109,7 @@ export async function onGroupMessage(msg: TgMessage) {
         [
           '<b>Office channel</b> · use the pinned panel; answers are only visible to whoever tapped.',
           'Brief: today at a glance · Board: each technician’s route · Approvals: actions waiting for a decision',
-          'Ask: the ops copilot (it can also re-plan, mark a tech out, or draft campaigns; risky actions still need approval)',
+          'Ask: the AI agent (it can also re-plan, mark a tech out, or draft campaigns; risky actions still need approval)',
           '',
           'Approval cards posted here can be decided by anyone in the group; the card shows who decided. /menu re-posts the panel.',
         ].join('\n'),
@@ -193,7 +193,7 @@ const panelKeyboard = (pending: number): InlineKeyboard => [
     { text: pending ? `🟡 Approvals (${pending})` : '✅ Approvals', callback_data: 'p:aps' },
     { text: '🔁 Re-plan', callback_data: 'replan' },
   ],
-  [{ text: '💬 Ask the copilot', callback_data: 'p:ask' }],
+  [{ text: '💬 Ask the agent', callback_data: 'p:ask' }],
   ...dashboardButton(),
 ]
 const PANEL_TEXT = '<b>Office panel</b>\nTap a button. Answers appear only for you, so the group stays clean.'
@@ -242,10 +242,10 @@ async function onPanel(cb: TgCallback, chatId: number, what: string) {
  * the bot); the prompt is removed and the answer is ephemeral.
  */
 async function askPrompt(chatId: string, u: TgUser) {
-  if (!env.GEMINI_API_KEY) return sendEphemeral(chatId, u.id, 'The copilot needs GEMINI_API_KEY.')
+  if (!env.GEMINI_API_KEY) return sendEphemeral(chatId, u.id, 'The agent needs GEMINI_API_KEY.')
   const m = await tg<{ message_id: number }>('sendMessage', {
     chat_id: chatId,
-    text: `<a href="tg://user?id=${u.id}">${who(u)}</a>, what should I ask the copilot? Reply to this message.`,
+    text: `<a href="tg://user?id=${u.id}">${who(u)}</a>, what should I ask the agent? Reply to this message.`,
     parse_mode: 'HTML',
     reply_markup: { force_reply: true, selective: true, input_field_placeholder: 'e.g. who can take an emergency at 3pm?' },
   }).catch(() => null)
@@ -254,7 +254,7 @@ async function askPrompt(chatId: string, u: TgUser) {
 
 async function answerAsk(chatId: string, userId: number, q: string, replyTo?: TgMessage) {
   if (!q) return
-  if (!env.GEMINI_API_KEY) return sendEphemeral(chatId, userId, 'The copilot needs GEMINI_API_KEY.')
+  if (!env.GEMINI_API_KEY) return sendEphemeral(chatId, userId, 'The agent needs GEMINI_API_KEY.')
   await tg('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {})
   const { ownerChat } = await import('./owner')
   const r = await ownerChat(askHistory.get(userId) ?? [], q)

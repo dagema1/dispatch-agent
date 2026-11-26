@@ -1,16 +1,20 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ChevronRight, CircleAlert, ShieldQuestion, Sparkles, StickyNote, Wrench } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CircleAlert, ShieldQuestion, Sparkles, StickyNote, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getTrace } from '#/fns'
 import { AgentTile, Empty, Muted, PageTitle, Section, Status } from '#/ui/bits'
 import { AGENT_LABEL, ago } from '#/ui/format'
 import { useSnap } from '#/ui/live'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
-export const Route = createFileRoute('/app/agents')({ component: Agents })
+export const Route = createFileRoute('/app/agents')({
+  component: Agents,
+  validateSearch: (s: Record<string, unknown>): { run?: string } => (typeof s.run === 'string' && s.run ? { run: s.run } : {}),
+})
 
 /** Step kinds as tiles: model calls in violet, policy holds in gold, errors red, the rest quiet. */
 const KIND: Record<string, { tile: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -23,9 +27,13 @@ const KIND: Record<string, { tile: string; icon: React.ComponentType<{ className
 
 function Agents() {
   const snap = useSnap()
-  const [sel, setSel] = useState<string | null>(snap.runs[0]?.id ?? null)
   const [filter, setFilter] = useState<string>('all')
   const runs = snap.runs.filter((r) => filter === 'all' || r.agent === filter)
+  // ?run= picks the trace. Phones show either the list or the chosen trace; wide screens show both.
+  const { run } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const sel = run ?? runs[0]?.id ?? null
+  const setSel = (id: string) => navigate({ search: { run: id } })
   const tokens = snap.runs.reduce((a, r) => a + r.tokensIn + r.tokensOut, 0)
   return (
     <div>
@@ -49,11 +57,11 @@ function Agents() {
         }
       />
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
-        <Section title="Runs">
+        <Section title="Runs" className={cn(run && 'max-lg:hidden')}>
           {runs.length === 0 ? (
             <Empty>No runs yet.</Empty>
           ) : (
-            <ScrollArea className="-mx-2 h-[70vh]">
+            <ScrollArea className="-mx-2 lg:h-[70vh]">
               <ul className="px-2">
                 {runs.map((r) => (
                   <li key={r.id}>
@@ -87,7 +95,16 @@ function Agents() {
             </ScrollArea>
           )}
         </Section>
-        {sel ? <TraceView runId={sel} /> : <div />}
+        {sel ? (
+          <div className={cn('min-w-0 space-y-3', !run && 'max-lg:hidden')}>
+            <Button variant="ghost" size="sm" className="-ml-2 lg:hidden" onClick={() => navigate({ search: {} })}>
+              <ChevronLeft /> All runs
+            </Button>
+            <TraceView runId={sel} />
+          </div>
+        ) : (
+          <div />
+        )}
       </div>
     </div>
   )

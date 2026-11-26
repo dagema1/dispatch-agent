@@ -33,7 +33,7 @@ import { useAction, useSnap } from '#/ui/live'
 import { PersonaSettings } from '#/ui/PersonaSettings'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
 const TABS = ['persona', 'permissions', 'integrations', 'automation', 'demo'] as const
@@ -109,11 +109,11 @@ function SettingsPage() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <PageTitle title="Settings" />
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
-        <nav aria-label="Settings sections" className="lg:sticky lg:top-4">
-          <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
+        <nav aria-label="Settings sections">
+          <ul className="well -mx-1 flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl p-1">
             {TABS.map((t) => {
               const n = NAV[t]
               const on = t === tab
@@ -125,13 +125,13 @@ function SettingsPage() {
                     replace
                     aria-current={on ? 'page' : undefined}
                     className={cn(
-                      'flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      on ? 'bg-card font-medium text-foreground ring-1 ring-border' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                      'flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      on ? 'bg-card font-medium text-foreground shadow-(--slab-shadow) ring-1 ring-border' : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
                     <n.icon className={cn('size-4 shrink-0', on && 'text-primary')} />
                     <span>{n.label}</span>
-                    {meta[t] && <span className="ml-auto truncate pl-2 text-xs text-muted-foreground tabular-nums max-lg:hidden">{meta[t]}</span>}
+                    {meta[t] && <span className="rounded-full bg-foreground/8 px-1.5 text-[11px] text-muted-foreground tabular-nums max-xl:hidden">{meta[t]}</span>}
                   </Link>
                 </li>
               )
@@ -219,31 +219,17 @@ function Permissions() {
   )
 }
 
-/** Pill showing the current permission; opens a menu where each level says what it means. */
+/** Segmented control: the active level shows its colour dot, the others stay quiet. */
 function LevelPicker({ label, value, onChange, disabled }: { label: string; value: Level; onChange: (v: Level) => void; disabled?: boolean }) {
-  const cur = LEVEL[value]
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as Level)} disabled={disabled}>
-      <SelectTrigger size="sm" aria-label={`${label}: ${cur.label}`} className="w-40 data-[size=sm]:h-8 data-[size=sm]:rounded-full">
-        <span className="flex items-center gap-2">
-          <span className={cn('size-2 shrink-0 rounded-full', cur.dot)} aria-hidden />
-          {cur.label}
-        </span>
-      </SelectTrigger>
-      <SelectContent align="end">
-        {(Object.keys(LEVEL) as Level[]).map((l) => (
-          <SelectItem key={l} value={l} className="py-2">
-            <span className="flex items-start gap-2.5">
-              <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', LEVEL[l].dot)} aria-hidden />
-              <span>
-                <span className="block text-sm">{LEVEL[l].label}</span>
-                <span className="block text-xs text-muted-foreground">{LEVEL[l].hint}</span>
-              </span>
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <ToggleGroup type="single" variant="outline" size="sm" spacing={0} value={value} disabled={disabled} aria-label={label} onValueChange={(v) => v && onChange(v as Level)}>
+      {(Object.keys(LEVEL) as Level[]).map((l) => (
+        <ToggleGroupItem key={l} value={l} title={LEVEL[l].hint} className="gap-1.5 px-2.5 text-xs data-[state=on]:font-medium">
+          <span className={cn('size-1.5 shrink-0 rounded-full bg-muted-foreground/30', value === l && LEVEL[l].dot)} aria-hidden />
+          {LEVEL[l].label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   )
 }
 
@@ -290,7 +276,7 @@ function Integrations() {
                   <span
                     className={cn(
                       'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
-                      it.ok ? 'tile-action' : 'bg-foreground/8 text-muted-foreground',
+                      it.ok ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-foreground/8 text-muted-foreground',
                     )}
                   >
                     {it.ok ? <Check className="size-3" /> : <CircleDashed className="size-3" />}

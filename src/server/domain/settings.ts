@@ -39,7 +39,22 @@ export const DEFAULT_SETTINGS = {
     greeting: '',
     signOff: '',
   } as Persona,
+  /** Per-agent overrides, edited on the Agent team page. */
+  agents: {
+    front_desk: { supervised: false, instructions: '' },
+    diagnosis: { supervised: false, instructions: '' },
+    dispatch: { supervised: false, instructions: '' },
+    revenue: { supervised: false, instructions: '' },
+    ops: { supervised: false, instructions: '' },
+  } as Record<string, AgentConfig>,
 } as const
+
+export type AgentConfig = {
+  /** Every action this agent would take on its own waits in Approvals instead. */
+  supervised: boolean
+  /** Extra guidance appended to this agent's model prompts. */
+  instructions: string
+}
 
 export const VOICES = ['Aoede', 'Kore', 'Puck', 'Charon', 'Leda', 'Orus', 'Zephyr', 'Fenrir'] as const
 export type Persona = {
@@ -62,6 +77,7 @@ export type Settings = {
   thresholds: (typeof DEFAULT_SETTINGS)['thresholds']
   hours: { open: string; close: string }
   persona: Persona
+  agents: Record<string, AgentConfig>
 }
 
 let cache: { at: number; value: Settings } | undefined

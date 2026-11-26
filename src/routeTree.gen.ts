@@ -14,13 +14,14 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as BookRouteImport } from './routes/book'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as AppAgentRouteImport } from './routes/app/agent'
 import { Route as AppAgentsRouteImport } from './routes/app/agents'
 import { Route as AppApprovalsRouteImport } from './routes/app/approvals'
-import { Route as AppCopilotRouteImport } from './routes/app/copilot'
 import { Route as AppInboxRouteImport } from './routes/app/inbox'
 import { Route as AppMoneyRouteImport } from './routes/app/money'
 import { Route as AppRoiRouteImport } from './routes/app/roi'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppTeamRouteImport } from './routes/app/team'
 import { Route as CPaidRouteImport } from './routes/c/paid'
 import { Route as ApiCronNameRouteImport } from './routes/api/cron/$name'
 import { Route as ApiGoogleCallbackRouteImport } from './routes/api/google/callback'
@@ -54,6 +55,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAgentRoute = AppAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAgentsRoute = AppAgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
@@ -62,11 +68,6 @@ const AppAgentsRoute = AppAgentsRouteImport.update({
 const AppApprovalsRoute = AppApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppCopilotRoute = AppCopilotRouteImport.update({
-  id: '/copilot',
-  path: '/copilot',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInboxRoute = AppInboxRouteImport.update({
@@ -87,6 +88,11 @@ const AppRoiRoute = AppRoiRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTeamRoute = AppTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
   getParentRoute: () => AppRoute,
 } as any)
 const CPaidRoute = CPaidRouteImport.update({
@@ -130,13 +136,14 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/book': typeof BookRoute
   '/api/events': typeof ApiEventsRoute
+  '/app/agent': typeof AppAgentRoute
   '/app/agents': typeof AppAgentsRoute
   '/app/approvals': typeof AppApprovalsRoute
-  '/app/copilot': typeof AppCopilotRoute
   '/app/inbox': typeof AppInboxRoute
   '/app/money': typeof AppMoneyRoute
   '/app/roi': typeof AppRoiRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/team': typeof AppTeamRoute
   '/c/paid': typeof CPaidRoute
   '/app/': typeof AppIndexRoute
   '/api/cron/$name': typeof ApiCronNameRoute
@@ -150,13 +157,14 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/book': typeof BookRoute
   '/api/events': typeof ApiEventsRoute
+  '/app/agent': typeof AppAgentRoute
   '/app/agents': typeof AppAgentsRoute
   '/app/approvals': typeof AppApprovalsRoute
-  '/app/copilot': typeof AppCopilotRoute
   '/app/inbox': typeof AppInboxRoute
   '/app/money': typeof AppMoneyRoute
   '/app/roi': typeof AppRoiRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/team': typeof AppTeamRoute
   '/c/paid': typeof CPaidRoute
   '/app': typeof AppIndexRoute
   '/api/cron/$name': typeof ApiCronNameRoute
@@ -172,13 +180,14 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/book': typeof BookRoute
   '/api/events': typeof ApiEventsRoute
+  '/app/agent': typeof AppAgentRoute
   '/app/agents': typeof AppAgentsRoute
   '/app/approvals': typeof AppApprovalsRoute
-  '/app/copilot': typeof AppCopilotRoute
   '/app/inbox': typeof AppInboxRoute
   '/app/money': typeof AppMoneyRoute
   '/app/roi': typeof AppRoiRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/team': typeof AppTeamRoute
   '/c/paid': typeof CPaidRoute
   '/app/': typeof AppIndexRoute
   '/api/cron/$name': typeof ApiCronNameRoute
@@ -195,13 +204,14 @@ export interface FileRouteTypes {
     | '/app'
     | '/book'
     | '/api/events'
+    | '/app/agent'
     | '/app/agents'
     | '/app/approvals'
-    | '/app/copilot'
     | '/app/inbox'
     | '/app/money'
     | '/app/roi'
     | '/app/settings'
+    | '/app/team'
     | '/c/paid'
     | '/app/'
     | '/api/cron/$name'
@@ -215,13 +225,14 @@ export interface FileRouteTypes {
     | '/'
     | '/book'
     | '/api/events'
+    | '/app/agent'
     | '/app/agents'
     | '/app/approvals'
-    | '/app/copilot'
     | '/app/inbox'
     | '/app/money'
     | '/app/roi'
     | '/app/settings'
+    | '/app/team'
     | '/c/paid'
     | '/app'
     | '/api/cron/$name'
@@ -236,13 +247,14 @@ export interface FileRouteTypes {
     | '/app'
     | '/book'
     | '/api/events'
+    | '/app/agent'
     | '/app/agents'
     | '/app/approvals'
-    | '/app/copilot'
     | '/app/inbox'
     | '/app/money'
     | '/app/roi'
     | '/app/settings'
+    | '/app/team'
     | '/c/paid'
     | '/app/'
     | '/api/cron/$name'
@@ -304,6 +316,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/agent': {
+      id: '/app/agent'
+      path: '/agent'
+      fullPath: '/app/agent'
+      preLoaderRoute: typeof AppAgentRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/agents': {
       id: '/app/agents'
       path: '/agents'
@@ -316,13 +335,6 @@ declare module '@tanstack/react-router' {
       path: '/approvals'
       fullPath: '/app/approvals'
       preLoaderRoute: typeof AppApprovalsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/copilot': {
-      id: '/app/copilot'
-      path: '/copilot'
-      fullPath: '/app/copilot'
-      preLoaderRoute: typeof AppCopilotRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/inbox': {
@@ -351,6 +363,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/team': {
+      id: '/app/team'
+      path: '/team'
+      fullPath: '/app/team'
+      preLoaderRoute: typeof AppTeamRouteImport
       parentRoute: typeof AppRoute
     }
     '/c/paid': {
@@ -406,24 +425,26 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAgentRoute: typeof AppAgentRoute
   AppAgentsRoute: typeof AppAgentsRoute
   AppApprovalsRoute: typeof AppApprovalsRoute
-  AppCopilotRoute: typeof AppCopilotRoute
   AppInboxRoute: typeof AppInboxRoute
   AppMoneyRoute: typeof AppMoneyRoute
   AppRoiRoute: typeof AppRoiRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAgentRoute: AppAgentRoute,
   AppAgentsRoute: AppAgentsRoute,
   AppApprovalsRoute: AppApprovalsRoute,
-  AppCopilotRoute: AppCopilotRoute,
   AppInboxRoute: AppInboxRoute,
   AppMoneyRoute: AppMoneyRoute,
   AppRoiRoute: AppRoiRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

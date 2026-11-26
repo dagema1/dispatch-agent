@@ -172,18 +172,24 @@ registerExecutor('move_job', async (a) => {
   return { moved: res.moved.length }
 })
 
-export async function ownerChat(history: Content[], message: string): Promise<{ text: string; history: Content[] }> {
+export async function ownerChat(history: Content[], message: string): Promise<{ text: string; history: Content[]; used: string[]; runId?: string }> {
   const next: Content[] = [...history, { role: 'user', parts: [{ text: message }] }]
-  if (!aiEnabled()) return { text: 'The AI copilot needs GEMINI_API_KEY. Everything else on the dashboard works without it.', history: next }
+  if (!aiEnabled()) return { text: 'The AI agent needs GEMINI_API_KEY. Everything else on the dashboard works without it.', history: next, used: [] }
   const run = await Run.start('ops', 'owner_chat', message.slice(0, 80))
   const s = await getSettings()
   const today = dayOf(new Date())
   const res = await runTools({
     run,
-    system: `You are the operations copilot for ${s.company.name} (Denver). Today is ${today}; tomorrow is ${addDays(today, 1)}. Answer the owner briefly and concretely, using tools for facts. When an action needs approval, say it is waiting in Approvals. Never invent jobs, customers or numbers.`,
+    system: `You are ${s.persona.agentName}, the AI operations agent for ${s.company.name} (Denver), talking to the owner or office staff. Today is ${today}; tomorrow is ${addDays(today, 1)}. Answer the owner briefly and concretely, using tools for facts. When an action needs approval, say it is waiting in Approvals. Never invent jobs, customers or numbers.`,
     history: next,
     tools,
   })
   await run.end('done', res.text.slice(0, 120))
-  return res
+  // tools called while answering this message, so the chat can show what the agent did
+  const used = res.history
+    .slice(next.length)
+    .flatMap((c) => c.parts ?? [])
+    .map((p) => p.functionCall?.name)
+    .filter((n): n is string => !!n)
+  return { ...res, used: [...new Set(used)], runId: run.id }
 }

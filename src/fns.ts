@@ -71,6 +71,21 @@ export const setPersona = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
+export const setAgentConfig = createServerFn({ method: 'POST' })
+  .validator(
+    z.object({
+      agent: z.enum(['front_desk', 'diagnosis', 'dispatch', 'revenue', 'ops']),
+      supervised: z.boolean(),
+      instructions: z.string().trim().max(1000),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { getSettings, saveSetting } = await import('./server/domain/settings')
+    const s = await getSettings()
+    await saveSetting('agents', { ...s.agents, [data.agent]: { supervised: data.supervised, instructions: data.instructions } })
+    return { ok: true }
+  })
+
 export const setTechActive = createServerFn({ method: 'POST' })
   .validator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ data }) => {
@@ -115,7 +130,7 @@ export const ownerChat = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await boot()
     const res = await (await import('./server/agent/owner')).ownerChat(data.history, data.message)
-    return JSON.parse(JSON.stringify(res)) as { text: string; history: JsonObject[] }
+    return JSON.parse(JSON.stringify(res)) as { text: string; history: JsonObject[]; used: string[]; runId?: string }
   })
 
 export const completeJob = createServerFn({ method: 'POST' })

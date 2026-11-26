@@ -52,7 +52,7 @@ type Filter = 'all' | 'urgent' | 'open'
 function InboxPage() {
   const snap = useSnap()
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <PageTitle title="Inbox & calls" right={<TestEmailButton />} />
       <Tabs defaultValue="requests" className="min-w-0">
         <TabsList className="h-9 w-full sm:w-fit">

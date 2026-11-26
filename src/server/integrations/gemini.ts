@@ -1,7 +1,15 @@
 import { type Content, type FunctionDeclaration, GoogleGenAI, type Part } from '@google/genai'
 import { z } from 'zod'
 import type { Run } from '../agent/trace'
+import { getSettings } from '../domain/settings'
 import { env } from '../lib/env'
+
+/** The owner's extra guidance for this agent (Agent team page), appended to its system prompt. */
+export async function withNotes(system: string, agent: string | undefined) {
+  if (!agent) return system
+  const notes = (await getSettings()).agents[agent]?.instructions?.trim()
+  return notes ? `${system}\n\nAdditional instructions from the owner (follow them unless they conflict with safety rules):\n${notes}` : system
+}
 
 /**
  * Thin, defensive wrapper around Gemini:
@@ -75,6 +83,7 @@ export async function generateJson<T>(opts: {
   media?: Media[]
   temperature?: number
 }): Promise<T> {
+  const system = await withNotes(opts.system, opts.run?.agent)
   const jsonSchema = z.toJSONSchema(opts.schema, { target: 'draft-7' })
   const parts: Part[] = [...(opts.media ?? []).map((m) => ({ inlineData: m })), { text: opts.prompt }]
   const contents: Content[] = [{ role: 'user', parts }]
@@ -85,7 +94,7 @@ export async function generateJson<T>(opts: {
         model,
         contents,
         config: {
-          systemInstruction: opts.system,
+          systemInstruction: system,
           responseMimeType: 'application/json',
           responseJsonSchema: jsonSchema,
           temperature: opts.temperature ?? 0.2,
@@ -118,12 +127,13 @@ function safeParse<T>(schema: z.ZodType<T>, text: string): { ok: true; value: T 
 }
 
 export async function generateText(opts: { run?: Run | null; name: string; system: string; prompt: string; media?: Media[] }): Promise<string> {
+  const system = await withNotes(opts.system, opts.run?.agent)
   const t0 = Date.now()
   const res = await withRetry((model) =>
     client().models.generateContent({
       model,
       contents: [{ role: 'user', parts: [...(opts.media ?? []).map((m) => ({ inlineData: m })), { text: opts.prompt }] }],
-      config: { systemInstruction: opts.system, temperature: 0.4 },
+      config: { systemInstruction: system, temperature: 0.4 },
     }),
   )
   await opts.run?.tokens(res._model ?? MODEL(), res.usageMetadata?.promptTokenCount ?? 0, res.usageMetadata?.candidatesTokenCount ?? 0)
@@ -150,6 +160,7 @@ export function toDeclarations(tools: Tool[]): FunctionDeclaration[] {
 
 export async function runTools(opts: { run: Run; system: string; history: Content[]; tools: Tool[]; maxSteps?: number }): Promise<{ text: string; history: Content[] }> {
   const history = [...opts.history]
+  const system = await withNotes(opts.system, opts.run.agent)
   const byName = new Map(opts.tools.map((t) => [t.name, t]))
   for (let step = 0; step < (opts.maxSteps ?? 8); step++) {
     const t0 = Date.now()
@@ -157,7 +168,7 @@ export async function runTools(opts: { run: Run; system: string; history: Conten
       client().models.generateContent({
         model,
         contents: history,
-        config: { systemInstruction: opts.system, tools: [{ functionDeclarations: toDeclarations(opts.tools) }], temperature: 0.2 },
+        config: { systemInstruction: system, tools: [{ functionDeclarations: toDeclarations(opts.tools) }], temperature: 0.2 },
       }),
     )
     await opts.run.tokens(res._model ?? MODEL(), res.usageMetadata?.promptTokenCount ?? 0, res.usageMetadata?.candidatesTokenCount ?? 0)

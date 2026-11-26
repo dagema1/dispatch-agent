@@ -16,9 +16,10 @@ An agent that does the dispatcher / CSR job at a residential HVAC and plumbing c
 | **Technician app** | Telegram, no typing needed. A persistent button keyboard (My route, Running late, Job done, Send location). Today's route arrives as an **interactive HTML widget** (Bot API 10.4) with On my way / Arrived / Job done per visit. Live location drives customer ETAs. | Telegram, `/c/track/…` |
 | **Job-to-cash** | Tech sends a voice note → job report → invoice → Stripe **test-mode** payment link → automatic reminders until paid. | Quotes & invoices |
 | **Office group** | A pinned **button panel** (Brief, Board, Approvals with a live count, Re-plan, Ask the copilot). Answers are **ephemeral** (Bot API 10.2/10.4): only whoever tapped sees them. Approval cards can be approved or rejected by anyone in the group; the card shows who decided. | Telegram group |
-| **Ops copilot** | Chat with the business: "Tom called in sick, re-plan", "simulate a cold snap and draft a campaign", "which invoices are unpaid?". | Ops copilot, Ask button in Telegram |
 | **Guardrails** | Every action passes a policy engine: *auto*, *needs approval* or *never*, per action type. Low model confidence forces approval. Every model call, tool call and policy decision is traced. | Approvals, Agent traces, Settings |
-| **Agent persona** | Name, call voice (Gemini Live prebuilt), tone, how customers are addressed, call opening line and message sign-off. Applied to the voice prompt and to every outbound customer message. | Settings |
+| **Agent persona** | Name, call voice (Gemini Live prebuilt), tone, how customers are addressed, call opening line and message sign-off. Applied to the voice prompt and to every outbound customer message. | Settings → Agent persona |
+| **Agent chat** | The owner talks to the same persona (Agent page, top-bar ask field, Telegram panel). Answers from live data, shows which tools it used and links to the trace. | Agent |
+| **Agent team** | Five specialists with recent runs, failures and tokens. Per agent: supervised mode (everything waits in Approvals) and custom instructions appended to its prompts. | Agent team |
 | **Proof** | A day simulator (AI office vs a human-office baseline, same demand, same fleet) and a labelled triage eval set with a held-out split. | ROI & simulator |
 
 ### Proactive (scheduled) work

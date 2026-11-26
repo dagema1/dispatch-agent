@@ -46,6 +46,10 @@ export async function act(run: Run | null, action: Action): Promise<ActOutcome> 
     policy = 'approve'
     reason = action.forceApproval
   }
+  if (policy === 'auto' && run && settings.agents[run.agent]?.supervised) {
+    policy = 'approve'
+    reason = `${run.agent.replace('_', ' ')} agent is supervised`
+  }
   await run?.step('policy', action.tool, { summary: action.summary, policy: action.policy }, { decision: policy, reason })
 
   if (policy === 'never') {
