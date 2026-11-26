@@ -430,12 +430,14 @@ function FixDetails({ requestId, customer: c }: { requestId: number; customer: N
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const unplaced = c.lat == null
-  const [f, setF] = useState({
-    name: c.name,
-    phone: c.phone ?? '',
-    email: c.email ?? '',
-    address: c.address === 'unknown' ? '' : c.address,
-  })
+  const saved = () => ({ name: c.name, phone: c.phone ?? '', email: c.email ?? '', address: c.address === 'unknown' ? '' : c.address })
+  const [f, setF] = useState(saved)
+  // every open starts from what's saved; a cancelled edit doesn't linger
+  const start = () => {
+    setF(saved())
+    setError(null)
+    setOpen(true)
+  }
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((v) => ({ ...v, [k]: e.target.value }))
 
   async function submit(e: React.FormEvent) {
@@ -473,7 +475,7 @@ function FixDetails({ requestId, customer: c }: { requestId: number; customer: N
           <span className="font-medium">Not booked.</span> {unplaced ? 'We couldn’t place the address on the map.' : 'Intake stopped before booking.'} Fix the details and we’ll
           book it.
         </p>
-        <Button size="sm" onClick={() => setOpen(true)}>
+        <Button size="sm" onClick={start}>
           <Pencil /> Fix details & book
         </Button>
       </div>
