@@ -90,7 +90,7 @@ function CallPanel() {
     <Card className="rounded-3xl">
       <CardContent className="px-6 sm:px-10">
         <div className="mx-auto flex max-w-sm flex-col items-center py-6 text-center">
-          <span className="tile tile-action size-14 rounded-2xl ring-1 ring-primary/25">{live ? <Mic className="size-6" /> : <Phone className="size-6" />}</span>
+          <span className="tile size-14 rounded-2xl bg-emerald-500/15 text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400">{live ? <Mic className="size-6" /> : <Phone className="size-6" />}</span>
           <h2 className="mt-5 text-2xl font-bold tracking-tight">
             {live ? (speaking === 'agent' ? 'Receptionist speaking' : 'We’re listening') : state === 'connecting' ? 'Connecting you' : 'Talk to our receptionist'}
           </h2>
@@ -103,13 +103,13 @@ function CallPanel() {
                   ? 'The call ended. You can start again or send the details instead.'
                   : 'Uses your microphone. Speak naturally; you’ll get a confirmed arrival window before you hang up.'}
           </p>
-          <LiveWaveform mode={mode} sources={sources} className={cn('mt-6', live ? 'text-primary' : 'text-muted-foreground')} />
+          <LiveWaveform mode={mode} sources={sources} className={cn('mt-6', live ? 'text-emerald-500' : 'text-muted-foreground')} />
           {live || state === 'connecting' ? (
-            <Button variant="destructive" className="mt-6 h-12 w-full rounded-full text-base" onClick={() => call.current?.hangUp()}>
+            <Button className="mt-6 h-12 w-full rounded-full bg-red-600 bg-none text-base text-white shadow-none hover:bg-red-500" onClick={() => call.current?.hangUp()}>
               <PhoneOff /> Hang up
             </Button>
           ) : (
-            <Button className="mt-6 h-12 w-full rounded-full text-base" onClick={start} disabled={state === 'ending'}>
+            <Button className="mt-6 h-12 w-full rounded-full bg-emerald-600 bg-none text-base text-white shadow-none hover:bg-emerald-500" onClick={start} disabled={state === 'ending'}>
               <Phone /> Start call
             </Button>
           )}
