@@ -1,5 +1,5 @@
 import { esc, sendTelegram, type TgUpdate } from '../integrations/telegram'
-import { onBoardQuery } from './board-widget'
+import { isBoardWidget, onBoardQuery, sendBoardDm } from './board-widget'
 import { isOwnerChat, onGroupMessage, onOwnerCallback } from './owner-bot'
 import { onTechCallback, onTechMessage, onWidgetQuery } from './technician'
 
@@ -10,7 +10,11 @@ import { onTechCallback, onTechMessage, onWidgetQuery } from './technician'
 export async function onTelegramUpdate(u: TgUpdate) {
   try {
     // the office board lives in the owner group; route widgets live in technicians' private chats
-    if (u.widget_query) return u.widget_query.chat && (await isOwnerChat(u.widget_query.chat.id)) ? await onBoardQuery(u.widget_query) : await onWidgetQuery(u.widget_query)
+    if (u.widget_query) {
+      const q = u.widget_query
+      const chat = q.chat?.id ?? q.from.id
+      return (await isOwnerChat(chat)) || (await isBoardWidget(chat, q.message_id)) ? await onBoardQuery(q) : await onWidgetQuery(q)
+    }
     if (u.callback_query) {
       const chat = u.callback_query.message?.chat
       return chat && chat.type !== 'private' ? await onOwnerCallback(u.callback_query) : await onTechCallback(u.callback_query)
@@ -18,6 +22,12 @@ export async function onTelegramUpdate(u: TgUpdate) {
     const msg = u.message ?? u.edited_message
     if (!msg) return
     if (msg.chat.type === 'group' || msg.chat.type === 'supergroup') return await onGroupMessage(msg)
+    // an office member asking for the live board widget in their private chat
+    if (msg.from && /^\/board(@\w+)?$/.test((msg.text ?? '').trim())) {
+      const r = await sendBoardDm(msg.from.id)
+      if (!r.ok) await sendTelegram(String(msg.chat.id), esc(r.reason))
+      return
+    }
     return await onTechMessage(msg)
   } catch (e) {
     console.error('[telegram] handler', e)

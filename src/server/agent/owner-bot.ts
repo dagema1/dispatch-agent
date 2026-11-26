@@ -19,7 +19,7 @@ import {
 import { subscribe } from '../lib/bus'
 import { env } from '../lib/env'
 import { dayOf, fmtTime } from '../lib/time'
-import { postBoard, refreshBoard, techRoute } from './board-widget'
+import { postBoard, refreshBoard, sendBoardDm, techRoute } from './board-widget'
 import { decideApproval } from './policy'
 
 /**
@@ -199,7 +199,10 @@ const panelKeyboard = (pending: number): InlineKeyboard => [
     { text: pending ? `🟡 Approvals (${pending})` : '✅ Approvals', callback_data: 'p:aps' },
     { text: '🔁 Re-plan', callback_data: 'replan' },
   ],
-  [{ text: '💬 Ask the agent', callback_data: 'p:ask' }],
+  [
+    { text: '💬 Ask the agent', callback_data: 'p:ask' },
+    { text: '📲 Live board in my DMs', callback_data: 'p:dm' },
+  ],
   ...dashboardButton(),
 ]
 const PANEL_TEXT = '<b>Office panel</b>\nTap a button. Answers appear only for you, so the group stays clean.'
@@ -234,6 +237,10 @@ async function onPanel(cb: TgCallback, chatId: number, what: string) {
   if (what === 'ask') {
     await answerCallback(cb.id)
     return askPrompt(String(chatId), cb.from)
+  }
+  if (what === 'dm') {
+    const r = await sendBoardDm(cb.from.id)
+    return answerCallback(cb.id, r.ok ? 'Sent to your private chat with the bot.' : r.reason, !r.ok)
   }
   await answerCallback(cb.id)
   if (what === 'brief') return to(await brief())

@@ -146,6 +146,7 @@ export async function postBoard(chatId?: string): Promise<{ ok: true; kind: 'wid
 }
 
 export async function refreshBoard(note?: string) {
+  await refreshDmBoards(note).catch((e) => console.warn('[telegram] dm boards', (e as Error).message))
   const b = await stored()
   if (!b) return
   const edit =
@@ -167,6 +168,69 @@ export async function refreshBoard(note?: string) {
     // deleted or too old to edit: forget it, /menu or Settings posts a new one
     if (/not found|can't be edited|MESSAGE_ID_INVALID/i.test(msg)) await db.delete(schema.settings).where(eq(schema.settings.key, KEY))
   })
+}
+
+/* ---------- the widget in office members' private chats ---------- */
+
+const DM_KEY = 'telegram_board_dm'
+type DmBoard = { chatId: string; messageId: number }
+
+async function dmBoards(): Promise<DmBoard[]> {
+  const [row] = await db.select().from(schema.settings).where(eq(schema.settings.key, DM_KEY))
+  return ((row?.value as { list?: DmBoard[] } | undefined)?.list ?? []).filter((b) => b?.chatId && b.messageId)
+}
+async function saveDmBoards(list: DmBoard[]) {
+  const value = { list }
+  await db.insert(schema.settings).values({ key: DM_KEY, value }).onConflictDoUpdate({ target: schema.settings.key, set: { value } })
+}
+
+/** Is this widget message one of the office boards (as opposed to a technician's route)? */
+export async function isBoardWidget(chatId: number | string, messageId?: number) {
+  if (!messageId) return false
+  return (await dmBoards()).some((b) => b.chatId === String(chatId) && b.messageId === messageId)
+}
+
+/**
+ * Send the live board widget to an office member's private chat with the bot (widgets are
+ * allowed there). Only members of the office group get it; one board per person, the newest.
+ */
+export async function sendBoardDm(userId: number): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const group = await ownerChatId()
+  if (!group) return { ok: false, reason: 'No office group is set up yet.' }
+  const member = await tg<{ status: string }>('getChatMember', { chat_id: group, user_id: userId }).catch(() => null)
+  if (!member || !['creator', 'administrator', 'member', 'restricted'].includes(member.status)) return { ok: false, reason: 'The live board is for members of the office group.' }
+  try {
+    const m = await tg<{ message_id: number }>('sendWidget', {
+      chat_id: userId,
+      html: BOARD_WIDGET_HTML,
+      chat_data: await boardData(),
+      allow_queries: true,
+      caption: '📋 Live board · updates itself as the day changes. Tap a technician for their route.',
+    })
+    const list = (await dmBoards()).filter((b) => b.chatId !== String(userId))
+    list.push({ chatId: String(userId), messageId: m.message_id })
+    await saveDmBoards(list)
+    return { ok: true }
+  } catch (e) {
+    const msg = (e as Error).message
+    if (/chat not found|initiate|blocked/i.test(msg)) return { ok: false, reason: 'Open a private chat with the bot and press Start, then try again.' }
+    return { ok: false, reason: `Telegram refused the widget: ${msg.slice(0, 160)}` }
+  }
+}
+
+async function refreshDmBoards(note?: string) {
+  const list = await dmBoards()
+  if (!list.length) return
+  const data = await boardData(note)
+  const gone: string[] = []
+  for (const b of list)
+    await tg('editMessageWidgetData', { chat_id: b.chatId, message_id: b.messageId, chat_data: data }).catch((e) => {
+      const msg = (e as Error).message
+      if (/not modified/i.test(msg)) return
+      console.warn('[telegram] dm board refresh', msg)
+      if (/not found|can't be edited|MESSAGE_ID_INVALID|blocked/i.test(msg)) gone.push(b.chatId)
+    })
+  if (gone.length) await saveDmBoards(list.filter((b) => !gone.includes(b.chatId)))
 }
 
 /** One technician's route today, as plain lines (widget answer or ephemeral reply). */
