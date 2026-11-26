@@ -42,7 +42,7 @@ Shadows stay soft. No heavy drop shadows, no coloured glows on components (the t
 
 ## Layout
 
-- **Sidebar** (md+): a floating panel inset 0.75rem from the edges, `.rail-glass` (glass tinted 12% blue in dark, 5% in light, blur 22px) so the canvas and route motif show through. 5rem icon rail with tooltips, expands to 16rem with labels and a title. Stored in `localStorage.rail`; the boot script mirrors it to `html[data-rail]` so skeletons match before hydration (`rail-open:` variant). The customer page is a quiet link card at the foot (globe tile, "Book, call, track"), never a second primary button.
+- **Sidebar** (md+): a floating panel inset 0.75rem from the edges, `.rail-glass` (glass mixed in oklab with 8% blue in dark, 4% in light, blur 22px; never mix in oklch, which swings the hue through pink) so the canvas and route motif show through. 5rem icon rail with tooltips, expands to 16rem with labels and a title. Stored in `localStorage.rail`; the boot script mirrors it to `html[data-rail]` so skeletons match before hydration (`rail-open:` variant). The customer page is a quiet link card at the foot (globe tile, "Book, call, track"), never a second primary button.
 - **Phones**: no sidebar. Logo in the header; a bottom tab bar (Board, Inbox, Approvals, Money, More). More opens a sheet with the rest, customer page, theme and sign out. Tables become stacked cards (`RichTable`).
 - **Top bar**: company + live status left, "Ask Riley" field right (hidden on Agent chat, which has its own composer).
 - **Board is a bento**: Needs you (2/3) beside Unassigned (1/3); KPI tiles; the timeline full width; the map (2/3) beside Live activity (1/3).

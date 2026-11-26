@@ -240,13 +240,13 @@
 
 /* The rail floats over the canvas as tinted glass: the route motif and top light show through it. */
 .rail-glass {
-  background-color: color-mix(in oklch, var(--glass) 88%, var(--primary) 12%);
+  background-color: color-mix(in oklab, var(--glass) 92%, var(--primary) 8%);
   box-shadow: inset 0 1px 0 var(--edge), var(--slab-shadow);
   -webkit-backdrop-filter: blur(22px) saturate(1.4);
   backdrop-filter: blur(22px) saturate(1.4);
 }
 :root:not(.dark) .rail-glass {
-  background-color: color-mix(in oklch, var(--glass) 95%, var(--primary) 5%);
+  background-color: color-mix(in oklab, var(--glass) 96%, var(--primary) 4%);
 }
 
 /* Overlay motion: dialogs rise and settle, sheets slide the full way, backdrops fade. Closing is quicker than opening. */
