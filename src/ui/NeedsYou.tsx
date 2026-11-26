@@ -197,6 +197,7 @@ function Emergency({ snap, requestId }: { snap: Snapshot; requestId: number }) {
   const resolve = useAction((id: number) => resolveRequest({ data: { requestId: id } }))
   if (!r) return null
   const c = r.customerId ? snap.customers[r.customerId] : undefined
+  const call = snap.calls.find((x) => x.requestId === r.id)
   const ask = async () => {
     const ok = await confirm({
       title: 'Mark this emergency handled?',
@@ -230,6 +231,26 @@ function Emergency({ snap, requestId }: { snap: Snapshot; requestId: number }) {
         </Button>
       </div>
       <ErrorText error={resolve.error} />
+      {call && call.transcript.length > 0 && (
+        <details className="group rounded-xl border">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <ChevronRight className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
+            Call transcript
+            <span className="ml-auto text-xs font-normal text-muted-foreground">
+              {call.transcript.length} turns · {dayTime(call.startedAt)}
+            </span>
+          </summary>
+          <ol className="max-h-80 space-y-2.5 overflow-y-auto border-t px-3.5 py-3">
+            {call.transcript.map((t, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript; a turn never moves
+              <li key={i} className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-2 text-sm leading-relaxed">
+                <span className={cn('pt-px text-xs font-medium', t.role === 'agent' ? 'text-primary' : 'text-muted-foreground')}>{t.role === 'agent' ? 'Agent' : 'Caller'}</span>
+                <span>{t.text}</span>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
       {r.customerId && (
         <Composer
           customerId={r.customerId}
