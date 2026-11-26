@@ -45,7 +45,7 @@ export function PersonaSettings() {
         : `Hi, thanks for calling ${company}! This is ${p.agentName}. What's going on at home?`)
 
   return (
-    <Section title="Agent persona" right={<Muted>Calls, emails and texts to customers</Muted>} className="xl:col-span-2">
+    <Section title="Agent persona" right={<Muted>Calls, emails and texts to customers</Muted>}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
         <form
           className="space-y-5"
