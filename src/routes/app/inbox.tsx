@@ -54,15 +54,15 @@ function InboxPage() {
     <div>
       <PageTitle title="Inbox & calls" right={<TestEmailButton />} />
       <Tabs defaultValue="requests" className="min-w-0">
-        <TabsList className="h-9">
-          <TabsTrigger value="requests" className="px-3">
-            <Inbox /> Requests <Count n={snap.requests.length} />
+        <TabsList className="h-9 w-full sm:w-fit">
+          <TabsTrigger value="requests" className="flex-1 px-2 sm:flex-none sm:px-3">
+            <Inbox className="max-sm:hidden" /> Requests <Count n={snap.requests.length} />
           </TabsTrigger>
-          <TabsTrigger value="messages" className="px-3">
-            <MessageSquare /> Messages <Count n={snap.messages.length} />
+          <TabsTrigger value="messages" className="flex-1 px-2 sm:flex-none sm:px-3">
+            <MessageSquare className="max-sm:hidden" /> Messages <Count n={snap.messages.length} />
           </TabsTrigger>
-          <TabsTrigger value="calls" className="px-3">
-            <Phone /> Calls <Count n={snap.calls.length} />
+          <TabsTrigger value="calls" className="flex-1 px-2 sm:flex-none sm:px-3">
+            <Phone className="max-sm:hidden" /> Calls <Count n={snap.calls.length} />
           </TabsTrigger>
         </TabsList>
         <TabsContent value="requests" className="mt-2">
@@ -124,18 +124,20 @@ function Requests() {
             return (
               <li key={r.id} className={cn(isNew(r.id) && 'arrive')}>
                 <details className="group">
-                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] gap-3 px-5 py-4 transition-colors hover:bg-secondary/50">
+                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-4 py-4 transition-colors hover:bg-secondary/50 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-5">
                     <ChannelTile c={r.channel} p={r.priority} />
                     <div className="min-w-0">
-                      <div className="flex items-baseline gap-2">
+                      <div className="flex items-baseline justify-between gap-3">
                         <span className="truncate text-sm font-semibold">{name ?? 'Unknown sender'}</span>
+                        <Muted className="shrink-0 whitespace-nowrap sm:hidden">{ago(r.createdAt)}</Muted>
                       </div>
                       <div className="truncate text-sm">{ex.issue ?? r.summary ?? 'Request'}</div>
                       <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground group-open:hidden">{r.rawText}</p>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <Muted className="whitespace-nowrap">{ago(r.createdAt)}</Muted>
-                      <div className="flex flex-wrap justify-end gap-1">
+                    {/* phone: badges wrap under the text; wider: a right-hand column */}
+                    <div className="col-start-2 flex flex-col gap-1 sm:col-start-auto sm:items-end">
+                      <Muted className="hidden whitespace-nowrap sm:block">{ago(r.createdAt)}</Muted>
+                      <div className="flex flex-wrap gap-1 sm:justify-end">
                         {r.safetyFlag && (
                           <Badge variant="destructive">
                             <ShieldAlert /> {r.safetyFlag.replaceAll('_', ' ')}
@@ -146,7 +148,7 @@ function Requests() {
                       </div>
                     </div>
                   </summary>
-                  <div className="space-y-2 pr-5 pb-5 pl-[4.75rem]">
+                  <div className="space-y-2 px-4 pb-5 sm:pr-5 sm:pl-[4.75rem]">
                     <p className="well rounded-xl p-3 text-sm whitespace-pre-wrap">{r.rawText}</p>
                     <div className="flex flex-wrap gap-1.5 text-xs">
                       {resp != null && (

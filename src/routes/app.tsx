@@ -56,7 +56,7 @@ function AppSkeleton() {
       <output className="sr-only">Loading the front office…</output>
       <div className="flex gap-2 border-b border-(--edge) bg-card p-2 md:h-screen md:w-18 md:flex-col md:items-center md:border-r md:border-b-0 md:py-3">
         {keys('rail', 9).map((k) => (
-          <Skeleton key={k} className="size-10 rounded-xl" />
+          <Skeleton key={k} className="size-10 shrink-0 rounded-xl" />
         ))}
       </div>
       <div className="flex-1 space-y-4 p-4 md:p-6">

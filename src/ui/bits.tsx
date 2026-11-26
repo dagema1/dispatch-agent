@@ -64,20 +64,24 @@ export function Stat({
       <CardContent className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           {Icon && (
-            <span className={cn('tile size-11 shrink-0 rounded-xl', tone === 'bad' ? 'tile-red' : tone === 'warn' ? 'tile-attn' : 'tile-quiet')}>
-              <Icon className="size-5" />
+            <span className={cn('tile size-9 shrink-0 rounded-xl sm:size-11', tone === 'bad' ? 'tile-red' : tone === 'warn' ? 'tile-attn' : 'tile-quiet')}>
+              <Icon className="size-4 sm:size-5" />
             </span>
           )}
           <div className="min-w-0 flex-1">
-            <div className="truncate text-2xl leading-tight font-semibold tracking-tight tabular-nums">{value}</div>
+            <div className="truncate text-xl leading-tight font-semibold tracking-tight tabular-nums sm:text-2xl">{value}</div>
             {hint && (
-              <div className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                {tone && <span className={cn('size-1.5 shrink-0 rounded-full', TONE_DOT[tone === 'warn' ? 'attn' : tone])} aria-hidden />}
+              <div className="flex items-start gap-1.5 text-xs leading-snug text-muted-foreground max-sm:line-clamp-2 sm:items-center sm:truncate">
+                {tone && <span className={cn('mt-1 size-1.5 shrink-0 rounded-full sm:mt-0', TONE_DOT[tone === 'warn' ? 'attn' : tone])} aria-hidden />}
                 {hint}
               </div>
             )}
           </div>
-          {ratio != null && <Ring value={ratio} />}
+          {ratio != null && (
+            <span className="max-sm:hidden">
+              <Ring value={ratio} />
+            </span>
+          )}
         </div>
         <div className="text-sm text-muted-foreground">{label}</div>
       </CardContent>

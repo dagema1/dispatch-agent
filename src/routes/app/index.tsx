@@ -102,12 +102,12 @@ function Board() {
             const d = addDays(snap.today, i)
             return (
               <ToggleGroupItem key={d} value={d} className="px-3">
-                {i === 0 ? 'Today' : dayLabel(d)}
+                {i === 0 ? 'Today' : <DayName day={d} />}
               </ToggleGroupItem>
             )
           })}
         </ToggleGroup>
-        <Button onClick={() => replan.run()} disabled={replan.busy} className="rounded-xl px-4">
+        <Button onClick={() => replan.run()} disabled={replan.busy} className="shrink-0 rounded-xl px-4">
           <RefreshCw className={cn(replan.busy && 'animate-spin')} /> Re-plan
         </Button>
       </Dock>
@@ -326,6 +326,14 @@ const EVENT_TEXT: Record<string, (p: Record<string, unknown>) => string> = {
 
 /** Events that ask the owner to look or decide get the gold tile; everything the agents did alone stays quiet. */
 const NEEDS_PERSON = new Set(['approval.requested', 'owner.alert', 'sla.breach'])
+
+/** "Fri, Nov 27" on wide screens, "Fri 27" on phones so the dock fits one row. */
+const DayName = ({ day }: { day: string }) => (
+  <>
+    <span className="sm:hidden">{dayLabel(day).replace(/^(\w+), \w+ (\d+)$/, '$1 $2')}</span>
+    <span className="max-sm:hidden">{dayLabel(day)}</span>
+  </>
+)
 
 /** The floating tool dock, pinned to the bottom of the work area like the reference's canvas toolbar. */
 function Dock({ children }: { children: React.ReactNode }) {
