@@ -1,11 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, CircleAlert, ShieldQuestion, Sparkles, StickyNote, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getTrace } from '#/fns'
-import { Empty, Muted, PageTitle, Section, Status } from '#/ui/bits'
+import { AgentTile, Empty, Muted, PageTitle, Section, Status } from '#/ui/bits'
 import { AGENT_LABEL, ago } from '#/ui/format'
 import { useSnap } from '#/ui/live'
-import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -13,12 +12,13 @@ import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/app/agents')({ component: Agents })
 
-const KIND_STYLE: Record<string, string> = {
-  llm: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300',
-  tool: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
-  policy: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
-  note: 'bg-muted text-muted-foreground',
-  error: 'bg-destructive/10 text-destructive',
+/** Step kinds as tiles: model calls in violet, policy holds in gold, errors red, the rest quiet. */
+const KIND: Record<string, { tile: string; icon: React.ComponentType<{ className?: string }> }> = {
+  llm: { tile: 'tile-action', icon: Sparkles },
+  tool: { tile: 'tile-quiet', icon: Wrench },
+  policy: { tile: 'tile-attn', icon: ShieldQuestion },
+  note: { tile: 'tile-quiet', icon: StickyNote },
+  error: { tile: 'tile-red', icon: CircleAlert },
 }
 
 function Agents() {
@@ -60,20 +60,26 @@ function Agents() {
                     <button
                       type="button"
                       onClick={() => setSel(r.id)}
-                      className={cn('w-full rounded-lg px-2 py-2 text-left transition-colors', sel === r.id ? 'bg-accent' : 'hover:bg-muted')}
+                      className={cn(
+                        'flex w-full gap-3 rounded-xl px-2 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        sel === r.id ? 'bg-accent' : 'hover:bg-muted',
+                      )}
                     >
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <span className="font-medium">{AGENT_LABEL[r.agent] ?? r.agent}</span>
-                        <Muted>· {r.trigger}</Muted>
-                        <span className="ml-auto">
-                          <Status s={r.status} />
-                        </span>
-                      </div>
-                      <div className="truncate text-xs text-muted-foreground">{r.outcome ?? r.subject}</div>
-                      <div className="text-[10px] text-muted-foreground/80 tabular-nums">
-                        {ago(r.startedAt)} {r.latencyMs != null ? `· ${(r.latencyMs / 1000).toFixed(1)}s` : ''}{' '}
-                        {r.tokensIn + r.tokensOut > 0 ? `· ${(r.tokensIn + r.tokensOut).toLocaleString()} tok` : ''}
-                      </div>
+                      <AgentTile agent={r.agent} />
+                      <span className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <span className="font-medium">{AGENT_LABEL[r.agent] ?? r.agent}</span>
+                          <Muted>· {r.trigger}</Muted>
+                          <span className="ml-auto">
+                            <Status s={r.status} />
+                          </span>
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">{r.outcome ?? r.subject}</div>
+                        <div className="text-[10px] text-muted-foreground/80 tabular-nums">
+                          {ago(r.startedAt)} {r.latencyMs != null ? `· ${(r.latencyMs / 1000).toFixed(1)}s` : ''}{' '}
+                          {r.tokensIn + r.tokensOut > 0 ? `· ${(r.tokensIn + r.tokensOut).toLocaleString()} tok` : ''}
+                        </div>
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -120,31 +126,45 @@ function TraceView({ runId }: { runId: string }) {
   return (
     <Section title={`${AGENT_LABEL[t.run.agent] ?? t.run.agent} · ${t.run.trigger}`} right={<Muted>{t.run.model ?? 'rules only'}</Muted>}>
       <p className="mb-3 text-sm text-muted-foreground">{t.run.outcome ?? t.run.subject}</p>
-      <ol className="relative space-y-3 border-l pl-4">
-        {t.steps.map((s) => (
-          <li key={s.id}>
-            <div className="absolute -left-1.5 mt-1.5 size-3 rounded-full border-2 border-card bg-muted-foreground/40" />
-            <div className="flex items-center gap-2 text-sm">
-              <Badge variant="outline" className={cn('border-transparent', KIND_STYLE[s.kind])}>
-                {s.kind}
-              </Badge>
-              <span className="font-medium">{s.name}</span>
-              {s.ms != null && <Muted className="tabular-nums">{s.ms} ms</Muted>}
-            </div>
-            {(s.input != null || s.output != null) && (
-              <details className="group mt-1">
-                <summary className="flex cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground">
-                  <ChevronRight className="size-3 transition-transform group-open:rotate-90" /> details
-                </summary>
-                <div className="mt-1 grid gap-2 md:grid-cols-2">
-                  {s.input != null && <pre className="max-h-64 overflow-auto well rounded-lg p-2 text-[11px]">{JSON.stringify(s.input, null, 2)}</pre>}
-                  {s.output != null && <pre className="max-h-64 overflow-auto rounded-md bg-foreground p-2 text-[11px] text-background">{JSON.stringify(s.output, null, 2)}</pre>}
+      <ol>
+        {t.steps.map((s, i) => {
+          const k = KIND[s.kind] ?? KIND.note
+          const last = i === t.steps.length - 1
+          return (
+            <li key={s.id} className="relative flex gap-3 pb-4 last:pb-0">
+              {!last && <span className="absolute top-9 bottom-1 left-[15px] border-l border-dashed border-foreground/20" aria-hidden />}
+              <span className={cn('tile size-8 shrink-0 rounded-full', k.tile)} title={s.kind}>
+                <k.icon className="size-3.5" />
+              </span>
+              <div className="min-w-0 flex-1 pt-1">
+                <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                  <span className="font-medium">{s.name}</span>
+                  <Muted className="capitalize">{s.kind === 'llm' ? 'model' : s.kind}</Muted>
+                  {s.ms != null && <Muted className="ml-auto tabular-nums">{s.ms} ms</Muted>}
                 </div>
-              </details>
-            )}
-          </li>
-        ))}
+                {(s.input != null || s.output != null) && (
+                  <details className="group mt-1">
+                    <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+                      <ChevronRight className="size-3 transition-transform group-open:rotate-90" /> Input and output
+                    </summary>
+                    <div className="mt-2 grid gap-2 md:grid-cols-2">
+                      {s.input != null && <Pre label="Input" v={s.input} />}
+                      {s.output != null && <Pre label="Output" v={s.output} />}
+                    </div>
+                  </details>
+                )}
+              </div>
+            </li>
+          )
+        })}
       </ol>
     </Section>
   )
 }
+
+const Pre = ({ label, v }: { label: string; v: unknown }) => (
+  <div className="well min-w-0 rounded-xl">
+    <div className="border-b px-3 py-1.5 text-[11px] font-medium text-muted-foreground">{label}</div>
+    <pre className="max-h-64 overflow-auto p-3 text-[11px] leading-relaxed">{JSON.stringify(v, null, 2)}</pre>
+  </div>
+)

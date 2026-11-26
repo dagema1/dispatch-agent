@@ -1,9 +1,9 @@
-import { CircleAlert } from 'lucide-react'
+import { Bot, CircleAlert, Headset, Receipt, Route, Stethoscope } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { P_LABEL, P_STYLE, STATUS_TONE, TONE_DOT } from './format'
+import { AGENT_LABEL, P_LABEL, P_STYLE, STATUS_TONE, TONE_DOT } from './format'
 
 /** Priority and status keep their semantic colours on top of the shadcn Badge shape. */
 export const Priority = ({ p, short }: { p: number | null | undefined; short?: boolean }) =>
@@ -124,3 +124,26 @@ export const PageTitle = ({ title, sub, right }: { title: string; sub?: string; 
 export const Muted = ({ children, className }: { children: React.ReactNode; className?: string }) => (
   <span className={cn('text-xs text-muted-foreground', className)}>{children}</span>
 )
+
+const AGENT_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  front_desk: Headset,
+  diagnosis: Stethoscope,
+  dispatch: Route,
+  revenue: Receipt,
+  ops: Bot,
+}
+
+/** Quiet icon tile naming which agent did something; same tile everywhere an agent appears. */
+export const AgentTile = ({ agent, className }: { agent: string; className?: string }) => {
+  const I = AGENT_ICON[agent] ?? Bot
+  return (
+    <span
+      className={cn('tile tile-quiet size-9 shrink-0', className)}
+      role="img"
+      aria-label={`${AGENT_LABEL[agent] ?? agent} agent`}
+      title={`${AGENT_LABEL[agent] ?? agent} agent`}
+    >
+      <I className="size-4" />
+    </span>
+  )
+}

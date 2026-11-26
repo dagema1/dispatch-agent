@@ -4,6 +4,7 @@ import { markPaidTest } from '#/fns'
 import { ErrorText, PageTitle, Stat, Status } from '#/ui/bits'
 import { ago, money } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
+import { Avatar } from '#/ui/people'
 import { Cell2, RichTable } from '#/ui/RichTable'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -63,7 +64,12 @@ function Money() {
               key: 'customer',
               label: 'Customer',
               sort: (i) => snap.customers[i.customerId]?.name ?? '',
-              cell: (i) => <Cell2 top={snap.customers[i.customerId]?.name ?? '—'} sub={snap.customers[i.customerId]?.email} />,
+              cell: (i) => (
+                <div className="flex items-center gap-2.5">
+                  <Avatar name={snap.customers[i.customerId]?.name ?? '?'} size="sm" />
+                  <Cell2 top={snap.customers[i.customerId]?.name ?? '—'} sub={snap.customers[i.customerId]?.email} />
+                </div>
+              ),
             },
             { key: 'status', label: 'Status', sort: (i) => i.status, cell: (i) => <Status s={i.status} /> },
             {
@@ -145,7 +151,12 @@ function Money() {
               key: 'customer',
               label: 'Customer',
               sort: (q) => (q.customerId ? (snap.customers[q.customerId]?.name ?? '') : ''),
-              cell: (q) => <Cell2 top={q.customerId ? snap.customers[q.customerId]?.name : '—'} sub={ago(q.createdAt)} />,
+              cell: (q) => (
+                <div className="flex items-center gap-2.5">
+                  <Avatar name={(q.customerId && snap.customers[q.customerId]?.name) || '?'} size="sm" />
+                  <Cell2 top={q.customerId ? snap.customers[q.customerId]?.name : '—'} sub={ago(q.createdAt)} />
+                </div>
+              ),
             },
             {
               key: 'options',

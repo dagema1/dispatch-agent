@@ -3,6 +3,7 @@ import type { Snapshot } from '#/server/api/views'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { minutesOfDay, time } from './format'
+import { Avatar, tint } from './people'
 
 type Job = Snapshot['jobs'][number]
 type Tech = Snapshot['techs'][number]
@@ -12,16 +13,7 @@ export const DAY_END = 19 * 60
 const HOURS = Array.from({ length: (DAY_END - DAY_START) / 60 + 1 }, (_, i) => DAY_START / 60 + i)
 const pct = (m: number) => `${(Math.min(Math.max(m - DAY_START, 0), DAY_END - DAY_START) / (DAY_END - DAY_START)) * 100}%`
 const hourLabel = (h: number) => `${((h - 1) % 12) + 1}${h < 12 ? 'a' : 'p'}`
-const initials = (n: string) =>
-  n
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
 const hm = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}` : `${min}m`)
-/** Tech colour mixed into the surface, so identity reads without a wall of saturated blocks. */
-const tint = (c: string, pctMix: number) => `color-mix(in oklch, ${c} ${pctMix}%, var(--card))`
 
 const span = (j: Job) => {
   const s = minutesOfDay(j.scheduledStart!)
@@ -94,13 +86,7 @@ export function RouteTimeline({
               <li key={t.id} className="group/row flex items-center">
                 {/* who */}
                 <div className="flex w-48 shrink-0 items-center gap-2.5 pr-3">
-                  <span
-                    className="grid size-9 shrink-0 place-items-center rounded-full text-xs font-semibold"
-                    style={{ background: tint(t.color, 22), color: `color-mix(in oklch, ${t.color} 70%, var(--foreground))`, boxShadow: `inset 0 0 0 1px ${tint(t.color, 45)}` }}
-                    aria-hidden
-                  >
-                    {initials(t.name)}
-                  </span>
+                  <Avatar name={t.name} color={t.color} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 text-sm font-medium" title={`${t.level === 'senior' ? 'Senior · ' : ''}${skills}`}>
                       <span className="truncate">{t.name.split(' ')[0]}</span>

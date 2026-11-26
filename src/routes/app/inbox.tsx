@@ -6,6 +6,7 @@ import { Empty, ErrorText, Muted, PageTitle, Priority, Status } from '#/ui/bits'
 import { ago, dayTime } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
 import { useArrivals } from '#/ui/motion'
+import { Avatar } from '#/ui/people'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -85,8 +86,6 @@ const Count = ({ n }: { n: number }) => (
   </span>
 )
 
-/** Leading tile: the channel it came in on. Only emergencies are tinted. */
-const TILE: Record<number, string> = { 1: 'tile-red', 2: 'tile-quiet', 3: 'tile-quiet', 4: 'tile-quiet' }
 const channelIcon = (c: string) => (c === 'voice' ? Phone : c === 'email' ? Mail : c === 'web' ? Globe : MessageSquare)
 const OPEN = ['new', 'triaged', 'awaiting_customer']
 
@@ -125,7 +124,7 @@ function Requests() {
               <li key={r.id} className={cn(isNew(r.id) && 'arrive')}>
                 <details className="group">
                   <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-4 py-4 transition-colors hover:bg-secondary/50 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-5">
-                    <ChannelTile c={r.channel} p={r.priority} />
+                    <SenderAvatar name={name ?? '?'} c={r.channel} p={r.priority} />
                     <div className="min-w-0">
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="truncate text-sm font-semibold">{name ?? 'Unknown sender'}</span>
@@ -178,11 +177,12 @@ function Requests() {
   )
 }
 
-const ChannelTile = ({ c, p }: { c: string; p: number | null }) => {
+/** Who sent it, with the channel it came in on as a small badge. Emergencies get a red ring. */
+const SenderAvatar = ({ name, c, p }: { name: string; c: string; p: number | null }) => {
   const I = channelIcon(c)
   return (
-    <span className={cn('tile size-9', TILE[p ?? 4])} role="img" aria-label={`via ${c}`} title={`via ${c}`}>
-      <I className="size-4" />
+    <span role="img" aria-label={`${name} via ${c}`} title={`via ${c}`} className="self-start">
+      <Avatar name={name} className={cn(p === 1 && 'ring-2 ring-destructive')} badge={<I className="size-2.5" />} />
     </span>
   )
 }
@@ -232,9 +232,11 @@ function Messages() {
               <li key={m.id} className={cn(isNew(m.id) && 'arrive')}>
                 <details className="group">
                   <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)] gap-4 px-5 py-4 transition-colors hover:bg-secondary/50">
-                    <span className="tile tile-quiet size-9" aria-hidden>
-                      {out ? <ArrowUpRight className="size-4" /> : <ArrowDownLeft className="size-4" />}
-                    </span>
+                    <Avatar
+                      name={m.customerId || m.technicianId ? to : 'Office'}
+                      color={m.technicianId ? snap.techs.find((t) => t.id === m.technicianId)?.color : undefined}
+                      badge={out ? <ArrowUpRight className="size-3" /> : <ArrowDownLeft className="size-3" />}
+                    />
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-baseline justify-between gap-3">
                         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">

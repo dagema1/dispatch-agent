@@ -1,23 +1,20 @@
 import { ClientOnly, createFileRoute } from '@tanstack/react-router'
-import { Activity, BellRing, CalendarCheck, CircleDollarSign, Inbox, MapPin, RefreshCw, Siren, Snowflake, Sun, Zap } from 'lucide-react'
+import { Activity, BellRing, CalendarCheck, CircleDollarSign, Inbox, MapPin, RefreshCw, Siren, Snowflake, Sun, UserX, Zap } from 'lucide-react'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { completeJob, replanNow, setTechActive } from '#/fns'
+import { replanNow, setTechActive } from '#/fns'
 import type { Snapshot } from '#/server/api/views'
-import { ErrorText, Muted, PageTitle, Priority, Section, Stat, Status } from '#/ui/bits'
+import { ErrorText, Muted, PageTitle, Section, Stat } from '#/ui/bits'
+import { useConfirm } from '#/ui/confirm'
 import { addDays, ago, dayLabel, dayOf, dayTime, minutesOfDay, money, time } from '#/ui/format'
+import { JobDialog } from '#/ui/JobDialog'
 import { useAction, useLive, useSnap } from '#/ui/live'
 import { useArrivals } from '#/ui/motion'
 import { RouteTimeline } from '#/ui/RouteTimeline'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
@@ -25,7 +22,6 @@ const FleetMap = lazy(() => import('#/ui/FleetMap'))
 
 export const Route = createFileRoute('/app/')({ component: Board })
 
-type Job = Snapshot['jobs'][number]
 const isLive = (t: Snapshot['techs'][number]) => !!(t.liveAt && Date.now() - new Date(t.liveAt).getTime() < 15 * 60_000 && t.liveLat != null)
 
 function Board() {
@@ -35,6 +31,33 @@ function Board() {
   const [openId, setOpenId] = useState<number | null>(null)
   const replan = useAction(() => replanNow())
   const toggle = useAction((id: number, active: boolean) => setTechActive({ data: { id, active } }))
+  const confirm = useConfirm()
+  const askReplan = async () => {
+    const ok = await confirm({
+      title: 'Re-plan the schedule?',
+      description: 'Visits that have not started can move to another technician or time. Emergencies are placed first.',
+      confirm: 'Re-plan',
+      icon: RefreshCw,
+    })
+    if (ok) replan.run()
+  }
+  const askToggle = async (id: number, active: boolean) => {
+    const t = snap.techs.find((x) => x.id === id)
+    if (!active) {
+      const n = snap.jobs.filter((j) => j.technicianId === id && ['scheduled', 'en_route'].includes(j.status)).length
+      const ok = await confirm({
+        title: `Mark ${t?.name.split(' ')[0] ?? 'technician'} out?`,
+        description: n
+          ? `${n} upcoming visit${n === 1 ? '' : 's'} will be re-planned onto other technicians. Customers whose time changes are told.`
+          : 'They get no new visits until you bring them back.',
+        confirm: 'Mark out',
+        tone: 'danger',
+        icon: UserX,
+      })
+      if (!ok) return
+    }
+    toggle.run(id, active)
+  }
 
   const dayJobs = useMemo(() => snap.jobs.filter((j) => j.scheduledStart && dayOf(j.scheduledStart) === day && j.status !== 'cancelled'), [snap.jobs, day])
   const unassigned = snap.jobs.filter((j) => j.status === 'unassigned')
@@ -103,7 +126,7 @@ function Board() {
             )
           })}
         </ToggleGroup>
-        <Button onClick={() => replan.run()} disabled={replan.busy} className="shrink-0 rounded-xl px-4">
+        <Button onClick={askReplan} disabled={replan.busy} className="shrink-0 rounded-xl px-4">
           <RefreshCw className={cn(replan.busy && 'animate-spin')} /> Re-plan
         </Button>
       </Dock>
@@ -139,7 +162,7 @@ function Board() {
               isNew={isNew}
               isLive={isLive}
               onOpen={setOpenId}
-              onToggleTech={toggle.run}
+              onToggleTech={askToggle}
               toggleBusy={toggle.busy}
             />
           </Section>
@@ -205,7 +228,7 @@ function Board() {
           </Section>
         </div>
       </div>
-      <JobSheet job={open} onClose={() => setOpenId(null)} />
+      <JobDialog job={open} onClose={() => setOpenId(null)} />
     </div>
   )
 }
@@ -309,115 +332,5 @@ function Feed({
         })}
       </ul>
     </ScrollArea>
-  )
-}
-
-function JobSheet({ job, onClose }: { job: Job | null; onClose: () => void }) {
-  return (
-    <Sheet open={!!job} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">{job && <JobDetail key={job.id} job={job} />}</SheetContent>
-    </Sheet>
-  )
-}
-
-function JobDetail({ job }: { job: Job }) {
-  const snap = useSnap()
-  const [note, setNote] = useState('')
-  const done = useAction(() => completeJob({ data: { jobId: job.id, note } }))
-  const tech = snap.techs.find((t) => t.id === job.technicianId)
-  const quote = snap.quotes.find((q) => q.jobId === job.id)
-  const invoice = snap.invoices.find((i) => i.jobId === job.id)
-  const report = job.report as { workDone?: string; followUp?: string } | null
-  const rows: Array<[string, React.ReactNode]> = [
-    [
-      'Customer',
-      <>
-        {job.customer.name}
-        <Muted className="block">{job.customer.address}</Muted>
-      </>,
-    ],
-    ['Technician', tech?.name ?? '—'],
-    ['Planned', `${dayTime(job.scheduledStart)} – ${time(job.scheduledEnd)}`],
-    ['Customer window', `${dayTime(job.windowStart)} – ${dayTime(job.windowEnd)}`],
-    ...(job.etaAt ? ([['Live ETA', time(job.etaAt)]] as Array<[string, React.ReactNode]>) : []),
-    ['Est. value', money(job.estValueCents)],
-  ]
-  return (
-    <>
-      <SheetHeader>
-        <SheetDescription>Job #{job.id}</SheetDescription>
-        <SheetTitle className="text-lg">{job.title}</SheetTitle>
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          <Priority p={job.priority} /> <Status s={job.status} />
-          <Badge variant="secondary">{job.skill.replace('_', ' ')}</Badge>
-        </div>
-      </SheetHeader>
-      <div className="space-y-4 px-4 pb-6">
-        <dl className="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
-          {rows.map(([k, v]) => (
-            <div key={k} className="contents">
-              <dt className="text-muted-foreground">{k}</dt>
-              <dd>{v}</dd>
-            </div>
-          ))}
-        </dl>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href={job.trackUrl} target="_blank" rel="noreferrer">
-              Customer tracking page
-            </a>
-          </Button>
-          {quote && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={quote.url} target="_blank" rel="noreferrer">
-                Quote #{quote.id}
-              </a>
-            </Button>
-          )}
-        </div>
-        {report?.workDone && (
-          <div className="rounded-lg bg-emerald-50 p-3 text-sm dark:bg-emerald-950/40">
-            <div className="font-medium text-emerald-800 dark:text-emerald-300">Job report</div>
-            <p className="mt-1">{report.workDone}</p>
-            {report.followUp && <p className="mt-1 text-xs text-muted-foreground">Next: {report.followUp}</p>}
-          </div>
-        )}
-        {invoice && (
-          <div className="rounded-lg border p-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Invoice #{invoice.id}</span> <Status s={invoice.status} />
-            </div>
-            <div className="mt-1 text-muted-foreground">{money(invoice.totalCents, 2)}</div>
-            {invoice.payUrl && (
-              <Button variant="link" size="xs" className="h-auto px-0" asChild>
-                <a href={invoice.payUrl} target="_blank" rel="noreferrer">
-                  Stripe payment link (test mode)
-                </a>
-              </Button>
-            )}
-          </div>
-        )}
-        {!['done', 'cancelled'].includes(job.status) && (
-          <>
-            <Separator />
-            <div className="space-y-2">
-              <Label htmlFor="close-note">Close the job</Label>
-              <p className="text-xs text-muted-foreground">Technicians normally send a voice note to the Telegram bot (/done). You can type the same note here.</p>
-              <Textarea
-                id="close-note"
-                rows={3}
-                placeholder="Replaced the igniter, cleaned the flame sensor, furnace running fine. Customer declined duct cleaning."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-              <Button disabled={done.busy || note.length < 3} onClick={() => done.run()}>
-                {done.busy ? 'Writing report & invoice…' : 'Complete → report → invoice'}
-              </Button>
-              <ErrorText error={done.error} />
-            </div>
-          </>
-        )}
-      </div>
-    </>
   )
 }

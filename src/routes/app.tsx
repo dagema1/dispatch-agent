@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getSnapshot } from '#/fns'
+import { ConfirmProvider } from '#/ui/confirm'
 import { LiveProvider, useLive } from '#/ui/live'
 import { ThemeToggle } from '#/ui/theme'
 import { Input } from '@/components/ui/input'
@@ -216,7 +217,9 @@ function Shell() {
         <main className="min-w-0 flex-1 p-4 pb-28 md:p-6 md:pb-28">
           {snap ? (
             <div key={path} className="route-in">
-              <Outlet />
+              <ConfirmProvider>
+                <Outlet />
+              </ConfirmProvider>
             </div>
           ) : null}
         </main>

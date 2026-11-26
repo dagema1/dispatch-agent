@@ -1,19 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { CheckCircle2, CircleDashed, CloudSun, Play, RotateCcw, Snowflake, Sun } from 'lucide-react'
+import { Check, CircleDashed, CloudSun, Play, RotateCcw, ShieldCheck, Snowflake, Sun } from 'lucide-react'
 import { resetDemo, runCronNow, setPolicy, setWeather } from '#/fns'
 import { ErrorText, Muted, PageTitle, Section } from '#/ui/bits'
+import { useConfirm } from '#/ui/confirm'
 import { useAction, useSnap } from '#/ui/live'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -39,9 +29,9 @@ const POLICY_LABEL: Record<string, string> = {
 }
 
 const POLICY_ON: Record<string, string> = {
-  auto: 'data-[state=on]:bg-emerald-600 data-[state=on]:text-white',
-  approve: 'data-[state=on]:bg-amber-500 data-[state=on]:text-white',
-  never: 'data-[state=on]:bg-foreground data-[state=on]:text-background',
+  auto: 'data-[state=on]:text-primary data-[state=on]:font-semibold',
+  approve: 'data-[state=on]:text-amber-700 dark:data-[state=on]:text-amber-300 data-[state=on]:font-semibold',
+  never: 'data-[state=on]:font-semibold',
 }
 
 type WeatherMode = 'cold_snap' | 'heat_wave' | 'off'
@@ -52,6 +42,42 @@ function SettingsPage() {
   const cron = useAction((name: 'tick' | 'morning' | 'weather') => runCronNow({ data: { name } }))
   const weather = useAction((mode: WeatherMode) => setWeather({ data: { mode } }))
   const reset = useAction(() => resetDemo())
+  const confirm = useConfirm()
+  const askPolicy = async (k: string, o: 'auto' | 'approve' | 'never') => {
+    if (o === 'auto') {
+      const ok = await confirm({
+        title: `Let agents do this on their own?`,
+        description: `“${POLICY_LABEL[k] ?? k}” will run without asking you, unless model confidence is low.`,
+        confirm: 'Allow',
+        tone: 'attn',
+        icon: ShieldCheck,
+      })
+      if (!ok) return
+    }
+    pol.run(k, o)
+  }
+  const askCron = async (k: 'tick' | 'morning' | 'weather') => {
+    if (k === 'morning') {
+      const ok = await confirm({
+        title: 'Run the morning plan now?',
+        description: 'The day is re-planned, every technician gets their route in Telegram, and the owner group gets a summary.',
+        confirm: 'Run now',
+        icon: Play,
+      })
+      if (!ok) return
+    }
+    cron.run(k)
+  }
+  const askReset = async () => {
+    const ok = await confirm({
+      title: 'Reset all demo data?',
+      description: 'Jobs, requests, invoices and traces are wiped and re-seeded. Telegram links and the Google connection are kept.',
+      confirm: 'Reset',
+      tone: 'danger',
+      icon: RotateCcw,
+    })
+    if (ok) reset.run()
+  }
   const i = snap.integrations
   const ov = snap.weather?.override
   const weatherMode: WeatherMode = ov ? (ov.tempC < 0 ? 'cold_snap' : ov.tempC > 20 ? 'heat_wave' : 'off') : 'off'
@@ -76,7 +102,9 @@ function SettingsPage() {
           <ul className="space-y-3">
             {items.map(([name, ok, what, how]) => (
               <li key={name} className="flex items-start gap-2.5 text-sm">
-                {ok ? <CheckCircle2 className="mt-0.5 size-4 text-emerald-600 dark:text-emerald-400" /> : <CircleDashed className="mt-0.5 size-4 text-muted-foreground" />}
+                <span className={cn('tile size-8 shrink-0', ok ? 'tile-action' : 'tile-quiet')} role="img" aria-label={ok ? 'connected' : 'not set up'}>
+                  {ok ? <Check className="size-4" /> : <CircleDashed className="size-4" />}
+                </span>
                 <div className="flex-1">
                   <div className="font-medium">{name}</div>
                   <Muted>
@@ -108,7 +136,7 @@ function SettingsPage() {
                   <div className="font-medium">{title}</div>
                   <Muted>{desc}</Muted>
                 </div>
-                <Button variant="outline" size="sm" disabled={cron.busy} onClick={() => cron.run(k)}>
+                <Button variant="outline" size="sm" disabled={cron.busy} onClick={() => askCron(k)}>
                   <Play /> Run now
                 </Button>
               </li>
@@ -153,7 +181,7 @@ function SettingsPage() {
                   value={v}
                   disabled={pol.busy}
                   aria-label={POLICY_LABEL[k] ?? k}
-                  onValueChange={(o) => o && o !== v && pol.run(k, o as 'auto' | 'approve' | 'never')}
+                  onValueChange={(o) => o && o !== v && askPolicy(k, o as 'auto' | 'approve' | 'never')}
                 >
                   {(['auto', 'approve', 'never'] as const).map((o) => (
                     <ToggleGroupItem key={o} value={o} className={cn('px-2.5 text-xs', POLICY_ON[o])}>
@@ -170,25 +198,9 @@ function SettingsPage() {
 
         <Section title="Demo data" className="xl:col-span-2">
           <div className="flex flex-wrap items-center gap-3">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" disabled={reset.busy}>
-                  <RotateCcw /> {reset.busy ? 'Resetting…' : 'Reset demo company'}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reset all demo data?</AlertDialogTitle>
-                  <AlertDialogDescription>Jobs, requests, invoices and traces are wiped and re-seeded. Telegram links and the Google connection are kept.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction variant="destructive" onClick={() => reset.run()}>
-                    Reset
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <Button variant="destructive" disabled={reset.busy} onClick={askReset}>
+              <RotateCcw /> {reset.busy ? 'Resetting…' : 'Reset demo company'}
+            </Button>
             <Muted>5 technicians, 40 fictional customers, a partly booked schedule for the next 3 days.</Muted>
           </div>
           <ErrorText error={reset.error} />
