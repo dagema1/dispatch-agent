@@ -231,9 +231,7 @@ export async function sendRoute(techId: number, chatId: string) {
       html: ROUTE_WIDGET_HTML,
       chat_data: data,
       allow_queries: true,
-      caption: jobs.length
-        ? `🗺 ${jobs.length} visit(s) today. Tap a visit as you go; the menu below has route, late, done and location.`
-        : 'No more jobs on your route today. 🎉',
+      caption: jobs.length ? `🗺 ${jobs.length} visit(s) today. Tap a visit as you go; the menu below has route, late, done and location.` : 'No more jobs on your route today. 🎉',
     })
     widgets.set(techId, { chatId, messageId: m.message_id })
     return

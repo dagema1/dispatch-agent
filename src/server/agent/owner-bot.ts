@@ -22,14 +22,22 @@ import { dayOf, fmtTime } from '../lib/time'
 import { decideApproval } from './policy'
 
 /**
- * Owner/office group on Telegram. Anyone in the group can act: approval cards carry Approve /
- * Reject buttons (the card is edited to show who decided), and every command is ephemeral
- * (Bot API 10.2), so a manager asking "/brief" or "/ask …" gets an answer only they can see
- * instead of filling the shared chat. Only callbacks from the configured owner chat are honoured.
+ * Owner/office group on Telegram, run from buttons. A pinned control panel (Brief, Board,
+ * Approvals, Re-plan, Ask) answers with ephemeral messages (Bot API 10.2/10.4) that only the
+ * member who tapped can see, so the shared chat stays clean. Approval cards carry Approve /
+ * Reject buttons and are edited to show who decided. "Ask" opens a reply prompt for a typed
+ * question. Typed commands still work. Only the configured owner chat is honoured.
  */
-const g = globalThis as unknown as { __apCards?: Map<number, number>; __ownerSub?: boolean; __askHist?: Map<number, Content[]> }
+const g = globalThis as unknown as {
+  __apCards?: Map<number, number>
+  __ownerSub?: boolean
+  __askHist?: Map<number, Content[]>
+  __askPrompts?: Map<number, number>
+  __panel?: { chatId: string; messageId: number }
+}
 const cards = (g.__apCards ??= new Map()) // approvalId -> message_id in the owner group
 const askHistory = (g.__askHist ??= new Map()) // telegram user -> copilot history
+const askPrompts = (g.__askPrompts ??= new Map()) // prompt message_id -> user who asked for it
 
 const who = (u: TgUser) => esc(u.first_name ?? u.username ?? 'someone')
 const dashboardButton = (): InlineKeyboard => (env.APP_URL.startsWith('https://') ? [[{ text: 'Open dashboard', url: `${env.APP_URL}/app` }]] : [])
@@ -60,12 +68,21 @@ export async function onGroupMessage(msg: TgMessage) {
       .values({ key: 'telegram_owner', value: { chatId } })
       .onConflictDoUpdate({ target: schema.settings.key, set: { value: { chatId } } })
     await setOwnerCommands(chatId)
-    return sendTelegram(
+    await sendTelegram(
       chatId,
       `✅ <b>${esc(msg.chat.title ?? 'This chat')}</b> is now the office channel: emergencies, approvals and escalations land here, and anyone in the group can act on them.${env.TELEGRAM_OWNER_CHAT_ID && env.TELEGRAM_OWNER_CHAT_ID !== chatId ? '\n\n⚠️ TELEGRAM_OWNER_CHAT_ID in .env points to a different chat and takes precedence.' : ''}`,
     )
+    return postPanel(chatId)
   }
   if (!(await isOwnerChat(chatId)) || !msg.from) return
+  // a reply to an "Ask the copilot" prompt is the question
+  const prompt = msg.reply_to_message?.message_id
+  if (prompt && askPrompts.get(prompt) === msg.from.id) {
+    askPrompts.delete(prompt)
+    await tg('deleteMessage', { chat_id: chatId, message_id: prompt }).catch(() => {})
+    return answerAsk(chatId, msg.from.id, text, msg)
+  }
+  if (cmd === '/menu' || cmd === '/start') return postPanel(chatId)
   const say = (t: string, keyboard?: InlineKeyboard) => sendEphemeral(chatId, msg.from!.id, t, { replyTo: msg, keyboard })
   switch (cmd) {
     case '/brief':
@@ -80,26 +97,18 @@ export async function onGroupMessage(msg: TgMessage) {
     }
     case '/ask': {
       const q = rest.join(' ').trim()
-      if (!q) return say('Ask me anything about the schedule or the business, e.g. <code>/ask who can take an emergency on Pearl St at 3pm?</code>')
-      if (!env.GEMINI_API_KEY) return say('The copilot needs GEMINI_API_KEY.')
-      await tg('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {})
-      const { ownerChat } = await import('./owner')
-      const r = await ownerChat(askHistory.get(msg.from.id) ?? [], q)
-      askHistory.set(msg.from.id, r.history.slice(-20))
-      return say(esc(r.text).slice(0, 4000))
+      if (!q) return askPrompt(chatId, msg.from)
+      return answerAsk(chatId, msg.from.id, q, msg)
     }
-    case '/menu':
     case '/help':
     case '/start':
       return say(
         [
-          '<b>Office channel</b> · answers to these commands are only visible to you.',
-          '/brief: today at a glance',
-          '/board: each technician’s route',
-          '/approvals: actions waiting for a decision',
-          '/ask &lt;question&gt;: the ops copilot (it can also re-plan, mark a tech out, or draft campaigns; risky actions still need approval)',
+          '<b>Office channel</b> · use the pinned panel; answers are only visible to whoever tapped.',
+          'Brief: today at a glance · Board: each technician’s route · Approvals: actions waiting for a decision',
+          'Ask: the ops copilot (it can also re-plan, mark a tech out, or draft campaigns; risky actions still need approval)',
           '',
-          'Approval cards posted here can be decided by anyone in the group; the card shows who decided.',
+          'Approval cards posted here can be decided by anyone in the group; the card shows who decided. /menu re-posts the panel.',
         ].join('\n'),
       )
   }
@@ -110,6 +119,7 @@ export async function onOwnerCallback(cb: TgCallback) {
   const chatId = cb.message?.chat.id
   if (chatId == null || !(await isOwnerChat(chatId))) return answerCallback(cb.id, 'Not allowed from this chat.', true)
   const [kind, idStr, verb] = (cb.data ?? '').split(':')
+  if (kind === 'p') return onPanel(cb, chatId, idStr)
   if (kind === 'replan') {
     await answerCallback(cb.id, 'Re-planning…')
     const res = await replan({ reason: `re-plan requested by ${cb.from.first_name ?? 'owner'} in Telegram` })
@@ -160,12 +170,93 @@ const approvalKeyboard = (id: number): InlineKeyboard => [
 ]
 
 // Post a card for each new approval; when it's decided in the dashboard, update the card.
+// The panel's Approvals button carries the live count.
 if (!g.__ownerSub) {
   g.__ownerSub = true
   subscribe((ev) => {
-    if (ev.type === 'approval.requested') void postCard(Number(ev.payload.approvalId))
-    if (ev.type === 'approval.decided') void closeCard(Number(ev.payload.approvalId), String(ev.payload.decision))
+    if (ev.type === 'approval.requested') void postCard(Number(ev.payload.approvalId)).then(refreshPanel)
+    if (ev.type === 'approval.decided') void closeCard(Number(ev.payload.approvalId), String(ev.payload.decision)).then(refreshPanel)
   })
+}
+
+const pendingCount = async () => (await db.select({ id: schema.approvals.id }).from(schema.approvals).where(eq(schema.approvals.status, 'pending'))).length
+
+const panelKeyboard = (pending: number): InlineKeyboard => [
+  [
+    { text: '📋 Today’s brief', callback_data: 'p:brief' },
+    { text: '🗺 Board', callback_data: 'p:board' },
+  ],
+  [
+    { text: pending ? `🟡 Approvals (${pending})` : '✅ Approvals', callback_data: 'p:aps' },
+    { text: '🔁 Re-plan', callback_data: 'replan' },
+  ],
+  [{ text: '💬 Ask the copilot', callback_data: 'p:ask' }],
+  ...dashboardButton(),
+]
+const PANEL_TEXT = '<b>Office panel</b>\nTap a button. Answers appear only for you, so the group stays clean.'
+
+/** Post (and try to pin) the control panel. Pinning needs the bot to be an admin; it works without. */
+async function postPanel(chatId: string) {
+  const m = await tg<{ message_id: number }>('sendMessage', {
+    chat_id: chatId,
+    text: PANEL_TEXT,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: panelKeyboard(await pendingCount()) },
+  }).catch((e) => {
+    console.warn('[telegram] panel', e.message)
+    return null
+  })
+  if (!m) return
+  g.__panel = { chatId, messageId: m.message_id }
+  await tg('pinChatMessage', { chat_id: chatId, message_id: m.message_id, disable_notification: true }).catch(() => {})
+}
+
+async function refreshPanel() {
+  const p = g.__panel
+  if (!p) return
+  await tg('editMessageReplyMarkup', { chat_id: p.chatId, message_id: p.messageId, reply_markup: { inline_keyboard: panelKeyboard(await pendingCount()) } }).catch(() => {})
+}
+
+async function onPanel(cb: TgCallback, chatId: number, what: string) {
+  const to = (t: string, keyboard?: InlineKeyboard) => sendEphemeral(String(chatId), cb.from.id, t, { keyboard })
+  if (what === 'ask') {
+    await answerCallback(cb.id)
+    return askPrompt(String(chatId), cb.from)
+  }
+  await answerCallback(cb.id)
+  if (what === 'brief') return to(await brief())
+  if (what === 'board') return to(await board())
+  if (what === 'aps') {
+    const pending = await db.select().from(schema.approvals).where(eq(schema.approvals.status, 'pending')).orderBy(asc(schema.approvals.createdAt))
+    if (!pending.length) return to('Nothing waiting for a decision. ✅')
+    for (const a of pending.slice(0, 8)) await to(approvalText(a), approvalKeyboard(a.id))
+  }
+}
+
+/**
+ * Telegram has no text input on buttons, so "Ask" posts a reply prompt aimed at the tapper
+ * (force_reply + selective). Their reply comes back here (privacy mode still delivers replies to
+ * the bot); the prompt is removed and the answer is ephemeral.
+ */
+async function askPrompt(chatId: string, u: TgUser) {
+  if (!env.GEMINI_API_KEY) return sendEphemeral(chatId, u.id, 'The copilot needs GEMINI_API_KEY.')
+  const m = await tg<{ message_id: number }>('sendMessage', {
+    chat_id: chatId,
+    text: `<a href="tg://user?id=${u.id}">${who(u)}</a>, what should I ask the copilot? Reply to this message.`,
+    parse_mode: 'HTML',
+    reply_markup: { force_reply: true, selective: true, input_field_placeholder: 'e.g. who can take an emergency at 3pm?' },
+  }).catch(() => null)
+  if (m) askPrompts.set(m.message_id, u.id)
+}
+
+async function answerAsk(chatId: string, userId: number, q: string, replyTo?: TgMessage) {
+  if (!q) return
+  if (!env.GEMINI_API_KEY) return sendEphemeral(chatId, userId, 'The copilot needs GEMINI_API_KEY.')
+  await tg('sendChatAction', { chat_id: chatId, action: 'typing' }).catch(() => {})
+  const { ownerChat } = await import('./owner')
+  const r = await ownerChat(askHistory.get(userId) ?? [], q)
+  askHistory.set(userId, r.history.slice(-20))
+  return sendEphemeral(chatId, userId, `<b>Q:</b> ${esc(q).slice(0, 300)}\n\n${esc(r.text).slice(0, 3600)}`, { replyTo })
 }
 
 async function postCard(id: number) {
@@ -227,7 +318,7 @@ async function brief() {
           .map((j) => `#${j.id}`)
           .join(', ')}`
       : '✅ Everything is on a route',
-    ap.length ? `🟡 ${ap.length} approval(s) waiting (/approvals)` : '✅ No approvals waiting',
+    ap.length ? `🟡 ${ap.length} approval(s) waiting (tap Approvals)` : '✅ No approvals waiting',
     `💵 Collected ${money(inv.filter((i) => i.status === 'paid').reduce((a, i) => a + i.totalCents, 0))} · outstanding ${money(unpaid.reduce((a, i) => a + i.totalCents, 0))} on ${unpaid.length} invoice(s)`,
   ].join('\n')
 }

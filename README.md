@@ -13,10 +13,10 @@ An agent that does the dispatcher / CSR job at a residential HVAC and plumbing c
 | **Intake** | Browser voice receptionist (Gemini Live), email (Gmail poll or the test form) and web booking all go through one pipeline: safety check, triage (priority, trade, reasons), booking, reply with a tracking link. | `/book`, Inbox |
 | **Photo quotes** | Customer photos of the unit, its label or error lights → Gemini vision diagnosis → good / better / best options, priced only from the price book. Units past their expected lifespan are flagged as replacement leads. | `/book` → Details & photos, Quotes & invoices |
 | **Fleet dispatch** | Skills, time windows, priority and real drive times (OpenRouteService matrix) → optimised routes for 5 techs. It re-plans on every emergency, delay, sick call or finished job and tells the customers it moves. | Dispatch board |
-| **Technician app** | Telegram. Today's route arrives as an **interactive HTML widget** (Bot API 10.4) with On my way / Arrived / Job done buttons. Live location drives customer ETAs. | Telegram, `/c/track/…` |
+| **Technician app** | Telegram, no typing needed. A persistent button keyboard (My route, Running late, Job done, Send location). Today's route arrives as an **interactive HTML widget** (Bot API 10.4) with On my way / Arrived / Job done per visit. Live location drives customer ETAs. | Telegram, `/c/track/…` |
 | **Job-to-cash** | Tech sends a voice note → job report → invoice → Stripe **test-mode** payment link → automatic reminders until paid. | Quotes & invoices |
-| **Office group** | The owner's Telegram group gets approval cards that anyone in the group can approve or reject; the card shows who decided. Commands are **ephemeral** (Bot API 10.2), so `/brief`, `/board`, `/approvals` and `/ask …` answers are visible only to whoever asked. | Telegram group |
-| **Ops copilot** | Chat with the business: "Tom called in sick, re-plan", "simulate a cold snap and draft a campaign", "which invoices are unpaid?". | Ops copilot, `/ask` in Telegram |
+| **Office group** | A pinned **button panel** (Brief, Board, Approvals with a live count, Re-plan, Ask the copilot). Answers are **ephemeral** (Bot API 10.2/10.4): only whoever tapped sees them. Approval cards can be approved or rejected by anyone in the group; the card shows who decided. | Telegram group |
+| **Ops copilot** | Chat with the business: "Tom called in sick, re-plan", "simulate a cold snap and draft a campaign", "which invoices are unpaid?". | Ops copilot, Ask button in Telegram |
 | **Guardrails** | Every action passes a policy engine: *auto*, *needs approval* or *never*, per action type. Low model confidence forces approval. Every model call, tool call and policy decision is traced. | Approvals, Agent traces, Settings |
 | **Proof** | A day simulator (AI office vs a human-office baseline, same demand, same fleet) and a labelled triage eval set with a held-out split. | ROI & simulator |
 
@@ -107,8 +107,8 @@ Every integration is optional. Without a key, the feature falls back (rules inst
 ### Telegram setup (2 minutes)
 
 1. Create the bot with @BotFather and put the token in `.env`.
-2. **Office group:** add the bot to a group with everyone who should see alerts, then send `/owner` there (or set `TELEGRAM_OWNER_CHAT_ID`). The group's command menu then shows the ephemeral commands.
-3. **Technicians:** each tech opens a private chat with the bot and sends `/start <first name>` (Carlos, Priya, Jake, Aisha, Tom in the demo data).
+2. **Office group:** add the bot to a group with everyone who should see alerts, then send `/owner` there (or set `TELEGRAM_OWNER_CHAT_ID`). The bot posts the button panel and pins it if it is an admin; `/menu` re-posts it.
+3. **Technicians:** each tech opens a private chat with the bot, sends `/start` and taps their name. The button keyboard appears under the chat.
 
 Telegram currently delivers HTML widgets only in **private chats** in production. Techs get the widget; on a client that can't show it, the route falls back to text with inline buttons. Ephemeral messages work in groups.
 
