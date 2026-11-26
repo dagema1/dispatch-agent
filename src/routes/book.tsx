@@ -25,17 +25,17 @@ function Book() {
   const [mode, setMode] = useState<'call' | 'form'>('call')
   return (
     <CustomerShell wide sub="Denver metro · open 24/7 for emergencies">
-      <h1 className="text-2xl font-bold tracking-tight">How can we help?</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Talk to our receptionist or send the details. You'll get a confirmed arrival window in under a minute.</p>
-      <fieldset aria-label="How to reach us" className="mt-6 grid grid-cols-2 gap-3">
-        <Choice
-          on={mode === 'call'}
-          onPick={() => setMode('call')}
-          icon={Phone}
-          tile="bg-emerald-500/15 text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400"
-          title="Talk to us"
-          sub="Voice call · about 2 min"
-        />
+      <div className="flex flex-col items-center pt-4 pb-8 text-center sm:pt-8">
+        <span className="inline-flex items-center gap-2 rounded-full border border-(--edge) bg-(--glass) px-3 py-1 text-xs text-muted-foreground backdrop-blur-md">
+          <span className="size-1.5 rounded-full bg-primary motion-safe:animate-pulse" aria-hidden /> Open 24/7 for emergencies
+        </span>
+        <h1 className="mt-5 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+          How can we <span className="font-display text-[1.12em] text-primary">help</span>?
+        </h1>
+        <p className="mt-4 max-w-md text-pretty text-muted-foreground">Talk to our receptionist or send the details. You'll get a confirmed arrival window in under a minute.</p>
+      </div>
+      <fieldset aria-label="How to reach us" className="grid grid-cols-2 gap-3">
+        <Choice on={mode === 'call'} onPick={() => setMode('call')} icon={Phone} tile="tile-action" title="Talk to us" sub="Voice call · about 2 min" />
         <Choice on={mode === 'form'} onPick={() => setMode('form')} icon={Camera} tile="tile-action" title="Write it down" sub="Details and photos" />
       </fieldset>
       {/* both stay mounted so switching never drops a live call or a half-typed form */}
@@ -71,8 +71,8 @@ function Choice({
   return (
     <label
       className={cn(
-        'slab relative flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl border p-3 transition-[box-shadow,background-color] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring sm:p-4',
-        on ? 'border-primary outline-1 outline-primary' : 'hover:bg-secondary',
+        'slab relative flex min-w-0 cursor-pointer items-center gap-3 rounded-3xl border p-3 transition-[box-shadow,background-color] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring sm:p-4',
+        on ? 'border-primary outline-1 outline-primary' : 'hover:bg-foreground/5',
       )}
     >
       <input type="radio" name="contact-mode" className="sr-only" checked={on} onChange={onPick} />
@@ -136,9 +136,7 @@ function CallPanel() {
     <Card className="rounded-3xl">
       <CardContent className="px-6 sm:px-10">
         <div className="mx-auto flex max-w-sm flex-col items-center py-6 text-center">
-          <span className="tile size-14 rounded-2xl bg-emerald-500/15 text-emerald-600 ring-1 ring-emerald-500/25 dark:text-emerald-400">
-            {live ? <Mic className="size-6" /> : <Phone className="size-6" />}
-          </span>
+          <span className="tile tile-action size-14 rounded-full">{live ? <Mic className="size-6" /> : <Phone className="size-6" />}</span>
           <h2 className="mt-5 text-2xl font-bold tracking-tight">
             {live ? (speaking === 'agent' ? 'Receptionist speaking' : 'We’re listening') : state === 'connecting' ? 'Connecting you' : 'Talk to our receptionist'}
           </h2>
@@ -151,17 +149,13 @@ function CallPanel() {
                   ? 'The call ended. You can start again or send the details instead.'
                   : 'Uses your microphone. Speak naturally; you’ll get a confirmed arrival window before you hang up.'}
           </p>
-          <LiveWaveform mode={mode} sources={sources} className={cn('mt-6', live ? 'text-emerald-500' : 'text-muted-foreground')} />
+          <LiveWaveform mode={mode} sources={sources} className={cn('mt-6', live ? 'text-primary' : 'text-muted-foreground')} />
           {live || state === 'connecting' ? (
-            <Button className="mt-6 h-12 w-full rounded-full bg-red-600 bg-none text-base text-white shadow-none hover:bg-red-500" onClick={() => call.current?.hangUp()}>
+            <Button className="mt-6 h-12 w-full bg-red-600 text-base text-white hover:bg-red-500" onClick={() => call.current?.hangUp()}>
               <PhoneOff /> Hang up
             </Button>
           ) : (
-            <Button
-              className="mt-6 h-12 w-full rounded-full bg-emerald-600 bg-none text-base text-white shadow-none hover:bg-emerald-500"
-              onClick={start}
-              disabled={state === 'ending'}
-            >
+            <Button className="mt-6 h-12 w-full text-base" onClick={start} disabled={state === 'ending'}>
               <Phone /> Start call
             </Button>
           )}

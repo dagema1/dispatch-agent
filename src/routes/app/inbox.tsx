@@ -55,7 +55,7 @@ function InboxPage() {
     <div className="mx-auto max-w-5xl">
       <PageTitle title="Inbox & calls" right={<TestEmailButton />} />
       <Tabs defaultValue="requests" className="min-w-0">
-        <TabsList className="h-9 w-full sm:w-fit">
+        <TabsList className="h-10 w-full sm:w-fit">
           <TabsTrigger value="requests" className="flex-1 px-2 sm:flex-none sm:px-3">
             <Inbox className="max-sm:hidden" /> Requests <Count n={snap.requests.length} />
           </TabsTrigger>

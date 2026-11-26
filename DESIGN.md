@@ -26,10 +26,12 @@ Shadows stay soft (`0 1px 2px` + `0 6px 16px -10px`). No glass, no blur, no glow
 
 ## Controls
 
-- Buttons: pills (`rounded-full`). `default` = electric-blue gradient with a lighter blue rim and white ink; `outline` = slab with edge highlight. Light-grey pill for the landing secondary.
+- Buttons: flat pills (`rounded-full`), press scales to 0.97, focus ring offset from the button. `default` = solid electric blue with a faint top highlight; `outline` = frosted glass with an edge; `secondary` = neutral `foreground/8`; `ghost` = muted text, neutral hover.
+- Surfaces: cards, slabs, sidebar, chips and segmented tracks are frosted glass (`--glass` + backdrop blur); overlays (dialogs, sheets, menus, tooltips) use the denser `--glass-strong`.
+- Segmented controls (tabs, toggle groups, Settings sections): glass pill track, active segment a neutral lighter pill. No colour on the active state.
 - Nav: active item is a neutral grey pill (`bg-foreground/8`) with a blue icon.
 - Display accent: `.font-display` (Instrument Serif italic) for one blue word in a headline (landing hero, “Hi, I’m Riley”). Never for UI text.
-- Segmented controls (tabs, toggle groups): a well track with the active segment raised as a small slab. Permission levels add a colour dot to the active segment only (blue on its own, gold ask first, grey never).
+- Permission levels add a colour dot to the active segment only (blue on its own, gold ask first, grey never).
 - Confirmations: one shared alert dialog (`useConfirm`) for anything customer-facing, destructive or that widens agent autonomy.
 - Icons: lucide only. No emoji or unicode glyphs as icons.
 

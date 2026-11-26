@@ -5,6 +5,7 @@ export const Route = createFileRoute('/api/events')({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        if (!(await import('#/server/auth')).isOwner()) return new Response('Sign in first', { status: 401 })
         const { ensureBooted } = await import('#/server/bootstrap')
         const { subscribe } = await import('#/server/lib/bus')
         await ensureBooted()

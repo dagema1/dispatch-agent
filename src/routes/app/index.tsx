@@ -105,7 +105,7 @@ function Board() {
         right={
           w ? (
             <span
-              className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1 text-sm ring-1 ring-border"
+              className="inline-flex items-center gap-1.5 rounded-full bg-(--glass) px-3 py-1 text-sm ring-1 ring-border backdrop-blur-md"
               title={w.override ? 'Demo weather override on' : 'Open-Meteo'}
             >
               {w.tempC <= 0 ? <Snowflake className="size-4 text-muted-foreground" /> : <Sun className="size-4 text-muted-foreground" />}
@@ -182,7 +182,7 @@ function Board() {
                     <FleetMap techs={mapTechs} jobs={mapJobs} routes={routes} height={400} />
                   </Suspense>
                 </ClientOnly>
-                <span className="pointer-events-none absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-xs font-medium ring-1 ring-border">
+                <span className="pointer-events-none absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-(--glass-strong) backdrop-blur-md px-2.5 py-1 text-xs font-medium ring-1 ring-border">
                   <MapPin className="size-3.5" /> Denver metro
                 </span>
                 <MapInsight unassigned={unassigned.length} openP1={openP1} />
@@ -270,7 +270,7 @@ function Dock({ children }: { children: React.ReactNode }) {
     <div
       role="toolbar"
       aria-label="Board controls"
-      className="slab fixed inset-x-3 bottom-3 z-30 flex items-center justify-between gap-2 overflow-x-auto rounded-2xl border bg-popover p-1.5 sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2 md:left-[calc(50%+var(--rail,4.5rem)/2)]"
+      className="slab fixed inset-x-3 bottom-3 z-30 flex items-center justify-between gap-2 overflow-x-auto rounded-full border bg-(--glass-strong) p-1.5 sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2 md:left-[calc(50%+var(--rail,4.5rem)/2)]"
     >
       {children}
     </div>,
@@ -287,7 +287,7 @@ function MapInsight({ unassigned, openP1 }: { unassigned: number; openP1: number
         ? { title: `${unassigned} visit${unassigned === 1 ? '' : 's'} without a slot`, sub: 'Re-plan from the dock to fit them in.' }
         : { title: 'Every visit has a slot', sub: 'Routes are re-planned automatically on every change.' }
   return (
-    <div className="absolute inset-x-3 bottom-3 z-10 flex items-center gap-3 rounded-2xl border bg-popover/95 p-3 shadow-(--slab-shadow)">
+    <div className="absolute inset-x-3 bottom-3 z-10 flex items-center gap-3 rounded-2xl border bg-(--glass-strong) p-3 backdrop-blur-xl shadow-(--slab-shadow)">
       <span className={cn('tile size-9 shrink-0 rounded-full', openP1 ? 'tile-red' : 'tile-quiet')}>
         <Zap className="size-4" />
       </span>

@@ -88,14 +88,14 @@ cp .env.example .env        # then fill in the keys below
 createdb dispatch_agent
 pnpm db:migrate
 pnpm db:seed                # 5 techs, 40 fictional customers, a partly booked 3-day schedule
-pnpm dev                    # http://localhost:3000
+pnpm dev                    # http://localhost:3000 → owner sign-in (password `demo`); customers book at /book
 ```
 
 Every integration is optional. Without a key, the feature falls back (rules instead of Gemini, estimated drive times instead of ORS, an outbox instead of delivery) and Settings shows what's missing.
 
 | Variable | Get it from | Used for |
 |---|---|---|
-| `GEMINI_API_KEY` | aistudio.google.com → Get API key | triage, photo diagnosis, voice, copilot |
+| `GEMINI_API_KEY` | aistudio.google.com → Get API key | triage, photo diagnosis, voice, agent chat |
 | `GEMINI_MODEL` | default `gemini-3.8-flash` | falls back through Flash-Lite models when overloaded |
 | `TELEGRAM_BOT_TOKEN` | @BotFather → /newbot | technician app, office group |
 | `TELEGRAM_OWNER_CHAT_ID` | optional; the group's chat id | the office group (or send `/owner` in the group instead) |
@@ -103,6 +103,8 @@ Every integration is optional. Without a key, the feature falls back (rules inst
 | `STRIPE_SECRET_KEY` | Stripe dashboard, **test mode** (`sk_test_…`) | payment links |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud OAuth client (web); redirect URI `$APP_URL/api/google/callback` | Gmail intake and replies, Calendar sync |
 | `APP_URL` | `http://localhost:3000` locally | links sent to customers |
+| `OWNER_PASSWORD` | anything; `demo` when empty | owner dashboard sign-in |
+| `SESSION_SECRET` | any long random string | signs the owner session cookie |
 | `CRON_SECRET` | any long random string | protects `/api/cron/*` |
 | `COMPANY_TZ` | default `America/Denver` | business hours, morning jobs |
 

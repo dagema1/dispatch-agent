@@ -1,4 +1,4 @@
-import { createServerFn } from '@tanstack/react-start'
+import { createMiddleware, createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import type { JsonObject } from './server/db/schema'
 
@@ -9,18 +9,48 @@ import type { JsonObject } from './server/db/schema'
 const boot = async () => (await import('./server/bootstrap')).ensureBooted()
 const media = z.object({ mimeType: z.string().regex(/^image\//), data: z.string().max(8_000_000) })
 
-// ---------- owner dashboard ----------
+// ---------- owner sign-in ----------
 
-export const getSnapshot = createServerFn({ method: 'GET' }).handler(async () => {
-  await boot()
-  return (await import('./server/api/views')).snapshot()
+/** Every owner-dashboard function runs behind this: no valid session cookie, no data. */
+const owner = createMiddleware({ type: 'function' }).server(async ({ next }) => {
+  ;(await import('./server/auth')).assertOwner()
+  return next()
 })
 
+export const getSession = createServerFn({ method: 'GET' }).handler(async () => {
+  const a = await import('./server/auth')
+  return { owner: a.isOwner(), demoPassword: a.usingDemoPassword() }
+})
+
+export const login = createServerFn({ method: 'POST' })
+  .validator(z.object({ password: z.string().min(1).max(200) }))
+  .handler(async ({ data }) => {
+    const ok = (await import('./server/auth')).signIn(data.password)
+    if (!ok) await new Promise((r) => setTimeout(r, 400))
+    return { ok }
+  })
+
+export const logout = createServerFn({ method: 'POST' }).handler(async () => {
+  ;(await import('./server/auth')).signOut()
+  return { ok: true }
+})
+
+// ---------- owner dashboard ----------
+
+export const getSnapshot = createServerFn({ method: 'GET' })
+  .middleware([owner])
+  .handler(async () => {
+    await boot()
+    return (await import('./server/api/views')).snapshot()
+  })
+
 export const getTrace = createServerFn({ method: 'GET' })
+  .middleware([owner])
   .validator(z.object({ runId: z.string().uuid() }))
   .handler(async ({ data }) => (await import('./server/api/views')).trace(data.runId))
 
 export const decide = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ id: z.number().int(), decision: z.enum(['approved', 'rejected']), edits: z.record(z.string(), z.unknown()).optional() }))
   .handler(async ({ data }) => {
     await boot()
@@ -28,16 +58,20 @@ export const decide = createServerFn({ method: 'POST' })
     return JSON.parse(JSON.stringify(r ?? null))
   })
 
-export const replanNow = createServerFn({ method: 'POST' }).handler(async () => {
-  await boot()
-  return (await import('./server/domain/dispatch')).replan({ reason: 'owner clicked re-plan' })
-})
+export const replanNow = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .handler(async () => {
+    await boot()
+    return (await import('./server/domain/dispatch')).replan({ reason: 'owner clicked re-plan' })
+  })
 
 export const runCronNow = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ name: z.enum(['tick', 'morning', 'weather']) }))
   .handler(async ({ data }) => JSON.parse(JSON.stringify(await (await import('./server/bootstrap')).runCron(data.name))))
 
 export const setWeather = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ mode: z.enum(['cold_snap', 'heat_wave', 'off']) }))
   .handler(async ({ data }) => {
     const { setWeatherOverride } = await import('./server/integrations/weather')
@@ -46,6 +80,7 @@ export const setWeather = createServerFn({ method: 'POST' })
   })
 
 export const setPolicy = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ key: z.string(), value: z.enum(['auto', 'approve', 'never']) }))
   .handler(async ({ data }) => {
     const { getSettings, saveSetting } = await import('./server/domain/settings')
@@ -55,6 +90,7 @@ export const setPolicy = createServerFn({ method: 'POST' })
   })
 
 export const setPersona = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(
     z.object({
       agentName: z.string().trim().min(1).max(40),
@@ -72,6 +108,7 @@ export const setPersona = createServerFn({ method: 'POST' })
   })
 
 export const setAgentConfig = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(
     z.object({
       agent: z.enum(['front_desk', 'diagnosis', 'dispatch', 'revenue', 'ops']),
@@ -87,6 +124,7 @@ export const setAgentConfig = createServerFn({ method: 'POST' })
   })
 
 export const setTechActive = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ id: z.number().int(), active: z.boolean() }))
   .handler(async ({ data }) => {
     const { db, schema } = await import('./server/db')
@@ -100,14 +138,17 @@ export const setTechActive = createServerFn({ method: 'POST' })
     return (await import('./server/domain/dispatch')).replan({ reason: `technician ${data.active ? 'back' : 'out'}` })
   })
 
-export const resetDemo = createServerFn({ method: 'POST' }).handler(async () => {
-  await boot()
-  await (await import('./server/db/seed')).seed({ quiet: true })
-  return { ok: true }
-})
+export const resetDemo = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .handler(async () => {
+    await boot()
+    await (await import('./server/db/seed')).seed({ quiet: true })
+    return { ok: true }
+  })
 
 /** Demo inbox: drop a customer email into the pipeline exactly as the Gmail poller would. */
 export const simulateEmail = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ name: z.string(), email: z.string().email(), subject: z.string(), body: z.string().min(3).max(4000) }))
   .handler(async ({ data }) => {
     await boot()
@@ -126,6 +167,7 @@ export const simulateEmail = createServerFn({ method: 'POST' })
   })
 
 export const ownerChat = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ history: z.array(z.any()).max(60), message: z.string().min(1).max(2000) }))
   .handler(async ({ data }) => {
     await boot()
@@ -134,6 +176,7 @@ export const ownerChat = createServerFn({ method: 'POST' })
   })
 
 export const completeJob = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ jobId: z.number().int(), note: z.string().min(3).max(2000) }))
   .handler(async ({ data }) => {
     await boot()
@@ -143,10 +186,12 @@ export const completeJob = createServerFn({ method: 'POST' })
   })
 
 export const markPaidTest = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ invoiceId: z.number().int() }))
   .handler(async ({ data }) => ({ paid: await (await import('./server/agent/revenue')).checkPaid(data.invoiceId) }))
 
 export const runSimulation = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ scenario: z.enum(['normal', 'cold_snap', 'heat_wave']), requests: z.number().int().min(10).max(300) }))
   .handler(async ({ data }) => {
     await boot()
@@ -154,6 +199,7 @@ export const runSimulation = createServerFn({ method: 'POST' })
   })
 
 export const runEvals = createServerFn({ method: 'POST' })
+  .middleware([owner])
   .validator(z.object({ useModel: z.boolean() }))
   .handler(async ({ data }) => {
     await boot()

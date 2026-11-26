@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
+import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
   Activity,
   Bot,
@@ -7,6 +7,7 @@ import {
   CircleDollarSign,
   ExternalLink,
   Inbox,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -16,7 +17,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { getSnapshot } from '#/fns'
+import { getSession, getSnapshot, logout } from '#/fns'
 import { ConfirmProvider } from '#/ui/confirm'
 import { LiveProvider, useLive } from '#/ui/live'
 import { ThemeToggle } from '#/ui/theme'
@@ -26,6 +27,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/app')({
+  beforeLoad: async () => {
+    if (!(await getSession()).owner) throw redirect({ to: '/' })
+  },
   loader: () => getSnapshot(),
   component: AppLayout,
   ssr: false,
@@ -57,7 +61,7 @@ function AppSkeleton() {
   return (
     <div className="canvas flex min-h-screen flex-col md:flex-row" aria-busy="true">
       <output className="sr-only">Loading the front office…</output>
-      <div className="flex gap-2 border-b border-(--edge) bg-card p-2 md:h-screen md:w-18 md:flex-col md:items-center md:border-r md:border-b-0 md:py-3">
+      <div className="flex gap-2 border-b border-(--edge) bg-(--glass) p-2 md:h-screen md:w-18 md:flex-col md:items-center md:border-r md:border-b-0 md:py-3">
         {keys('rail', 9).map((k) => (
           <Skeleton key={k} className="size-10 shrink-0 rounded-xl" />
         ))}
@@ -67,7 +71,7 @@ function AppSkeleton() {
         <Skeleton className="h-7 w-48" />
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           {keys('kpi', 4).map((k) => (
-            <div key={k} className="slab space-y-3 rounded-xl border bg-card p-4">
+            <div key={k} className="slab space-y-3 rounded-xl border p-4">
               <div className="flex items-center gap-3">
                 <Skeleton className="size-11 rounded-xl" />
                 <div className="flex-1 space-y-2">
@@ -79,7 +83,7 @@ function AppSkeleton() {
             </div>
           ))}
         </div>
-        <div className="slab space-y-3 rounded-xl border bg-card p-5">
+        <div className="slab space-y-3 rounded-xl border p-5">
           <Skeleton className="h-4 w-40" />
           {keys('row', 5).map((k) => (
             <Skeleton key={k} className="h-11 w-full rounded-lg" />
@@ -150,14 +154,20 @@ function Shell() {
       <aside
         data-open={open}
         className={cn(
-          'sticky top-0 z-20 flex items-center gap-1 border-b border-(--edge) bg-card px-2 py-2 shadow-(--slab-shadow) md:h-screen md:shrink-0 md:flex-col md:items-stretch md:border-r md:border-b-0 md:py-3 motion-safe:md:transition-[width] motion-safe:md:duration-200',
+          'sticky top-0 z-20 flex items-center gap-1 border-b border-(--edge) bg-(--glass) px-2 py-2 shadow-(--slab-shadow) backdrop-blur-xl md:h-screen md:shrink-0 md:flex-col md:items-stretch md:border-r md:border-b-0 md:py-3 motion-safe:md:transition-[width] motion-safe:md:duration-200',
           open ? 'md:w-60 md:px-3' : 'md:w-18 md:items-center md:px-0',
         )}
       >
         <div className={cn('mr-1 flex shrink-0 items-center gap-2.5 md:mr-0 md:mb-3', open && 'md:px-0.5')}>
-          <div className="tile tile-solid size-9 shrink-0" title={snap?.company.name}>
+          <div className="tile tile-solid size-9 shrink-0 rounded-full" title={snap?.company.name}>
             <Wrench size={17} />
           </div>
+          {open && (
+            <div className="hidden min-w-0 leading-tight md:block">
+              <div className="truncate text-sm font-semibold">{snap?.company.name.split(' ')[0] ?? 'Northline'}</div>
+              <div className="text-[11px] text-muted-foreground">Front office</div>
+            </div>
+          )}
         </div>
         <nav aria-label="Main" className="flex min-w-0 flex-1 gap-1 overflow-x-auto md:flex-none md:flex-col md:overflow-visible">
           {NAV.map((n) => (
@@ -194,6 +204,19 @@ function Shell() {
           </RailItem>
           <div className={cn('flex items-center gap-1', open ? 'md:justify-between' : 'md:flex-col')}>
             <ThemeToggle className="size-10 rounded-xl" />
+            <RailItem open={open} label="Sign out">
+              <button
+                type="button"
+                aria-label="Sign out"
+                onClick={async () => {
+                  await logout()
+                  location.href = '/'
+                }}
+                className="grid size-10 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <LogOut size={18} />
+              </button>
+            </RailItem>
             <RailItem open={open} label="Expand sidebar">
               <button
                 type="button"
@@ -212,7 +235,7 @@ function Shell() {
         <header className="flex flex-wrap items-center gap-3 px-4 pt-4 md:px-6">
           <div className="flex min-w-0 items-center gap-2 text-sm">
             <span className="truncate font-medium">{snap?.company.name ?? 'Northline'}</span>
-            <span className="flex items-center gap-1.5 rounded-full bg-card px-2 py-0.5 text-xs text-muted-foreground shadow-[inset_0_1px_0_var(--edge)]">
+            <span className="flex items-center gap-1.5 rounded-full bg-(--glass) px-2 py-0.5 text-xs text-muted-foreground shadow-[inset_0_1px_0_var(--edge)]">
               <span className={`size-1.5 rounded-full ${connected ? 'bg-primary' : 'bg-muted-foreground/40'}`} />
               {connected ? 'Agents live' : 'Connecting'}
             </span>

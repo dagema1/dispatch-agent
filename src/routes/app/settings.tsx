@@ -113,7 +113,7 @@ function SettingsPage() {
       <PageTitle title="Settings" />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         <nav aria-label="Settings sections">
-          <ul className="well -mx-1 flex w-fit max-w-full gap-1 overflow-x-auto rounded-xl p-1">
+          <ul className="segmented flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-full p-[3px]">
             {TABS.map((t) => {
               const n = NAV[t]
               const on = t === tab
@@ -125,8 +125,8 @@ function SettingsPage() {
                     replace
                     aria-current={on ? 'page' : undefined}
                     className={cn(
-                      'flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      on ? 'bg-card font-medium text-foreground shadow-(--slab-shadow) ring-1 ring-border' : 'text-muted-foreground hover:text-foreground',
+                      'flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      on ? 'bg-foreground/11 font-medium text-foreground shadow-[inset_0_1px_0_var(--edge)]' : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground',
                     )}
                   >
                     <n.icon className={cn('size-4 shrink-0', on && 'text-primary')} />
