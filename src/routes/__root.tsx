@@ -1,6 +1,6 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { createRootRoute, HeadContent, Scripts } from '@tanstack/react-router'
 import { THEME_BOOT } from '#/ui/theme'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -18,7 +18,7 @@ export const Route = createRootRoute({
       { rel: 'stylesheet', href: appCss },
       {
         rel: 'icon',
-        href: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔧</text></svg>',
+        href: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%2321a0b0%22/><path d=%22M20.5 7.5a5 5 0 0 0-6.3 6.3l-6.4 6.4a2 2 0 0 0 2.8 2.8l6.4-6.4a5 5 0 0 0 6.3-6.3l-2.9 2.9-2.4-.4-.4-2.4z%22 fill=%22white%22/></svg>',
       },
     ],
   }),

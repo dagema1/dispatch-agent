@@ -87,9 +87,9 @@ function CallPanel() {
     <Card>
       <CardContent>
         <div className="flex flex-col items-center py-4">
-          <div className={cn('relative grid size-24 place-items-center rounded-full text-white shadow-lg transition-colors', live ? 'bg-emerald-500' : 'bg-primary')}>
+          <div className={cn('relative size-24 rounded-full! text-white transition-colors', live ? 'tile tile-solid' : 'tile tile-solid opacity-90')}>
             {live && speaking && (
-              <span className={cn('absolute inset-0 animate-ping rounded-full opacity-40 motion-reduce:hidden', speaking === 'agent' ? 'bg-emerald-400' : 'bg-sky-400')} />
+              <span className={cn('absolute inset-0 animate-ping rounded-full opacity-40 motion-reduce:hidden', speaking === 'agent' ? 'bg-primary' : 'bg-muted-foreground')} />
             )}
             {live ? <Mic className="size-8" /> : <Phone className="size-8" />}
           </div>
@@ -118,7 +118,7 @@ function CallPanel() {
         </div>
         {booked && <BookedCard r={booked} />}
         {turns.length > 0 && (
-          <div className="mt-4 max-h-72 space-y-2 overflow-y-auto rounded-lg bg-muted p-3">
+          <div className="mt-4 max-h-72 space-y-2 overflow-y-auto rounded-xl well p-3">
             {turns.map((t, i) => (
               <div key={i} className={cn('arrive-pop flex', t.role === 'caller' && 'justify-end')}>
                 <div

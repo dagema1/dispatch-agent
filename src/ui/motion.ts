@@ -25,9 +25,8 @@ export function withViewTransition(update: () => void) {
   if (!doc.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return update()
   try {
     // a skipped transition rejects these promises; the DOM update still happens
-    const t = doc.startViewTransition(update) as { finished?: Promise<unknown>; ready?: Promise<unknown> } | undefined
-    t?.finished?.catch(() => {})
-    t?.ready?.catch(() => {})
+    const t = doc.startViewTransition(update) as Record<'finished' | 'ready' | 'updateCallbackDone', Promise<unknown> | undefined> | undefined
+    for (const p of [t?.finished, t?.ready, t?.updateCallbackDone]) p?.catch(() => {})
   } catch {
     update()
   }

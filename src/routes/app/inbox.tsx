@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, Globe, Inbox, Mail, MessageSquare, Phone, Send, Thermometer, Timer } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, Globe, Inbox, Mail, MessageSquare, Phone, Send, ShieldAlert, Thermometer, Timer } from 'lucide-react'
 import { useState } from 'react'
 import { simulateEmail } from '#/fns'
 import { Empty, ErrorText, Muted, PageTitle, Priority, Section, Status } from '#/ui/bits'
@@ -85,16 +85,10 @@ function InboxPage() {
 
 const Count = ({ n }: { n: number }) => <span className="rounded-full bg-muted-foreground/10 px-1.5 text-[11px] tabular-nums text-muted-foreground">{n}</span>
 
-const RAIL: Record<number, string> = { 1: 'bg-red-500', 2: 'bg-amber-500', 3: 'bg-sky-500', 4: 'bg-muted-foreground/30' }
+/** Leading tile: the channel it came in on, tinted by how urgent triage judged it. */
+const TILE: Record<number, string> = { 1: 'tile-red', 2: 'tile-attn', 3: 'tile-action', 4: 'tile-quiet' }
+const channelIcon = (c: string) => (c === 'voice' ? Phone : c === 'email' ? Mail : c === 'web' ? Globe : MessageSquare)
 const OPEN = ['new', 'triaged', 'awaiting_customer']
-
-const initials = (n?: string | null) =>
-  (n ?? '?')
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
 
 const fmtResp = (s: number) => (s < 90 ? `${s}s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`)
 
@@ -128,11 +122,10 @@ function Requests() {
             const resp = r.firstResponseAt ? Math.round((+new Date(r.firstResponseAt) - +new Date(r.createdAt)) / 1000) : null
             const name = r.customerId ? snap.customers[r.customerId]?.name : null
             return (
-              <li key={r.id} className={cn('relative', isNew(r.id) && 'arrive')}>
-                <span className={cn('absolute inset-y-0 left-0 w-1', RAIL[r.priority ?? 4])} aria-hidden />
+              <li key={r.id} className={cn(isNew(r.id) && 'arrive')}>
                 <details className="group">
-                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] gap-3 py-3 pr-4 pl-5 transition-colors hover:bg-muted/50">
-                    <span className="grid size-9 place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">{initials(name)}</span>
+                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] gap-3 px-4 py-3 transition-colors hover:bg-secondary/60">
+                    <ChannelTile c={r.channel} p={r.priority} />
                     <div className="min-w-0">
                       <div className="flex items-baseline gap-2">
                         <span className="truncate text-sm font-semibold">{name ?? 'Unknown sender'}</span>
@@ -144,14 +137,18 @@ function Requests() {
                     <div className="flex flex-col items-end gap-1">
                       <Muted className="whitespace-nowrap">{ago(r.createdAt)}</Muted>
                       <div className="flex flex-wrap justify-end gap-1">
-                        {r.safetyFlag && <Badge variant="destructive">⚠ {r.safetyFlag.replaceAll('_', ' ')}</Badge>}
+                        {r.safetyFlag && (
+                          <Badge variant="destructive">
+                            <ShieldAlert /> {r.safetyFlag.replaceAll('_', ' ')}
+                          </Badge>
+                        )}
                         <Priority p={r.priority} short />
                         <Status s={r.status} />
                       </div>
                     </div>
                   </summary>
                   <div className="space-y-2 pr-4 pb-4 pl-[4.25rem]">
-                    <p className="rounded-lg bg-muted/60 p-3 text-sm whitespace-pre-wrap">{r.rawText}</p>
+                    <p className="well rounded-xl p-3 text-sm whitespace-pre-wrap">{r.rawText}</p>
                     <div className="flex flex-wrap gap-1.5 text-xs">
                       {resp != null && (
                         <Badge variant="outline" className={cn(resp < 60 && 'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400')}>
@@ -180,8 +177,17 @@ function Requests() {
   )
 }
 
+const ChannelTile = ({ c, p }: { c: string; p: number | null }) => {
+  const I = channelIcon(c)
+  return (
+    <span className={cn('tile size-9', TILE[p ?? 4])} aria-hidden>
+      <I className="size-4" />
+    </span>
+  )
+}
+
 const ChannelTag = ({ c }: { c: string }) => {
-  const I = c === 'voice' ? Phone : c === 'email' ? Mail : c === 'web' ? Globe : MessageSquare
+  const I = channelIcon(c)
   return (
     <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground capitalize">
       <I className="size-3" /> {c}
@@ -224,7 +230,7 @@ function Messages() {
             return (
               <li key={m.id} className={cn(isNew(m.id) && 'arrive')}>
                 <details className="group">
-                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50">
+                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-4 py-3 transition-colors hover:bg-secondary/60">
                     <span className={cn('mt-0.5 grid size-7 place-items-center rounded-full', out ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground')}>
                       {out ? <ArrowUpRight className="size-3.5" /> : <ArrowDownLeft className="size-3.5" />}
                     </span>
@@ -267,7 +273,7 @@ function Calls() {
           return (
             <li key={c.id}>
               <details className="group">
-                <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50">
+                <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-secondary/60">
                   <span className="grid size-9 place-items-center rounded-full bg-muted text-muted-foreground">
                     <Phone className="size-4" />
                   </span>

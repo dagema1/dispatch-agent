@@ -1,6 +1,6 @@
 import L from 'leaflet'
-import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 import { useEffect } from 'react'
+import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
 
 export type MapJob = {
   id: number

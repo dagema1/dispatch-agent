@@ -9,64 +9,75 @@
 @custom-variant data-active (&:is([data-state="active"], [data-active]:not([data-active="false"])));
 
 /*
- * shadcn/ui tokens (radix-nova, neutral base). The product's existing brand blue is kept as
- * --primary; status colours (priority, job state) stay semantic and live in src/ui/format.ts.
+ * Workbench world: raised charcoal slabs on a dotted canvas, recessed wells for inputs and
+ * segmented tracks, one violet accent for action and live state, gold tiles for what needs a person.
+ * Dark is the primary rendition (an office that runs on a big monitor all day); light mirrors it.
  */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(0.985 0.002 260);
-  --foreground: oklch(0.205 0.015 265);
-  --card: oklch(1 0 0 / 0.62);
-  --card-foreground: oklch(0.205 0.015 265);
-  --popover: oklch(1 0 0 / 0.82);
-  --popover-foreground: oklch(0.205 0.015 265);
-  --primary: oklch(0.52 0.19 262);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.003 264);
-  --secondary-foreground: oklch(0.25 0.015 265);
-  --muted: oklch(0.94 0.006 264 / 0.6);
-  --muted-foreground: oklch(0.5 0.015 260);
-  --accent: oklch(0.93 0.04 262 / 0.75);
-  --accent-foreground: oklch(0.42 0.17 262);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0.004 264);
-  --input: oklch(0.9 0.006 264);
-  --ring: oklch(0.62 0.16 262);
-  --chart-1: oklch(0.52 0.19 262);
+  --radius: 0.875rem;
+  --background: oklch(0.955 0.004 255);
+  --foreground: oklch(0.22 0.01 260);
+  --card: oklch(0.995 0.002 255);
+  --card-foreground: oklch(0.22 0.01 260);
+  --popover: oklch(0.995 0.002 255);
+  --popover-foreground: oklch(0.22 0.01 260);
+  --primary: oklch(0.55 0.19 275);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.975 0.003 255);
+  --secondary-foreground: oklch(0.25 0.01 260);
+  --muted: oklch(0.93 0.005 255);
+  --muted-foreground: oklch(0.48 0.012 255);
+  --accent: oklch(0.93 0.035 280);
+  --accent-foreground: oklch(0.4 0.15 278);
+  --destructive: oklch(0.56 0.21 27);
+  --border: oklch(0.88 0.006 255);
+  --input: oklch(0.86 0.006 255);
+  --ring: oklch(0.58 0.17 275);
+  --chart-1: oklch(0.55 0.19 275);
   --chart-2: oklch(0.7 0.01 260);
-  --glass-edge: oklch(1 0 0 / 0.7);
-  --glass-shadow: 0 1px 2px oklch(0.3 0.03 265 / 0.06), 0 8px 24px -12px oklch(0.3 0.06 265 / 0.18);
-  --glow-1: oklch(0.8 0.1 262 / 0.45);
-  --glow-2: oklch(0.85 0.08 200 / 0.35);
-  --glow-3: oklch(0.85 0.08 310 / 0.3);
+
+  --well: oklch(0.935 0.005 255);
+  --dot: oklch(0.3 0.01 260 / 0.13);
+  --edge: oklch(1 0 0 / 0.9);
+  --slab-shadow: 0 1px 2px oklch(0.3 0.02 260 / 0.08), 0 10px 28px -14px oklch(0.3 0.03 260 / 0.28);
+  --well-shadow: inset 0 1px 2px oklch(0.3 0.02 260 / 0.1);
+  --attn-1: oklch(0.9 0.14 92);
+  --attn-2: oklch(0.8 0.16 75);
+  --action-1: oklch(0.64 0.19 285);
+  --action-2: oklch(0.5 0.2 268);
 }
 
 .dark {
-  --background: oklch(0.15 0.015 268);
-  --foreground: oklch(0.97 0 0);
-  --card: oklch(0.24 0.02 266 / 0.5);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.22 0.02 266 / 0.85);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.66 0.16 262);
-  --primary-foreground: oklch(0.17 0.01 265);
-  --secondary: oklch(0.27 0.012 265);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.3 0.015 265 / 0.55);
-  --muted-foreground: oklch(0.72 0.012 260);
-  --accent: oklch(0.36 0.07 262 / 0.55);
-  --accent-foreground: oklch(0.9 0.05 262);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.6 0.14 262);
-  --chart-1: oklch(0.66 0.16 262);
+  --background: oklch(0.165 0.005 260);
+  --foreground: oklch(0.95 0.003 255);
+  --card: oklch(0.215 0.006 260);
+  --card-foreground: oklch(0.95 0.003 255);
+  --popover: oklch(0.235 0.006 260);
+  --popover-foreground: oklch(0.95 0.003 255);
+  --primary: oklch(0.72 0.15 280);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.26 0.006 260);
+  --secondary-foreground: oklch(0.95 0.003 255);
+  --muted: oklch(0.255 0.006 260);
+  --muted-foreground: oklch(0.7 0.008 255);
+  --accent: oklch(0.3 0.05 280);
+  --accent-foreground: oklch(0.87 0.08 285);
+  --destructive: oklch(0.68 0.19 24);
+  --border: oklch(1 0 0 / 0.07);
+  --input: oklch(1 0 0 / 0.09);
+  --ring: oklch(0.7 0.15 280);
+  --chart-1: oklch(0.72 0.15 280);
   --chart-2: oklch(0.55 0.01 260);
-  --glass-edge: oklch(1 0 0 / 0.08);
-  --glass-shadow: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 32px -16px oklch(0 0 0 / 0.6);
-  --glow-1: oklch(0.45 0.16 262 / 0.45);
-  --glow-2: oklch(0.45 0.1 200 / 0.3);
-  --glow-3: oklch(0.42 0.14 310 / 0.28);
+
+  --well: oklch(0.18 0.005 260);
+  --dot: oklch(1 0 0 / 0.075);
+  --edge: oklch(1 0 0 / 0.07);
+  --slab-shadow: 0 2px 4px oklch(0 0 0 / 0.35), 0 16px 36px -16px oklch(0 0 0 / 0.75);
+  --well-shadow: inset 0 1px 3px oklch(0 0 0 / 0.55);
+  --attn-1: oklch(0.88 0.14 90);
+  --attn-2: oklch(0.78 0.16 72);
+  --action-1: oklch(0.66 0.18 288);
+  --action-2: oklch(0.52 0.2 270);
 }
 
 @theme inline {
@@ -103,49 +114,104 @@
   }
   html {
     color-scheme: light;
+    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 45%, transparent) transparent;
   }
   html.dark {
     color-scheme: dark;
   }
   body {
     @apply min-h-dvh bg-background font-sans text-foreground antialiased;
-    background-image:
-      radial-gradient(60rem 40rem at 10% -10%, var(--glow-1), transparent 60%),
-      radial-gradient(50rem 36rem at 100% 0%, var(--glow-2), transparent 60%),
-      radial-gradient(48rem 40rem at 60% 110%, var(--glow-3), transparent 60%);
-    background-attachment: fixed;
+    caret-color: var(--primary);
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 35%, transparent);
+  }
+  a {
+    text-underline-offset: 3px;
   }
 }
 
-/* Glass: translucent surfaces blur whatever is behind them; a hairline top edge catches the light. */
-@layer components {
-  [data-slot="card"],
-  .glass {
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
-    box-shadow: inset 0 1px 0 var(--glass-edge), var(--glass-shadow);
-  }
-  [data-slot="select-content"],
-  [data-slot="alert-dialog-content"],
-  [data-slot="sheet-content"] {
-    backdrop-filter: blur(24px) saturate(170%);
-    -webkit-backdrop-filter: blur(24px) saturate(170%);
-  }
+/* The canvas: a fine dot grid behind every working area. */
+.canvas {
+  background-color: var(--background);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
+  background-size: 20px 20px;
+  background-position: -10px -10px;
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  :root {
-    --card: oklch(1 0 0);
-    --popover: oklch(1 0 0);
-  }
-  .dark {
-    --card: oklch(0.22 0.015 266);
-    --popover: oklch(0.22 0.015 266);
-  }
-  [data-slot="card"],
-  .glass {
-    backdrop-filter: none;
-  }
+/* Slabs: raised panels with a light top edge. Wells: recessed tracks and fields. */
+[data-slot="card"],
+.slab {
+  border-color: var(--edge);
+  box-shadow: inset 0 1px 0 var(--edge), var(--slab-shadow);
+}
+.well,
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="select-trigger"],
+[data-slot="tabs-list"][data-variant="default"],
+[data-slot="toggle-group"][data-variant="outline"] {
+  background-color: var(--well);
+  box-shadow: var(--well-shadow);
+}
+[data-slot="toggle-group"][data-variant="outline"] {
+  border-radius: calc(var(--radius) - 2px);
+  padding: 3px;
+  gap: 2px;
+}
+[data-slot="toggle-group"][data-variant="outline"] [data-slot="toggle-group-item"] {
+  border: 0;
+  border-radius: calc(var(--radius) - 5px) !important;
+  background: transparent;
+}
+[data-slot="toggle-group"][data-variant="outline"] [data-slot="toggle-group-item"][data-state="on"]:not([class*="data-[state=on]:bg-"]),
+[data-slot="tabs-trigger"][data-state="active"] {
+  background-color: var(--card);
+  color: var(--foreground);
+  box-shadow: inset 0 1px 0 var(--edge), 0 1px 3px oklch(0 0 0 / 0.25);
+}
+[data-slot="tabs-list"][data-variant="default"] {
+  border-radius: calc(var(--radius) - 2px);
+}
+[data-slot="tabs-trigger"] {
+  border-radius: calc(var(--radius) - 5px);
+}
+[data-slot="select-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="sheet-content"],
+[data-slot="tooltip-content"] {
+  box-shadow: inset 0 1px 0 var(--edge), var(--slab-shadow);
+}
+
+/* Tiles: flat icon chips. A soft tint of the state colour with the glyph in that colour; no shadow.
+   Violet = the system acting, gold = needs a person, red = emergency, quiet = routine. */
+.tile {
+  display: grid;
+  place-items: center;
+  border-radius: calc(var(--radius) - 4px);
+}
+.tile-action {
+  background: color-mix(in oklch, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+.tile-attn {
+  background: color-mix(in oklch, var(--attn-2) 22%, transparent);
+  color: oklch(0.5 0.12 70);
+}
+.dark .tile-attn {
+  color: var(--attn-1);
+}
+.tile-red {
+  background: color-mix(in oklch, var(--destructive) 16%, transparent);
+  color: var(--destructive);
+}
+.tile-quiet {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.tile-solid {
+  background: var(--primary);
+  color: var(--primary-foreground);
 }
 
 /* Map tiles have no dark style: invert them so the map sits in the dark UI. */
@@ -155,6 +221,9 @@
 
 .leaflet-container {
   font-family: var(--font-sans);
+  /* keep Leaflet's z-indexed panes inside the map so floating UI stays on top */
+  isolation: isolate;
+  z-index: 0;
 }
 
 /*

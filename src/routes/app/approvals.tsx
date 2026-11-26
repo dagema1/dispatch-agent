@@ -5,8 +5,8 @@ import { Empty, ErrorText, Muted, PageTitle, Section, Status } from '#/ui/bits'
 import { AGENT_LABEL, ago } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
 import { useArrivals } from '#/ui/motion'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/app/approvals')({
   component: Approvals,
@@ -34,7 +34,7 @@ function Approvals() {
                   <Muted className="mt-0.5 block">
                     {AGENT_LABEL[a.agent] ?? a.agent} agent · {a.tool} · {ago(a.createdAt)} · <span className="text-amber-700 dark:text-amber-400">{a.reason}</span>
                   </Muted>
-                  {typeof a.args.body === 'string' && <p className="mt-2 rounded-md bg-muted p-2 text-xs whitespace-pre-wrap text-muted-foreground">{a.args.body}</p>}
+                  {typeof a.args.body === 'string' && <p className="mt-2 well rounded-lg p-2 text-xs whitespace-pre-wrap text-muted-foreground">{a.args.body}</p>}
                 </div>
                 <div className="flex gap-2">
                   <Button disabled={act.busy} onClick={() => act.run(a.id, 'approved')}>

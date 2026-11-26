@@ -8,14 +8,14 @@ export type ThemePref = 'light' | 'dark' | 'system'
 const KEY = 'theme'
 
 /** Runs in <head> before first paint so the page never flashes the wrong theme. */
-export const THEME_BOOT = `(function(){try{var p=localStorage.getItem('${KEY}')||'system';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d)}catch(e){}})()`
+export const THEME_BOOT = `(function(){try{var p=localStorage.getItem('${KEY}')||'dark';var d=p==='dark'||(p==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d)}catch(e){}})()`
 
 function read(): ThemePref {
   try {
     const v = localStorage.getItem(KEY)
-    return v === 'light' || v === 'dark' ? v : 'system'
+    return v === 'light' || v === 'system' ? v : 'dark'
   } catch {
-    return 'system'
+    return 'dark'
   }
 }
 
@@ -24,13 +24,15 @@ function apply(p: ThemePref) {
   document.documentElement.classList.toggle('dark', dark)
 }
 
-const NEXT: Record<ThemePref, ThemePref> = { system: 'light', light: 'dark', dark: 'system' }
+const NEXT: Record<ThemePref, ThemePref> = { dark: 'light', light: 'system', system: 'dark' }
 const LABEL: Record<ThemePref, string> = { system: 'Theme: system', light: 'Theme: light', dark: 'Theme: dark' }
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const [pref, setPref] = useState<ThemePref>('system')
+  const [pref, setPref] = useState<ThemePref | null>(null)
   useEffect(() => setPref(read()), [])
   useEffect(() => {
+    // null until the stored preference is read; the boot script already painted that theme
+    if (!pref) return
     const want = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
     if (document.documentElement.classList.contains('dark') !== want) withViewTransition(() => apply(pref))
     if (pref !== 'system') return
@@ -40,21 +42,22 @@ export function ThemeToggle({ className }: { className?: string }) {
     return () => mq.removeEventListener('change', on)
   }, [pref])
   const cycle = () => {
-    const n = NEXT[pref]
+    const n = NEXT[pref ?? 'dark']
     try {
       localStorage.setItem(KEY, n)
     } catch {}
     setPref(n)
   }
-  const Icon = pref === 'dark' ? Moon : pref === 'light' ? Sun : Monitor
+  const cur = pref ?? 'dark'
+  const Icon = cur === 'dark' ? Moon : cur === 'light' ? Sun : Monitor
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon" className={className} onClick={cycle} aria-label={`${LABEL[pref]} (click to change)`}>
+        <Button variant="ghost" size="icon" className={className} onClick={cycle} aria-label={`${LABEL[cur]} (click to change)`}>
           <Icon />
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{LABEL[pref]}</TooltipContent>
+      <TooltipContent>{LABEL[cur]}</TooltipContent>
     </Tooltip>
   )
 }

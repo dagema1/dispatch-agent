@@ -122,7 +122,7 @@ function TraceView({ runId }: { runId: string }) {
                   <ChevronRight className="size-3 transition-transform group-open:rotate-90" /> details
                 </summary>
                 <div className="mt-1 grid gap-2 md:grid-cols-2">
-                  {s.input != null && <pre className="max-h-64 overflow-auto rounded-md bg-muted p-2 text-[11px]">{JSON.stringify(s.input, null, 2)}</pre>}
+                  {s.input != null && <pre className="max-h-64 overflow-auto well rounded-lg p-2 text-[11px]">{JSON.stringify(s.input, null, 2)}</pre>}
                   {s.output != null && <pre className="max-h-64 overflow-auto rounded-md bg-foreground p-2 text-[11px] text-background">{JSON.stringify(s.output, null, 2)}</pre>}
                 </div>
               </details>

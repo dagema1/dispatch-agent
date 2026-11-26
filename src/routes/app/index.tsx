@@ -1,6 +1,7 @@
 import { ClientOnly, createFileRoute } from '@tanstack/react-router'
-import { Activity, MapPin, RefreshCw, Snowflake, Sun, UserX } from 'lucide-react'
-import { Suspense, lazy, useMemo, useState } from 'react'
+import { Activity, BellRing, Check, MapPin, RefreshCw, Snowflake, Sun, Truck, UserX, Wrench, Zap } from 'lucide-react'
+import { lazy, Suspense, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { completeJob, replanNow, setTechActive } from '#/fns'
 import type { Snapshot } from '#/server/api/views'
 import { ErrorText, Muted, PageTitle, Priority, Section, Stat, Status } from '#/ui/bits'
@@ -78,15 +79,22 @@ function Board() {
 
   return (
     <div>
-      <PageTitle
-        title="Dispatch board"
-        sub="The dispatch agent re-plans the whole fleet on every new request, delay or cancellation."
-        right={
-          <Button onClick={() => replan.run()} disabled={replan.busy}>
-            <RefreshCw className={cn(replan.busy && 'animate-spin')} /> Re-plan now
-          </Button>
-        }
-      />
+      <PageTitle title="Dispatch board" sub="The dispatch agent re-plans the whole fleet on every new request, delay or cancellation." />
+      <Dock>
+        <ToggleGroup type="single" variant="outline" size="sm" value={day} onValueChange={(v) => v && setDay(v)} aria-label="Day shown">
+          {[0, 1, 2].map((i) => {
+            const d = addDays(snap.today, i)
+            return (
+              <ToggleGroupItem key={d} value={d} className="px-3">
+                {i === 0 ? 'Today' : dayLabel(d)}
+              </ToggleGroupItem>
+            )
+          })}
+        </ToggleGroup>
+        <Button onClick={() => replan.run()} disabled={replan.busy} className="rounded-xl px-4">
+          <RefreshCw className={cn(replan.busy && 'animate-spin')} /> Re-plan
+        </Button>
+      </Dock>
       <ErrorText error={replan.error ?? toggle.error} />
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -117,21 +125,7 @@ function Board() {
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-4">
-          <Section
-            title="Technician routes"
-            right={
-              <ToggleGroup type="single" variant="outline" size="sm" value={day} onValueChange={(v) => v && setDay(v)}>
-                {[0, 1, 2].map((i) => {
-                  const d = addDays(snap.today, i)
-                  return (
-                    <ToggleGroupItem key={d} value={d} className="px-3">
-                      {i === 0 ? 'Today' : dayLabel(d)}
-                    </ToggleGroupItem>
-                  )
-                })}
-              </ToggleGroup>
-            }
-          >
+          <Section title="Technician routes" right={<Muted>{day === snap.today ? 'Today' : dayLabel(day)} · 7am to 7pm</Muted>}>
             <div className="overflow-x-auto">
               <div className="min-w-[720px]">
                 <div className="relative ml-36 h-5 text-[10px] text-muted-foreground">
@@ -145,7 +139,7 @@ function Board() {
                 {snap.techs.map((t) => {
                   const jobs = dayJobs.filter((j) => j.technicianId === t.id)
                   return (
-                    <div key={t.id} className="flex items-center border-t py-1.5">
+                    <div key={t.id} className="flex items-center py-1">
                       <div className="w-36 shrink-0 pr-2">
                         <div className="flex items-center gap-1.5 text-sm font-medium">
                           <span className="size-2.5 rounded-full" style={{ background: t.color }} />
@@ -182,7 +176,7 @@ function Board() {
                           )}
                         </Button>
                       </div>
-                      <div className={cn('relative h-12 flex-1 rounded-md', t.active ? 'bg-muted/60' : 'bg-destructive/5')}>
+                      <div className={cn('well relative h-12 flex-1 rounded-lg', !t.active && 'opacity-50')}>
                         {day === snap.today && nowMin > START && nowMin < END && <div className="absolute inset-y-0 z-10 w-px bg-destructive/70" style={{ left: pct(nowMin) }} />}
                         {jobs.map((j) => {
                           const s = minutesOfDay(j.scheduledStart!)
@@ -194,10 +188,10 @@ function Board() {
                               onClick={() => setOpenId(j.id)}
                               title={`${j.title} · ${j.customer.name}`}
                               className={cn(
-                                'job-block absolute inset-y-1 overflow-hidden rounded-md px-1.5 text-left text-[11px] leading-tight text-white shadow-sm ring-1 ring-black/10 hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                                'job-block absolute inset-y-1 overflow-hidden rounded-md px-1.5 text-left text-[11px] leading-tight text-white shadow-[inset_0_1px_0_oklch(1_0_0/0.3),0_2px_6px_-1px_oklch(0_0_0/0.4)] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                                 j.status === 'done' && 'opacity-45',
                                 isNew(j.id) && 'arrive-pop',
-                                j.priority === 1 && 'ring-2 ring-red-500 ring-offset-1 ring-offset-background',
+                                j.priority === 1 && 'outline-2 outline-offset-1 outline-red-500',
                               )}
                               style={{
                                 left: pct(s),
@@ -209,9 +203,15 @@ function Board() {
                                 {j.priority <= 2 ? `P${j.priority} ` : ''}
                                 {j.title}
                               </div>
-                              <div className="truncate opacity-90">
-                                {time(j.scheduledStart)} · {j.customer.name.split(' ')[0]}{' '}
-                                {j.status === 'en_route' ? '🚐' : j.status === 'on_site' ? '🔧' : j.status === 'done' ? '✓' : ''}
+                              <div className="flex items-center gap-1 truncate opacity-90">
+                                {time(j.scheduledStart)} · {j.customer.name.split(' ')[0]}
+                                {j.status === 'en_route' ? (
+                                  <Truck className="size-3 shrink-0" aria-label="on the way" />
+                                ) : j.status === 'on_site' ? (
+                                  <Wrench className="size-3 shrink-0" aria-label="on site" />
+                                ) : j.status === 'done' ? (
+                                  <Check className="size-3 shrink-0" aria-label="done" />
+                                ) : null}
                               </div>
                             </button>
                           )
@@ -241,13 +241,18 @@ function Board() {
               <ul className="space-y-2">
                 {unassigned.map((j) => (
                   <li key={j.id}>
-                    <button type="button" className="w-full rounded-lg border p-2 text-left transition-colors hover:bg-muted" onClick={() => setOpenId(j.id)}>
-                      <div className="flex items-center gap-1.5">
-                        <Priority p={j.priority} short /> <span className="truncate text-sm font-medium">{j.title}</span>
-                      </div>
-                      <Muted className="mt-0.5 block">
-                        {j.customer.name} · window ends {dayTime(j.windowEnd)}
-                      </Muted>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-secondary"
+                      onClick={() => setOpenId(j.id)}
+                    >
+                      <span className={cn('tile size-8 shrink-0 text-[11px] font-semibold', j.priority === 1 ? 'tile-red' : 'tile-attn')}>P{j.priority}</span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">{j.title}</span>
+                        <Muted className="block truncate">
+                          {j.customer.name} · window ends {dayTime(j.windowEnd)}
+                        </Muted>
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -271,7 +276,7 @@ function Board() {
 }
 
 const EVENT_TEXT: Record<string, (p: Record<string, unknown>) => string> = {
-  'request.created': (p) => `New ${p.channel} request${p.customer ? ` from ${p.customer}` : ''}: ${p.issue} (P${p.priority})${p.safety ? ` ⚠ ${p.safety}` : ''}`,
+  'request.created': (p) => `New ${p.channel} request${p.customer ? ` from ${p.customer}` : ''}: ${p.issue} (P${p.priority})${p.safety ? ` · safety: ${p.safety}` : ''}`,
   'plan.updated': (p) => `Fleet re-planned (${p.reason}): ${p.scheduled} scheduled, ${p.moved} moved`,
   'message.sent': (p) => `Message to ${p.to}: ${p.subject}${p.delivered ? '' : ' (outbox)'}`,
   'message.tech': (p) => `Telegram to ${p.name}: ${p.preview}`,
@@ -282,12 +287,29 @@ const EVENT_TEXT: Record<string, (p: Record<string, unknown>) => string> = {
   'job.status': (p) => `Job #${p.jobId} → ${String(p.status).replace('_', ' ')}`,
   'job.completed': (p) => `Job #${p.jobId} completed, invoice #${p.invoiceId}`,
   'invoice.sent': (p) => `Invoice #${p.invoiceId} sent (${money(Number(p.totalCents))})`,
-  'invoice.paid': (p) => `💰 Invoice #${p.invoiceId} paid (${money(Number(p.totalCents))})`,
+  'invoice.paid': (p) => `Invoice #${p.invoiceId} paid (${money(Number(p.totalCents))})`,
   'owner.alert': (p) => `Owner alert: ${p.text}`,
   'tech.location': (p) => `Live location from tech #${p.technicianId}`,
   'agent.run_finished': (p) => `${p.agent} agent: ${p.outcome ?? p.status}`,
   'campaign.sent': (p) => `Campaign sent to ${p.recipients} customers`,
   'sla.breach': (p) => `SLA breach on request #${p.requestId}`,
+}
+
+/** Events that ask the owner to look or decide get the gold tile; everything the agents did alone stays quiet. */
+const NEEDS_PERSON = new Set(['approval.requested', 'owner.alert', 'sla.breach'])
+
+/** The floating tool dock, pinned to the bottom of the work area like the reference's canvas toolbar. */
+function Dock({ children }: { children: React.ReactNode }) {
+  return createPortal(
+    <div
+      role="toolbar"
+      aria-label="Board controls"
+      className="slab fixed inset-x-3 bottom-3 z-30 flex items-center justify-between gap-2 overflow-x-auto rounded-2xl border bg-popover p-1.5 sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2 md:left-[calc(50%+var(--rail,4rem)/2)]"
+    >
+      {children}
+    </div>,
+    document.body,
+  )
 }
 
 function Feed({
@@ -305,13 +327,22 @@ function Feed({
   if (!shown.length) return <p className="text-sm text-muted-foreground">Waiting for activity… try booking from the customer page.</p>
   return (
     <ScrollArea className="h-[520px] pr-3">
-      <ul className="space-y-2.5">
-        {shown.map((e) => (
-          <li key={e.id} className={cn('-mx-1.5 rounded-md px-1.5 py-0.5 text-xs', isNew(e.id) && 'arrive')}>
-            <div>{EVENT_TEXT[e.type](e.payload)}</div>
-            <div className="text-[10px] text-muted-foreground">{ago(e.createdAt)}</div>
-          </li>
-        ))}
+      <ul className="space-y-1.5">
+        {shown.map((e) => {
+          const person = NEEDS_PERSON.has(e.type)
+          const Icon = person ? BellRing : Zap
+          return (
+            <li key={e.id} className={cn('-mx-1.5 flex gap-2.5 rounded-lg px-1.5 py-1 text-xs', isNew(e.id) && 'arrive')}>
+              <span className={cn('tile mt-0.5 size-6 shrink-0', person ? 'tile-attn' : 'tile-quiet')}>
+                <Icon className="size-3" />
+              </span>
+              <span className="min-w-0">
+                <span className="block">{EVENT_TEXT[e.type](e.payload)}</span>
+                <span className="block text-[11px] text-muted-foreground">{ago(e.createdAt)}</span>
+              </span>
+            </li>
+          )
+        })}
       </ul>
     </ScrollArea>
   )
@@ -369,13 +400,13 @@ function JobDetail({ job }: { job: Job }) {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
             <a href={job.trackUrl} target="_blank" rel="noreferrer">
-              Customer tracking page ↗
+              Customer tracking page
             </a>
           </Button>
           {quote && (
             <Button variant="outline" size="sm" asChild>
               <a href={quote.url} target="_blank" rel="noreferrer">
-                Quote #{quote.id} ↗
+                Quote #{quote.id}
               </a>
             </Button>
           )}

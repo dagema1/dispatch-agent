@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowRight, CalendarRange, Camera, CircleDollarSign, Phone, Route as RouteIcon, ShieldCheck, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -40,10 +40,10 @@ const FEATURES = [
 
 function Home() {
   return (
-    <div className="min-h-dvh">
+    <div className="canvas min-h-dvh">
       <div className="mx-auto max-w-5xl px-4 py-12 md:py-20">
         <div className="flex items-center gap-2 text-sm font-medium text-primary">
-          <span className="grid size-7 place-items-center rounded-lg bg-primary text-primary-foreground">
+          <span className="tile tile-solid size-7">
             <Wrench className="size-3.5" />
           </span>
           Northline Heating &amp; Plumbing · demo company

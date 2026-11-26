@@ -10,7 +10,10 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-export const Route = createFileRoute('/app/copilot')({ component: Copilot })
+export const Route = createFileRoute('/app/copilot')({
+  component: Copilot,
+  validateSearch: (s: Record<string, unknown>): { q?: string } => (typeof s.q === 'string' && s.q.trim() ? { q: s.q.slice(0, 500) } : {}),
+})
 
 const SUGGESTIONS = [
   'What does tomorrow look like? Anyone overbooked?',
@@ -44,8 +47,18 @@ function Copilot() {
     setInput('')
     chat.run(t.trim())
   }
+  // A question typed in the top bar arrives as ?q= and is sent once, then cleared from the URL.
+  const { q } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const asked = useRef<string | null>(null)
+  useEffect(() => {
+    if (!q || asked.current === q) return
+    asked.current = q
+    send(q)
+    navigate({ search: {}, replace: true })
+  })
   return (
-    <div className="flex h-[calc(100dvh-3rem)] flex-col">
+    <div className="flex h-[calc(100dvh-11rem)] flex-col">
       <PageTitle title="Ops copilot" sub="Ask about the business or give an instruction. Reads are instant; schedule changes and customer messages go through the policy engine." />
       {!snap.integrations.gemini && (
         <Alert className="mb-3">
