@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Link2Off, Phone, TriangleAlert, Wrench } from 'lucide-react'
+import { Link2Off, Phone, Wrench } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { Backdrop } from './Backdrop'
@@ -10,43 +10,8 @@ const FALLBACK = { name: 'Northline Heating & Plumbing', phone: '(720) 555-0142'
 /** `(720) 555-0142` → `tel:+17205550142` */
 export const telHref = (phone: string) => `tel:+1${phone.replace(/\D/g, '').slice(-10)}`
 
-/** Gas, CO and electrical danger come first on every customer page: a person in a hurry must not have to scroll for it. */
-export function SafetyStrip({ className }: { className?: string }) {
-  return (
-    <aside
-      aria-label="Safety"
-      className={cn('flex items-start gap-2.5 rounded-2xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-900 dark:text-red-100', className)}
-    >
-      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden />
-      <p className="text-pretty">
-        <span className="font-semibold">Smell gas or CO alarm going off?</span> Leave the house now, then call{' '}
-        <a href="tel:911" className="font-semibold underline underline-offset-2">
-          911
-        </a>{' '}
-        or Xcel Energy{' '}
-        <a href="tel:+18008952999" className="font-semibold whitespace-nowrap underline underline-offset-2">
-          1-800-895-2999
-        </a>{' '}
-        from outside.
-      </p>
-    </aside>
-  )
-}
-
 /** Customer-facing frame: phone-first, one column, the company and a call button always at the top. */
-export function CustomerShell({
-  company,
-  sub,
-  wide,
-  safety = true,
-  children,
-}: {
-  company?: { name: string; phone: string }
-  sub?: string
-  wide?: boolean
-  safety?: boolean
-  children: React.ReactNode
-}) {
+export function CustomerShell({ company, sub, wide, children }: { company?: { name: string; phone: string }; sub?: string; wide?: boolean; children: React.ReactNode }) {
   const c = company ?? FALLBACK
   return (
     <div className="relative min-h-dvh overflow-hidden bg-background">
@@ -72,7 +37,6 @@ export function CustomerShell({
             </span>
           </a>
         </header>
-        {safety && <SafetyStrip className="mb-6" />}
         {children}
       </div>
     </div>

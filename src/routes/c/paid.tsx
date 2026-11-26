@@ -24,7 +24,7 @@ function Paid() {
   if (!d) return <NotFound />
   const paid = d.invoice.status === 'paid'
   return (
-    <CustomerShell company={d.company} safety={false}>
+    <CustomerShell company={d.company}>
       <Card>
         <CardContent className="py-2 text-center">
           {paid ? <CheckCircle2 className="mx-auto size-10 text-emerald-600" /> : <Clock className="mx-auto size-10 text-amber-500" />}

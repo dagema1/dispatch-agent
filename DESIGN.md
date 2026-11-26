@@ -21,7 +21,7 @@ Every card and slab has a real 1px `--slab-border` (shadcn Card's ring-1 is remo
 
 - **Electric blue** (`--primary`, dark `oklch(0.62 0.21 272)`, light `oklch(0.5 0.24 268)`, white ink): primary buttons, active nav icon, live dot, focus ring, the route motif, the customer "Call" pill.
 - **Gold** (`--attn-1/2`): needs a person: approvals, unassigned visits, undelivered replies, P2.
-- **Red** (`--destructive`): emergencies (P1), the customer safety strip, destructive actions.
+- **Red** (`--destructive`): emergencies (P1), destructive actions.
 - **Quiet** (`--muted`): routine agent activity, P4.
 - **Priority tiles** (`PriorityTile` in `bits.tsx`): P1 red, P2 gold, P3 blue, P4 quiet. Same mapping everywhere a request shows.
 - **Technician colours** appear only on the timeline and map, where they identify a person. Five distinct hues, none blue or red, so a tech never reads as an action or an emergency (Carlos #2563eb is the one blue; keep it off the primary hue).
@@ -50,14 +50,14 @@ Every titled card uses `PanelHead` (`bits.tsx`): title at `text-sm` semibold, op
 - **Phones**: no sidebar. Logo in the header; a bottom tab bar (Board, Inbox, Approvals, Money, More). More opens a sheet with the rest, customer page, theme and sign out. Tables become stacked cards (`RichTable`). Tables stay short (no sideways scroll): a few key columns, and `onRowClick` opens a dialog with the rest (invoices: customer contact, line items, dates, reminders, pay link, check payment; photo quotes: diagnosis, likely faults, the three options and the chosen one).
 - **Top bar**: company left (a quiet "Reconnecting…" only when the live stream drops; no always-on live pill), "Ask Riley" field right (hidden on Agent chat, which has its own composer).
 - **Board is a bento**: Needs you (2/3) beside Unassigned (1/3); KPI tiles; the timeline full width; the map (2/3) beside Live activity (1/3).
-- **Needs you** (board, top): the one list of things only the owner can do: P1 emergencies waiting (Call back), undelivered replies (Connect), visits past their window (Re-plan), pending approvals (Review). Empty state says so plainly.
+- **Needs you** (board, top): the one list of things only the owner can do: P1 emergencies waiting (Call back), undelivered replies (Connect), visits past their window (Re-plan), pending approvals (Review). Empty state says so plainly. The quick fix sits on the right of each row; the row itself opens a sheet with the detail and manual options: message the customer (composer, goes out like an agent message), mark an emergency handled, try undelivered replies again or mark them told another way, cancel an overdue visit.
 - **Floating dock**: page controls bottom centre (board: day picker + Re-plan). Sits above the phone tab bar and the safe area.
 - **Page widths**: cap 1600px; settings and inbox `max-w-5xl`, approvals `max-w-4xl`, agent chat `max-w-3xl`, team and ROI `max-w-6xl`. The board stays wide. Grids that collapse on phones use `grid-cols-[minmax(0,1fr)]` so wide children (timeline) scroll inside their card instead of widening the page.
 - Radius 0.875rem base. Type: Geist Variable; tabular numerals for counts and money.
 
 ## Customer pages
 
-Phone first. `CustomerShell`: glass header with company, theme toggle and a blue "Call" pill (`tel:` link). Under it a red safety strip on every page except payment confirmation: gas smell or CO alarm → leave, call 911 or the utility from outside. Copy speaks to the homeowner in their words ("You told us …"). Unknown links show an empty state with the phone number and a link to book.
+Phone first. `CustomerShell`: glass header with company, theme toggle and a blue "Call" pill (`tel:` link). No safety banner (the owner removed it); gas and CO safety is spoken by the voice agent and sent by triage when a request mentions it. The live call transcript is folded away behind "Show transcript". Copy speaks to the homeowner in their words ("You told us …"). Unknown links show an empty state with the phone number and a link to book.
 
 ## Demo tools
 

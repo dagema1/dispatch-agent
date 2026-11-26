@@ -26,23 +26,8 @@ export async function messageCustomer(opts: {
   const settings = await getSettings()
   opts = { ...opts, body: personalize(opts.body, c.name, settings.persona) }
   // email when we have an address, a text when we only have a phone number
-  const channel = opts.channel ?? (c.email ? 'email' : c.phone ? 'sms' : 'email')
-  let delivered = false
-  let via: 'gmail' | 'test' | null = null
-  if (channel === 'email' && c.email && (await gmailConnected())) {
-    try {
-      await sendGmail({ to: c.email, subject: opts.subject, body: opts.body })
-      delivered = true
-      via = 'gmail'
-    } catch (e) {
-      console.warn('[gmail] send failed', (e as Error).message)
-    }
-  }
-  // no real channel: the demo's test inbox receives it (Simulators → Email & texts), and says so
-  if (!delivered && settings.sandbox.testInbox && ((channel === 'email' && c.email) || (channel === 'sms' && c.phone))) {
-    delivered = true
-    via = 'test'
-  }
+  const channel = sendable(opts.channel, c)
+  const { delivered, via } = await tryDeliver(c, channel, opts.subject, opts.body)
   const [m] = await db
     .insert(schema.messages)
     .values({
@@ -66,6 +51,61 @@ export async function messageCustomer(opts: {
   }
   await publish('message.sent', { messageId: m.id, customerId: c.id, to: c.name, subject: opts.subject, channel, delivered, via })
   return { messageId: m.id, delivered, via }
+}
+
+type Customer = typeof schema.customers.$inferSelect
+
+/** A reply to a call or web form still has to go somewhere: email when we have an address, else a text. */
+const sendable = (asked: string | null | undefined, c: Customer) => (asked === 'email' || asked === 'sms' ? asked : c.email ? 'email' : c.phone ? 'sms' : 'email')
+
+/** One delivery attempt over whatever is connected: Gmail for email, else the demo's test inbox. */
+async function tryDeliver(c: Customer, channel: string, subject: string, body: string): Promise<{ delivered: boolean; via: 'gmail' | 'test' | null }> {
+  if (channel === 'email' && c.email && (await gmailConnected())) {
+    try {
+      await sendGmail({ to: c.email, subject, body })
+      return { delivered: true, via: 'gmail' }
+    } catch (e) {
+      console.warn('[gmail] send failed', (e as Error).message)
+    }
+  }
+  // no real channel: the demo's test inbox receives it (Simulators → Email & texts), and says so
+  const settings = await getSettings()
+  if (settings.sandbox.testInbox && ((channel === 'email' && c.email) || (channel === 'sms' && c.phone))) return { delivered: true, via: 'test' }
+  return { delivered: false, via: null }
+}
+
+/** Try an undelivered customer message again, as it was written. */
+export async function retryMessage(messageId: number) {
+  const [m] = await db.select().from(schema.messages).where(eq(schema.messages.id, messageId))
+  if (!m?.customerId || m.direction !== 'out') throw new Error('not a customer message')
+  if (m.delivered) return { delivered: true, via: m.via }
+  const [c] = await db.select().from(schema.customers).where(eq(schema.customers.id, m.customerId))
+  if (!c) throw new Error('customer not found')
+  const channel = sendable(m.channel, c)
+  const r = await tryDeliver(c, channel, m.subject ?? '', m.body)
+  if (r.delivered) {
+    await db.update(schema.messages).set({ delivered: true, via: r.via, channel }).where(eq(schema.messages.id, m.id))
+    await publish('message.sent', {
+      messageId: m.id,
+      customerId: c.id,
+      to: c.name,
+      subject: m.subject ?? m.body.slice(0, 60),
+      channel,
+      delivered: true,
+      via: r.via,
+      retry: true,
+    })
+  }
+  return r
+}
+
+/** The owner reached the customer another way (a call, in person): the message counts as handled, marked as such. */
+export async function markToldManually(messageIds: number[]) {
+  for (const id of messageIds) {
+    await db.update(schema.messages).set({ delivered: true, via: 'manual' }).where(eq(schema.messages.id, id))
+  }
+  await publish('message.handled', { count: messageIds.length })
+  return { count: messageIds.length }
 }
 
 export async function messageTechnician(technicianId: number, text: string, jobId?: number) {

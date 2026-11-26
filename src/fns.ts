@@ -149,6 +149,50 @@ export const resetDemo = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
+/* ---------- Needs you: the owner resolving things by hand ---------- */
+
+export const resolveRequest = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(z.object({ requestId: z.number().int(), note: z.string().max(500).optional() }))
+  .handler(async ({ data }) => (await import('./server/domain/attention')).resolveRequest(data.requestId, data.note))
+
+export const cancelVisit = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(z.object({ jobId: z.number().int() }))
+  .handler(async ({ data }) => (await import('./server/domain/attention')).cancelVisit(data.jobId))
+
+export const retryMessages = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(z.object({ ids: z.array(z.number().int()).min(1).max(100) }))
+  .handler(async ({ data }) => {
+    const { retryMessage } = await import('./server/domain/messaging')
+    let delivered = 0
+    for (const id of data.ids) if ((await retryMessage(id)).delivered) delivered++
+    return { delivered, total: data.ids.length }
+  })
+
+export const markMessagesHandled = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(z.object({ ids: z.array(z.number().int()).min(1).max(100) }))
+  .handler(async ({ data }) => (await import('./server/domain/messaging')).markToldManually(data.ids))
+
+/** The owner writes to a customer directly; goes out like any agent message (persona, channel, test inbox). */
+export const sendCustomerMessage = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(
+    z.object({
+      customerId: z.number().int(),
+      requestId: z.number().int().optional(),
+      jobId: z.number().int().optional(),
+      subject: z.string().max(200),
+      body: z.string().min(2).max(4000),
+    }),
+  )
+  .handler(async ({ data }) => {
+    await boot()
+    return (await import('./server/domain/messaging')).messageCustomer(data)
+  })
+
 /** Demo: add one sample photo quote without touching anything else. */
 export const addDemoQuote = createServerFn({ method: 'POST' })
   .middleware([owner])

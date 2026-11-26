@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Camera, Check, CheckCircle2, CircleAlert, Mic, Phone, PhoneOff, TriangleAlert } from 'lucide-react'
+import { Camera, Check, CheckCircle2, ChevronDown, CircleAlert, Mic, Phone, PhoneOff, TriangleAlert } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { bookOnline } from '#/fns'
 import { CustomerShell } from '#/ui/CustomerShell'
@@ -107,10 +107,12 @@ function CallPanel() {
       setPhone(localStorage.getItem('caller-phone') ?? '')
     } catch {}
   }, [])
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when the transcript grows
+  // the transcript stays folded away unless the caller opens it
+  const [showText, setShowText] = useState(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when the transcript grows or opens
   useEffect(() => {
-    end.current?.scrollIntoView({ block: 'nearest' })
-  }, [turns])
+    if (showText) end.current?.scrollIntoView({ block: 'nearest' })
+  }, [turns, showText])
   useEffect(() => {
     return () => {
       call.current?.hangUp()
@@ -197,7 +199,19 @@ function CallPanel() {
         </div>
         {booked && <BookedCard r={booked} />}
         {turns.length > 0 && (
-          <div className="mt-4 max-h-72 space-y-2 overflow-y-auto rounded-xl well p-3">
+          <button
+            type="button"
+            onClick={() => setShowText((v) => !v)}
+            aria-expanded={showText}
+            aria-controls="call-transcript"
+            className="mx-auto mt-4 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronDown className={cn('size-3.5 transition-transform duration-200', showText && 'rotate-180')} />
+            {showText ? 'Hide transcript' : `Show transcript (${turns.length})`}
+          </button>
+        )}
+        {turns.length > 0 && showText && (
+          <div id="call-transcript" className="route-in mt-2 max-h-72 space-y-2 overflow-y-auto rounded-xl well p-3">
             {turns.map((t, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: append-only transcript; a turn never moves
               <div key={i} className={cn('arrive-pop flex', t.role === 'caller' && 'justify-end')}>

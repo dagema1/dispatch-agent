@@ -247,6 +247,9 @@ function Board() {
 
 const EVENT_TEXT: Record<string, (p: Record<string, unknown>) => string> = {
   'request.created': (p) => `New ${p.channel} request${p.customer ? ` from ${p.customer}` : ''}: ${p.issue} (P${p.priority})${p.safety ? ` · safety: ${p.safety}` : ''}`,
+  'request.resolved': (p) => `You marked handled: ${p.summary ?? 'a request'}`,
+  'job.cancelled': (p) => `Visit cancelled: ${p.title}`,
+  'message.handled': (p) => `${p.count} undelivered ${p.count === 1 ? 'reply' : 'replies'} marked as told another way`,
   'plan.updated': (p) => `Fleet re-planned (${p.reason}): ${p.scheduled} scheduled, ${p.moved} moved`,
   'message.sent': (p) => `${p.channel === 'sms' ? 'Text' : 'Message'} to ${p.to}: ${p.subject}${p.delivered ? (p.via === 'test' ? ' (test inbox)' : '') : ' (outbox)'}`,
   'message.tech': (p) => `Telegram to ${p.name}: ${p.preview}`,
