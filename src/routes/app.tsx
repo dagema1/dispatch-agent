@@ -46,7 +46,7 @@ export const Route = createFileRoute('/app')({
 
 const NAV = [
   { to: '/app', label: 'Dispatch board', icon: CalendarRange, exact: true },
-  { to: '/app/inbox', label: 'Inbox & calls', icon: Inbox },
+  { to: '/app/inbox', label: 'Requests', icon: Inbox },
   {
     to: '/app/approvals',
     label: 'Approvals',

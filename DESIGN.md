@@ -52,12 +52,16 @@ Every titled card uses `PanelHead` (`bits.tsx`): title at `text-sm` semibold, op
 - **Board is a bento**: Needs you (2/3) beside Unassigned (1/3); KPI tiles; the timeline full width; the map (2/3) beside Live activity (1/3).
 - **Needs you** (board, top): the one list of things only the owner can do: P1 emergencies waiting (Call back), undelivered replies (Connect), visits past their window (Re-plan), pending approvals (Review). Empty state says so plainly. The quick fix sits on the right of each row; the row itself opens a sheet with the detail and manual options: message the customer (composer, goes out like an agent message), mark an emergency handled, try undelivered replies again or mark them told another way, cancel an overdue visit.
 - **Floating dock**: page controls bottom centre (board: day picker + Re-plan). Sits above the phone tab bar and the safe area.
-- **Page widths**: cap 1600px; settings and inbox `max-w-5xl`, approvals `max-w-4xl`, agent chat `max-w-3xl`, team and ROI `max-w-6xl`. The board stays wide. Grids that collapse on phones use `grid-cols-[minmax(0,1fr)]` so wide children (timeline) scroll inside their card instead of widening the page.
+- **Page widths**: cap 1600px; settings and requests `max-w-5xl`, approvals `max-w-4xl`, agent chat `max-w-3xl`, team and ROI `max-w-6xl`. The board stays wide. Grids that collapse on phones use `grid-cols-[minmax(0,1fr)]` so wide children (timeline) scroll inside their card instead of widening the page.
 - Radius 0.875rem base. Type: Geist Variable; tabular numerals for counts and money.
 
 ## Customer pages
 
 Phone first. `CustomerShell`: glass header with company, theme toggle and a blue "Call" pill (`tel:` link). No safety banner (the owner removed it); gas and CO safety is spoken by the voice agent and sent by triage when a request mentions it. The live call transcript is folded away behind "Show transcript". Copy speaks to the homeowner in their words ("You told us …"). Unknown links show an empty state with the phone number and a link to book.
+
+## Requests
+
+The page is **Requests** (nav and phone tab; route stays `/app/inbox`), tabs Requests | Messages | Calls. A request row opens its full history in a right sheet (`RequestStory.tsx`, deep link `?request=<id>`): where it stands now (visit, window, slot, technician, visit status), how it came in (raw text, why this priority, first-reply time), then one timeline merging calls (transcript folded), messages both ways with delivery state, triage, booking, every technician assignment and slot change (`job.planned` events from each re-plan), technician actions (accepted, on the way, arrived, notes, done), quotes, invoices, SLA alerts, owner actions and agent runs (each links to its trace). A composer at the foot writes to the customer. Sheets set width with `data-[side=right]:` so the base sheet's 3/4 width doesn't win.
 
 ## Demo tools
 

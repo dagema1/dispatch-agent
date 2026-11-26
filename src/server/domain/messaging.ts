@@ -114,7 +114,7 @@ export async function messageTechnician(technicianId: number, text: string, jobI
   let delivered = false
   if (t.telegramChatId) delivered = await sendTelegram(t.telegramChatId, text)
   await db.insert(schema.messages).values({ technicianId, jobId: jobId ?? null, direction: 'out', channel: 'telegram', body: text, delivered, via: delivered ? 'telegram' : null })
-  await publish('message.tech', { technicianId, name: t.name, delivered, preview: text.slice(0, 80) })
+  await publish('message.tech', { technicianId, name: t.name, delivered, preview: text.slice(0, 80), jobId: jobId ?? null })
   return { delivered }
 }
 

@@ -149,6 +149,11 @@ export const resetDemo = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
+export const getRequestStory = createServerFn({ method: 'GET' })
+  .middleware([owner])
+  .validator(z.object({ requestId: z.number().int() }))
+  .handler(async ({ data }) => (await import('./server/api/story')).requestStory(data.requestId))
+
 /* ---------- Needs you: the owner resolving things by hand ---------- */
 
 export const resolveRequest = createServerFn({ method: 'POST' })

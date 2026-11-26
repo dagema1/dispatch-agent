@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, Globe, Inbox, Mail, MessageSquare, Phone, Send, ShieldAlert, Thermometer, Timer } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, Globe, Inbox, Mail, MessageSquare, Phone, Send, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 import { simulateEmail } from '#/fns'
 import { Empty, ErrorText, Muted, PageTitle, Priority, Status } from '#/ui/bits'
@@ -7,6 +7,7 @@ import { ago, dayTime } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
 import { useArrivals } from '#/ui/motion'
 import { Avatar } from '#/ui/people'
+import { RequestStorySheet } from '#/ui/RequestStory'
 import { SegmentedNav, TabPanel } from '#/ui/SegmentedNav'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,7 +19,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
-export const Route = createFileRoute('/app/inbox')({ component: InboxPage })
+export const Route = createFileRoute('/app/inbox')({
+  component: InboxPage,
+  // ?request=<id> opens that request's full history (deep link from the board)
+  validateSearch: (s: Record<string, unknown>): { request?: number } => (Number.isInteger(Number(s.request)) && s.request != null ? { request: Number(s.request) } : {}),
+})
 
 const SAMPLES = [
   {
@@ -56,7 +61,7 @@ function InboxPage() {
   const [tab, setTab] = useState<InboxTab>('requests')
   return (
     <div className="mx-auto max-w-5xl">
-      <PageTitle title="Inbox & calls" right={<TestEmailButton />} />
+      <PageTitle title="Requests" sub="Every customer request, message and call, with its full history." right={<TestEmailButton />} />
       <SegmentedNav
         label="Inbox sections"
         className="mb-2"
@@ -78,10 +83,11 @@ function InboxPage() {
 const channelIcon = (c: string) => (c === 'voice' ? Phone : c === 'email' ? Mail : c === 'web' ? Globe : MessageSquare)
 const OPEN = ['new', 'triaged', 'awaiting_customer']
 
-const fmtResp = (s: number) => (s < 90 ? `${s}s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`)
-
 function Requests() {
   const snap = useSnap()
+  const open = Route.useSearch().request ?? null
+  const navigate = Route.useNavigate()
+  const setOpen = (id: number | null) => navigate({ search: id == null ? {} : { request: id }, replace: true })
   const [filter, setFilter] = useState<Filter>('all')
   const isNew = useArrivals(snap.requests.map((r) => r.id))
   const rows = snap.requests.filter((r) => (filter === 'urgent' ? (r.priority ?? 9) <= 2 || !!r.safetyFlag : filter === 'open' ? OPEN.includes(r.status) : true))
@@ -107,82 +113,45 @@ function Requests() {
         <ul className="divide-y">
           {rows.map((r) => {
             const ex = (r.extracted ?? {}) as { reasons?: string[]; issue?: string; weatherF?: number }
-            // clock skew between intake and reply can make this negative; never show a negative time
-            const resp = r.firstResponseAt ? Math.max(0, Math.round((+new Date(r.firstResponseAt) - +new Date(r.createdAt)) / 1000)) : null
             const cust = r.customerId ? snap.customers[r.customerId] : null
             const name = cust?.name ?? null
-            const reasons = (ex.reasons ?? []).filter((x) => !/^model priority/i.test(x))
             return (
               <li key={r.id} className={cn(isNew(r.id) && 'arrive')}>
-                <details className="group">
-                  <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-4 py-4 transition-colors hover:bg-secondary/50 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-5">
-                    <SenderAvatar name={name ?? '?'} c={r.channel} p={r.priority} />
-                    <div className="min-w-0">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="truncate text-sm font-semibold">{name ?? 'Unknown sender'}</span>
-                        <Muted className="shrink-0 whitespace-nowrap sm:hidden">{ago(r.createdAt)}</Muted>
-                      </div>
-                      <div className="truncate text-sm">{ex.issue ?? r.summary ?? 'Request'}</div>
-                      <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground group-open:hidden">{r.rawText}</p>
+                <button
+                  type="button"
+                  onClick={() => setOpen(r.id)}
+                  aria-label={`Open history: ${ex.issue ?? r.summary ?? 'request'} from ${name ?? 'unknown sender'}`}
+                  className="grid w-full cursor-pointer text-left outline-none focus-visible:bg-foreground/5 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-4 py-4 transition-colors hover:bg-secondary/50 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-5"
+                >
+                  <SenderAvatar name={name ?? '?'} c={r.channel} p={r.priority} />
+                  <div className="min-w-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="truncate text-sm font-semibold">{name ?? 'Unknown sender'}</span>
+                      <Muted className="shrink-0 whitespace-nowrap sm:hidden">{ago(r.createdAt)}</Muted>
                     </div>
-                    {/* phone: badges wrap under the text; wider: a right-hand column */}
-                    <div className="col-start-2 flex flex-col gap-1 sm:col-start-auto sm:items-end">
-                      <Muted className="hidden whitespace-nowrap sm:block">{ago(r.createdAt)}</Muted>
-                      <div className="flex flex-wrap gap-1 sm:justify-end">
-                        {r.safetyFlag && (
-                          <Badge variant="destructive">
-                            <ShieldAlert /> {r.safetyFlag.replaceAll('_', ' ')}
-                          </Badge>
-                        )}
-                        <Priority p={r.priority} short />
-                        <Status s={r.status} />
-                      </div>
-                    </div>
-                  </summary>
-                  <div className="space-y-2 px-4 pb-5 sm:pr-5 sm:pl-[4.75rem]">
-                    <p className="well rounded-xl p-3 text-sm whitespace-pre-wrap">{r.rawText}</p>
-                    <div className="flex flex-wrap gap-1.5 text-xs">
-                      {resp != null && (
-                        <Badge variant="outline" className={cn(resp < 60 && 'border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400')}>
-                          <Timer /> replied in {fmtResp(resp)}
-                        </Badge>
-                      )}
-                      {ex.weatherF != null && (
-                        <Badge variant="outline">
-                          <Thermometer /> {ex.weatherF}°F outside
-                        </Badge>
-                      )}
-                    </div>
-                    {reasons.length ? (
-                      <div className="text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">Why P{r.priority}:</span> {reasons.join(' · ')}
-                      </div>
-                    ) : null}
-                    {(cust?.phone || cust?.email) && (
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {cust.phone && (
-                          <Button size="sm" asChild>
-                            <a href={`tel:${cust.phone.replace(/[^\d+]/g, '')}`}>
-                              <Phone /> Call {name?.split(' ')[0]}
-                            </a>
-                          </Button>
-                        )}
-                        {cust.email && (
-                          <Button size="sm" variant="outline" asChild>
-                            <a href={`mailto:${cust.email}?subject=${encodeURIComponent(ex.issue ?? r.summary ?? 'Your request')}`}>
-                              <Mail /> Email
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-                    )}
+                    <div className="truncate text-sm">{ex.issue ?? r.summary ?? 'Request'}</div>
+                    <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{r.rawText}</p>
                   </div>
-                </details>
+                  {/* phone: badges wrap under the text; wider: a right-hand column */}
+                  <div className="col-start-2 flex flex-col gap-1 sm:col-start-auto sm:items-end">
+                    <Muted className="hidden whitespace-nowrap sm:block">{ago(r.createdAt)}</Muted>
+                    <div className="flex flex-wrap gap-1 sm:justify-end">
+                      {r.safetyFlag && (
+                        <Badge variant="destructive">
+                          <ShieldAlert /> {r.safetyFlag.replaceAll('_', ' ')}
+                        </Badge>
+                      )}
+                      <Priority p={r.priority} short />
+                      <Status s={r.status} />
+                    </div>
+                  </div>
+                </button>
               </li>
             )
           })}
         </ul>
       )}
+      <RequestStorySheet requestId={open} onClose={() => setOpen(null)} />
     </Card>
   )
 }

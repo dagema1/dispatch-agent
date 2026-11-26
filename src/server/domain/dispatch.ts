@@ -14,7 +14,7 @@ export type ReplanResult = {
   days: string[]
   scheduled: number
   unassigned: number[]
-  moved: Array<{ jobId: number; from: string | null; to: string | null; techChanged: boolean }>
+  moved: Array<{ jobId: number; from: string | null; to: string | null; techChanged: boolean; techId?: number | null }>
   travelMin: number
   source: 'ors' | 'estimate'
   ms: number
@@ -132,7 +132,7 @@ export async function replan(opts: { reason: string; days?: number; run?: Run | 
         .where(sql`${schema.jobs.id} = ${jobId}`)
       const shifted = !old.scheduledStart || Math.abs(old.scheduledStart.getTime() - p.start.getTime()) > 30 * MIN
       const techChanged = old.technicianId !== p.techId
-      if (shifted || techChanged) moved.push({ jobId, from: old.scheduledStart?.toISOString() ?? null, to: p.start.toISOString(), techChanged })
+      if (shifted || techChanged) moved.push({ jobId, from: old.scheduledStart?.toISOString() ?? null, to: p.start.toISOString(), techChanged, techId: p.techId })
     }
     const unplaced = remaining.map((j) => j.id)
     if (unplaced.length) {
@@ -142,7 +142,7 @@ export async function replan(opts: { reason: string; days?: number; run?: Run | 
         .where(and(inArray(schema.jobs.id, unplaced), notInArray(schema.jobs.status, ['en_route', 'on_site'])))
       for (const id of unplaced) {
         const old = before.get(id)!
-        if (old.scheduledStart) moved.push({ jobId: id, from: old.scheduledStart.toISOString(), to: null, techChanged: true })
+        if (old.scheduledStart) moved.push({ jobId: id, from: old.scheduledStart.toISOString(), to: null, techChanged: true, techId: null })
       }
     }
   })
@@ -164,6 +164,18 @@ export async function replan(opts: { reason: string; days?: number; run?: Run | 
     result.ms,
   )
   await publish('plan.updated', { reason: opts.reason, scheduled: result.scheduled, unassigned: result.unassigned.length, moved: moved.length, travelMin: travelTotal })
+
+  // one event per visit that got a technician or a new slot, so each request's history shows it
+  const techName = new Map(techs.map((t) => [t.id, t.name]))
+  for (const m of moved)
+    await publish('job.planned', {
+      jobId: m.jobId,
+      technicianId: m.techId ?? null,
+      tech: m.techId ? (techName.get(m.techId) ?? null) : null,
+      from: m.from,
+      to: m.to,
+      reason: opts.reason,
+    })
 
   // side effects after commit: calendar sync + customer notifications for real moves
   for (const id of placed.keys()) await enqueue('calendar.sync', { jobId: id }, { dedupeKey: `cal:${id}:${placed.get(id)!.start.toISOString()}` })

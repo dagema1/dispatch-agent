@@ -82,7 +82,7 @@ export function NeedsYou({ snap, onReplan, replanBusy }: { snap: Snapshot; onRep
         ))}
       </ul>
       <Sheet open={!!open} onOpenChange={(o) => !o && setOpenKey(null)}>
-        <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-md">
+        <SheetContent className="gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-md">
           {open && <ItemDetail item={open} snap={snap} onReplan={onReplan} replanBusy={replanBusy} />}
         </SheetContent>
       </Sheet>
@@ -227,7 +227,9 @@ function Emergency({ snap, requestId }: { snap: Snapshot; requestId: number }) {
           <Check /> Mark handled
         </Button>
         <Button variant="ghost" asChild>
-          <Link to="/app/inbox">Open inbox</Link>
+          <Link to="/app/inbox" search={{ request: r.id }}>
+            Full history
+          </Link>
         </Button>
       </div>
       <ErrorText error={resolve.error} />
@@ -418,7 +420,7 @@ function Who({ name, email, phone, address }: { name?: string; email?: string | 
 }
 
 /** Write to the customer from here. Goes out like an agent message: persona sign-off, email or text, test inbox in the demo. */
-function Composer({
+export function Composer({
   customerId,
   requestId,
   jobId,

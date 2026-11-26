@@ -166,6 +166,7 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
       })
       .returning()
     await run.step('tool', 'create_job', { priority: t.priority, skill: job.skill, window: [win.start, win.end] }, { jobId: job.id })
+    await publish('job.booked', { jobId: job.id, requestId: req.id, title: job.title, windowStart: win.start.toISOString(), windowEnd: win.end.toISOString() })
     if (quoteId) await db.update(schema.quotes).set({ jobId: job.id }).where(eq(schema.quotes.id, quoteId))
 
     if (input.dryRun) {
