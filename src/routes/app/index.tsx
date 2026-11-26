@@ -4,7 +4,7 @@ import { lazy, Suspense, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { replanNow, setTechActive } from '#/fns'
 import type { Snapshot } from '#/server/api/views'
-import { ErrorText, Muted, PageTitle, Section, Stat } from '#/ui/bits'
+import { Empty, ErrorText, Muted, PageTitle, Section, Stat } from '#/ui/bits'
 import { useConfirm } from '#/ui/confirm'
 import { addDays, ago, dayLabel, dayOf, dayTime, minutesOfDay, money, time } from '#/ui/format'
 import { JobDialog } from '#/ui/JobDialog'
@@ -311,7 +311,7 @@ function Feed({
 }) {
   const shown = events.filter((e) => EVENT_TEXT[e.type]).slice(0, 25)
   const isNew = useArrivals(shown.map((e) => e.id))
-  if (!shown.length) return <p className="text-sm text-muted-foreground">Waiting for activity… try booking from the customer page.</p>
+  if (!shown.length) return <Empty icon={Activity}>Waiting for activity. Try booking from the customer page.</Empty>
   return (
     <ScrollArea className="h-[520px] pr-3">
       <ul className="space-y-1.5">

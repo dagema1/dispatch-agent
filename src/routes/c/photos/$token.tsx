@@ -39,7 +39,7 @@ function Photos() {
   }
   return (
     <CustomerShell company={d.company}>
-      <h1 className="text-xl font-bold">Send us a few photos</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-balance">Send us a few photos</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         For: {d.request.summary}. A photo of the unit's label (model and serial) and any error light helps us bring the right parts and price your options upfront.
       </p>

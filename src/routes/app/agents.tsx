@@ -70,7 +70,7 @@ function Agents() {
                       onClick={() => setSel(r.id)}
                       className={cn(
                         'flex w-full gap-3 rounded-xl px-2 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        sel === r.id ? 'bg-accent' : 'hover:bg-muted',
+                        sel === r.id ? 'bg-foreground/8 shadow-[inset_0_1px_0_var(--edge)]' : 'hover:bg-foreground/5',
                       )}
                     >
                       <AgentTile agent={r.agent} />

@@ -28,7 +28,9 @@ function Paid() {
       <Card>
         <CardContent className="py-2 text-center">
           {paid ? <CheckCircle2 className="mx-auto size-10 text-emerald-600" /> : <Clock className="mx-auto size-10 text-amber-500" />}
-          <h1 className="mt-3 text-xl font-bold">{paid ? 'Payment received, thank you!' : cancelled ? 'Payment not completed' : 'Confirming your payment…'}</h1>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight text-balance">
+            {paid ? 'Payment received, thank you!' : cancelled ? 'Payment not completed' : 'Confirming your payment…'}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground tabular-nums">
             Invoice #{d.invoice.id} · {money(d.invoice.totalCents, 2)}
           </p>

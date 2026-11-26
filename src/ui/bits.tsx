@@ -1,4 +1,4 @@
-import { Bot, CircleAlert, Headset, Receipt, Route, Stethoscope } from 'lucide-react'
+import { Bot, CircleAlert, CircleDashed, Headset, Receipt, Route, Stethoscope } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -101,7 +101,15 @@ export function Section({ title, right, children, className }: { title: React.Re
   )
 }
 
-export const Empty = ({ children }: { children: React.ReactNode }) => <div className="py-6 text-center text-sm text-muted-foreground">{children}</div>
+/** Nothing to show yet: a quiet glyph and one line saying what fills this space. */
+export const Empty = ({ children, icon: Icon = CircleDashed }: { children: React.ReactNode; icon?: React.ComponentType<{ className?: string }> }) => (
+  <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
+    <span className="tile tile-quiet size-10 rounded-full">
+      <Icon className="size-4.5" />
+    </span>
+    <p className="max-w-xs text-pretty">{children}</p>
+  </div>
+)
 
 export const ErrorText = ({ error }: { error: string | null }) =>
   error ? (

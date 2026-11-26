@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Check, Clock, ShieldQuestion, X } from 'lucide-react'
+import { Check, Clock, ShieldCheck, ShieldQuestion, X } from 'lucide-react'
 import { decide } from '#/fns'
 import { AgentTile, Empty, ErrorText, Muted, PageTitle, Section, Status } from '#/ui/bits'
 import { useConfirm } from '#/ui/confirm'
@@ -54,7 +54,7 @@ function Approvals() {
         className="mb-4"
       >
         {pending.length === 0 ? (
-          <Empty>Nothing waiting. The agents are inside their limits.</Empty>
+          <Empty icon={ShieldCheck}>Nothing waiting. The agents are inside their limits.</Empty>
         ) : (
           <ul className="space-y-3">
             {pending.map((a) => (

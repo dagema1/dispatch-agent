@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
   Activity,
+  ArrowUpRight,
   Bot,
   CalendarRange,
   ChartNoAxesCombined,
@@ -197,9 +198,23 @@ function Shell() {
         </nav>
         <div className="flex shrink-0 items-center gap-1 md:mt-auto md:flex-col md:items-stretch">
           <RailItem open={open} label="Open customer page">
-            <a href="/book" target="_blank" rel="noreferrer" aria-label="Open customer page" className={item}>
-              <ExternalLink size={18} className="shrink-0" />
-              {open && <span className="hidden md:inline">Customer page</span>}
+            <a
+              href="/book"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Open customer page"
+              className={cn(
+                'group/cta flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_6px_18px_-8px_var(--primary)] transition-[background-color,scale] outline-none hover:bg-[color-mix(in_oklch,var(--primary),white_10%)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]',
+                open ? 'w-10 md:mb-1 md:w-full md:px-4' : 'w-10 md:mb-1',
+              )}
+            >
+              <ExternalLink size={17} className="shrink-0" />
+              {open && (
+                <>
+                  <span className="hidden md:inline">Customer page</span>
+                  <ArrowUpRight size={15} className="ml-auto hidden shrink-0 transition-transform group-hover/cta:translate-x-0.5 group-hover/cta:-translate-y-0.5 md:inline" />
+                </>
+              )}
             </a>
           </RailItem>
           <div className={cn('flex items-center gap-1', open ? 'md:justify-between' : 'md:flex-col')}>

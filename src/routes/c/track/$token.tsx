@@ -38,7 +38,7 @@ function Track() {
   const live = d.tech?.live
   return (
     <CustomerShell company={d.company}>
-      <h1 className="text-xl font-bold">Hi {d.customer.firstName}, here's your visit</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-balance">Hi {d.customer.firstName}, here's your visit</h1>
       <p className="mt-1 text-sm text-muted-foreground">{d.job.title}</p>
       <Card className="mt-4">
         <CardContent>

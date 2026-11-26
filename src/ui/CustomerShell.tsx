@@ -1,7 +1,8 @@
-import { Wrench } from 'lucide-react'
+import { Link2Off, Wrench } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { Backdrop } from './Backdrop'
+import { Empty } from './bits'
 import { ThemeToggle } from './theme'
 
 /** Customer-facing frame: phone-first, one column, tenant identity at the top. */
@@ -29,7 +30,9 @@ export function CustomerShell({ company, sub, wide, children }: { company?: { na
 export const NotFound = () => (
   <CustomerShell>
     <Card>
-      <CardContent className="text-sm text-muted-foreground">This link is invalid or has expired. Please contact us.</CardContent>
+      <CardContent>
+        <Empty icon={Link2Off}>This link is invalid or has expired. Call us and we'll send a fresh one.</Empty>
+      </CardContent>
     </Card>
   </CustomerShell>
 )

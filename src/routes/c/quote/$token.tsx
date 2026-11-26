@@ -39,7 +39,7 @@ function Quote() {
   }
   return (
     <CustomerShell company={d.company}>
-      <h1 className="text-xl font-bold">{d.customer.firstName}, here are your options</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-balance">{d.customer.firstName}, here are your options</h1>
       <Card size="sm" className="mt-4">
         <CardContent className="text-sm">
           <div className="font-medium">What we see in your photos</div>

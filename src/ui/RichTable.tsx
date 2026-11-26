@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { Empty } from './bits'
 
 export type Column<T> = {
   key: string
@@ -49,10 +50,12 @@ export function RichTable<T>({
     <Card className="gap-0 overflow-hidden py-0">
       <div className="flex items-center gap-2.5 px-5 py-4">
         <h2 className="text-sm font-semibold">{title}</h2>
-        <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-foreground tabular-nums">{rows.length} total</span>
+        <span className="rounded-full bg-foreground/8 px-2 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">{rows.length} total</span>
       </div>
       {rows.length === 0 ? (
-        <div className="border-t px-5 py-8 text-center text-sm text-muted-foreground">{empty}</div>
+        <div className="border-t px-5">
+          <Empty>{empty}</Empty>
+        </div>
       ) : (
         <Table>
           <TableHeader className="bg-muted/40">
