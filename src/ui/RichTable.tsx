@@ -23,6 +23,8 @@ export function RichTable<T>({
   rowKey,
   empty,
   initialSort,
+  onRowClick,
+  rowLabel,
 }: {
   title: string
   rows: T[]
@@ -30,6 +32,10 @@ export function RichTable<T>({
   rowKey: (row: T) => string | number
   empty: React.ReactNode
   initialSort?: { key: string; dir: 'asc' | 'desc' }
+  /** Makes each row open something (a detail dialog); rows get hover, pointer and Enter/Space. */
+  onRowClick?: (row: T) => void
+  /** Accessible name for a clickable row. */
+  rowLabel?: (row: T) => string
 }) {
   const [sort, setSort] = useState(initialSort ?? null)
   const sorted = useMemo(() => {
@@ -43,6 +49,25 @@ export function RichTable<T>({
       return (x < y ? -1 : x > y ? 1 : 0) * m
     })
   }, [rows, columns, sort])
+
+  const clickable = (r: T) =>
+    onRowClick
+      ? {
+          role: 'button' as const,
+          tabIndex: 0,
+          'aria-label': rowLabel?.(r),
+          onClick: () => onRowClick(r),
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onRowClick(r)
+            }
+          },
+        }
+      : {}
+  const rowCls =
+    onRowClick &&
+    'cursor-pointer outline-none transition-colors hover:bg-foreground/4 focus-visible:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset'
 
   const toggle = (key: string) => setSort((s) => (s?.key === key ? { key, dir: s.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' }))
 
@@ -61,7 +86,7 @@ export function RichTable<T>({
           {/* phones: each row becomes a stacked card, so nothing hides off-screen in a sideways scroll */}
           <ul className="divide-y border-t sm:hidden">
             {sorted.map((r) => (
-              <li key={rowKey(r)} className="space-y-2 px-4 py-3">
+              <li key={rowKey(r)} className={cn('space-y-2 px-4 py-3', rowCls)} {...clickable(r)}>
                 <div className="min-w-0">{columns[0]?.cell(r)}</div>
                 <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1.5 text-sm">
                   {columns.slice(1).map((c) => (
@@ -109,7 +134,7 @@ export function RichTable<T>({
               </TableHeader>
               <TableBody>
                 {sorted.map((r) => (
-                  <TableRow key={rowKey(r)}>
+                  <TableRow key={rowKey(r)} className={cn(rowCls)} {...clickable(r)}>
                     {columns.map((c) => (
                       <TableCell key={c.key} className={cn('px-5 py-3 align-middle', c.align === 'right' && 'text-right', c.className)}>
                         {c.cell(r)}

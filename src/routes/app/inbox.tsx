@@ -7,13 +7,13 @@ import { ago, dayTime } from '#/ui/format'
 import { useAction, useSnap } from '#/ui/live'
 import { useArrivals } from '#/ui/motion'
 import { Avatar } from '#/ui/people'
+import { SegmentedNav, TabPanel } from '#/ui/SegmentedNav'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
@@ -48,43 +48,32 @@ const SAMPLES = [
 ]
 
 type Filter = 'all' | 'urgent' | 'open'
+const INBOX_TABS = ['requests', 'messages', 'calls'] as const
+type InboxTab = (typeof INBOX_TABS)[number]
 
 function InboxPage() {
   const snap = useSnap()
+  const [tab, setTab] = useState<InboxTab>('requests')
   return (
     <div className="mx-auto max-w-5xl">
       <PageTitle title="Inbox & calls" right={<TestEmailButton />} />
-      <Tabs defaultValue="requests" className="min-w-0">
-        <TabsList className="h-10 w-full sm:w-fit">
-          <TabsTrigger value="requests" className="flex-1 px-2 sm:flex-none sm:px-3">
-            <Inbox className="max-sm:hidden" /> Requests <Count n={snap.requests.length} />
-          </TabsTrigger>
-          <TabsTrigger value="messages" className="flex-1 px-2 sm:flex-none sm:px-3">
-            <MessageSquare className="max-sm:hidden" /> Messages <Count n={snap.messages.length} />
-          </TabsTrigger>
-          <TabsTrigger value="calls" className="flex-1 px-2 sm:flex-none sm:px-3">
-            <Phone className="max-sm:hidden" /> Calls <Count n={snap.calls.length} />
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="requests" className="mt-2">
-          <Requests />
-        </TabsContent>
-        <TabsContent value="messages" className="mt-2">
-          <Messages />
-        </TabsContent>
-        <TabsContent value="calls" className="mt-2">
-          <Calls />
-        </TabsContent>
-      </Tabs>
+      <SegmentedNav
+        label="Inbox sections"
+        className="mb-2"
+        active={tab}
+        onSelect={(k) => setTab(k as InboxTab)}
+        items={[
+          { key: 'requests', label: 'Requests', icon: Inbox, count: snap.requests.length },
+          { key: 'messages', label: 'Messages', icon: MessageSquare, count: snap.messages.length },
+          { key: 'calls', label: 'Calls', icon: Phone, count: snap.calls.length },
+        ]}
+      />
+      <TabPanel order={INBOX_TABS} active={tab}>
+        {tab === 'requests' ? <Requests /> : tab === 'messages' ? <Messages /> : <Calls />}
+      </TabPanel>
     </div>
   )
 }
-
-const Count = ({ n }: { n: number }) => (
-  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-foreground/8 px-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground in-data-[state=active]:bg-primary in-data-[state=active]:text-primary-foreground">
-    {n}
-  </span>
-)
 
 const channelIcon = (c: string) => (c === 'voice' ? Phone : c === 'email' ? Mail : c === 'web' ? Globe : MessageSquare)
 const OPEN = ['new', 'triaged', 'awaiting_customer']

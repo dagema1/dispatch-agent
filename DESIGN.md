@@ -6,7 +6,7 @@ Dispatch software for a trades office, open all day on a big monitor and checked
 
 | Layer | Class / slot | Dark | Light | Use |
 |---|---|---|---|---|
-| Canvas | `.canvas` | `--background` `oklch(0.085 0 0)` + top blue glow | `oklch(0.97 0 0)` | Ground behind every working area |
+| Canvas | `.canvas` | `--background` `oklch(0.085 0 0)` + top blue glow | white `oklch(1 0 0)` | Ground behind every working area |
 | Glass | `[data-slot=card]`, `.slab`, sidebar, segmented tracks, outline buttons | `--glass` `oklch(0.17 0 0 / 0.62)` + `backdrop-blur(18px)` | solid white, no blur, `--slab-border` hairline + small shadow | Panels. Dark: 1px `--edge` top highlight. Light separates with border and shadow, never frost |
 | Strong glass | select, dialog, alert dialog, sheet, tooltip | `--glass-strong` `oklch(0.19 0 0 / 0.82)` + blur 24px | `oklch(1 0 0 / 0.86)` | Overlays, so text stays readable over anything |
 | Well | `.well`, inputs, textarea | `--well` `oklch(0.12 0 0)` | `oklch(0.945 0 0)` | Recessed: fields, timeline rows, quoted text |
@@ -33,7 +33,7 @@ Shadows stay soft. No heavy drop shadows, no coloured glows on components (the t
 ## Controls
 
 - Buttons: `rounded-full`, press scale 0.97, focus ring offset. `default` solid blue; `outline` glass with edge; `secondary` `foreground/8`; `ghost` muted. Sizes: xs h-7, sm h-8, default h-9 `gap-2 px-4`, lg h-10 `gap-2.5 px-5`.
-- Segmented controls (tabs, toggle groups, Settings sections, Agents Team | Traces): glass pill track, active segment a neutral lighter pill (`foreground/11`). No colour on the active state. Page tabs use `SegmentedNav` (Settings first): the pill slides to the chosen tab (300ms) and `TabPanel` slides content 14px in from the direction of travel; no visible scrollbar.
+- Segmented controls (tabs, toggle groups, Settings sections, Agents Team | Traces): glass pill track, active segment a neutral lighter pill (`foreground/11`). No colour on the active state. Page tabs use `SegmentedNav` everywhere (Settings, Simulators, Inbox, Agents): the pill slides to the chosen tab (300ms) and `TabPanel` slides content 14px in from the direction of travel; no visible scrollbar. Route tabs that remount (Agents Team | Traces) pass `persist` so the pill starts where it was. Counts sit in the tab and turn blue on the active one.
 - Nav: active item neutral pill (`foreground/8`) with a blue icon. Collapsed-rail tooltips use the popover pill.
 - Status text: sentence case (`Status` in `bits.tsx`). A customer message with no channel connected says "· not delivered" in gold, never "sent".
 - Display accent: `.font-display` (Instrument Serif italic) for one blue word in a headline (sign-in, book hero, "Hi, I'm Riley"). Never for UI text.
@@ -43,7 +43,7 @@ Shadows stay soft. No heavy drop shadows, no coloured glows on components (the t
 ## Layout
 
 - **Sidebar** (md+): a floating panel inset 0.75rem from the edges, `.rail-glass` (glass mixed in oklab with 8% blue in dark, 4% in light, blur 22px; never mix in oklch, which swings the hue through pink) so the canvas and route motif show through. 5rem icon rail with tooltips, expands to 16rem with labels and a title. Stored in `localStorage.rail`; the boot script mirrors it to `html[data-rail]` so skeletons match before hydration (`rail-open:` variant). The customer page is a quiet link card at the foot (globe tile, "Book, call, track"), never a second primary button.
-- **Phones**: no sidebar. Logo in the header; a bottom tab bar (Board, Inbox, Approvals, Money, More). More opens a sheet with the rest, customer page, theme and sign out. Tables become stacked cards (`RichTable`).
+- **Phones**: no sidebar. Logo in the header; a bottom tab bar (Board, Inbox, Approvals, Money, More). More opens a sheet with the rest, customer page, theme and sign out. Tables become stacked cards (`RichTable`). Tables stay short (no sideways scroll): a few key columns, and `onRowClick` opens a dialog with the rest (invoices: customer contact, line items, dates, reminders, pay link, check payment).
 - **Top bar**: company left (a quiet "Reconnecting…" only when the live stream drops; no always-on live pill), "Ask Riley" field right (hidden on Agent chat, which has its own composer).
 - **Board is a bento**: Needs you (2/3) beside Unassigned (1/3); KPI tiles; the timeline full width; the map (2/3) beside Live activity (1/3).
 - **Needs you** (board, top): the one list of things only the owner can do: P1 emergencies waiting (Call back), undelivered replies (Connect), visits past their window (Re-plan), pending approvals (Review). Empty state says so plainly.
