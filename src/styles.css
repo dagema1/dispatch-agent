@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@fontsource-variable/geist";
+@import "@fontsource/instrument-serif/latin-400-italic.css";
 @import "leaflet/dist/leaflet.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -9,75 +10,77 @@
 @custom-variant data-active (&:is([data-state="active"], [data-active]:not([data-active="false"])));
 
 /*
- * Workbench world: raised charcoal slabs on a dotted canvas, recessed wells for inputs and
- * segmented tracks, one emerald accent for action and live state, gold tiles for what needs a person.
+ * Workbench world: frosted charcoal slabs over a blue-lit canvas, recessed wells for inputs and
+ * segmented tracks, one electric-blue accent for action and live state, gold tiles for what needs a person.
  * Dark is the primary rendition (an office that runs on a big monitor all day); light mirrors it.
  */
 :root {
   --radius: 0.875rem;
-  --background: oklch(0.965 0.003 160);
+  --background: oklch(0.97 0 0);
   --foreground: oklch(0.22 0.01 260);
-  --card: oklch(0.995 0.001 160);
+  --card: oklch(1 0 0);
   --card-foreground: oklch(0.22 0.01 260);
-  --popover: oklch(0.995 0.001 160);
+  --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.01 260);
-  --primary: oklch(0.5 0.12 163);
+  --primary: oklch(0.5 0.24 268);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.975 0.003 255);
   --secondary-foreground: oklch(0.25 0.01 260);
   --muted: oklch(0.93 0.005 255);
   --muted-foreground: oklch(0.48 0.012 255);
-  --accent: oklch(0.94 0.035 165);
-  --accent-foreground: oklch(0.36 0.08 165);
+  --accent: oklch(0.945 0.035 275);
+  --accent-foreground: oklch(0.4 0.2 270);
   --destructive: oklch(0.56 0.21 27);
   --border: oklch(0.88 0.006 255);
   --input: oklch(0.86 0.006 255);
-  --ring: oklch(0.55 0.12 163);
-  --chart-1: oklch(0.5 0.12 163);
+  --ring: oklch(0.55 0.22 270);
+  --chart-1: oklch(0.5 0.24 268);
   --chart-2: oklch(0.7 0.01 260);
 
-  --well: oklch(0.935 0.005 255);
-  --dot: oklch(0.3 0.01 260 / 0.13);
+  --well: oklch(0.945 0 0);
+  --dot: oklch(0.5 0.24 268 / 0.1);
   --edge: oklch(1 0 0 / 0.9);
+  --glass: oklch(1 0 0 / 0.72);
   --slab-shadow: 0 1px 2px oklch(0.3 0.02 260 / 0.05), 0 4px 12px -8px oklch(0.3 0.03 260 / 0.14);
   --well-shadow: inset 0 1px 2px oklch(0.3 0.02 260 / 0.1);
   --attn-1: oklch(0.9 0.14 92);
   --attn-2: oklch(0.8 0.16 75);
-  --action-1: oklch(0.55 0.13 160);
-  --action-2: oklch(0.43 0.1 166);
+  --action-1: oklch(0.56 0.24 270);
+  --action-2: oklch(0.45 0.26 267);
 }
 
 .dark {
-  --background: oklch(0.12 0.002 165);
+  --background: oklch(0.085 0 0);
   --foreground: oklch(0.95 0.003 255);
-  --card: oklch(0.165 0.003 165);
+  --card: oklch(0.165 0 0);
   --card-foreground: oklch(0.95 0.003 255);
-  --popover: oklch(0.185 0.003 165);
+  --popover: oklch(0.19 0 0);
   --popover-foreground: oklch(0.95 0.003 255);
-  --primary: oklch(0.77 0.14 163);
-  --primary-foreground: oklch(0.17 0.03 165);
-  --secondary: oklch(0.215 0.003 165);
+  --primary: oklch(0.62 0.21 272);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.21 0 0);
   --secondary-foreground: oklch(0.95 0.003 255);
-  --muted: oklch(0.205 0.003 165);
-  --muted-foreground: oklch(0.69 0.006 165);
-  --accent: oklch(0.25 0.04 165);
-  --accent-foreground: oklch(0.88 0.08 163);
+  --muted: oklch(0.2 0 0);
+  --muted-foreground: oklch(0.68 0 0);
+  --accent: oklch(0.25 0.07 272);
+  --accent-foreground: oklch(0.86 0.08 275);
   --destructive: oklch(0.68 0.19 24);
   --border: oklch(1 0 0 / 0.08);
   --input: oklch(1 0 0 / 0.09);
-  --ring: oklch(0.72 0.13 163);
-  --chart-1: oklch(0.77 0.14 163);
+  --ring: oklch(0.62 0.2 272);
+  --chart-1: oklch(0.62 0.21 272);
   --chart-2: oklch(0.55 0.01 260);
 
-  --well: oklch(0.135 0.002 165);
-  --dot: oklch(1 0 0 / 0.06);
+  --well: oklch(0.12 0 0);
+  --dot: oklch(0.55 0.25 270 / 0.22);
   --edge: oklch(1 0 0 / 0.07);
+  --glass: oklch(0.17 0 0 / 0.62);
   --slab-shadow: 0 1px 2px oklch(0 0 0 / 0.35), 0 6px 16px -10px oklch(0 0 0 / 0.6);
   --well-shadow: inset 0 1px 3px oklch(0 0 0 / 0.7);
   --attn-1: oklch(0.88 0.14 90);
   --attn-2: oklch(0.78 0.16 72);
-  --action-1: oklch(0.8 0.14 160);
-  --action-2: oklch(0.68 0.14 166);
+  --action-1: oklch(0.56 0.25 271);
+  --action-2: oklch(0.44 0.27 267);
 }
 
 @theme inline {
@@ -131,19 +134,34 @@
   }
 }
 
-/* The canvas: a fine dot grid behind every working area. */
+/* The canvas: near-black with electric-blue light falling from the top edge (--dot holds the glow). */
 .canvas {
   background-color: var(--background);
-  background-image: radial-gradient(var(--dot) 1px, transparent 1.2px);
-  background-size: 20px 20px;
-  background-position: -10px -10px;
+  background-image: radial-gradient(90% 55% at 50% -8%, var(--dot), transparent 70%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+/* Display accent: an italic serif word inside a sans headline. */
+.font-display {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }
 
-/* Slabs: raised panels with a light top edge. Wells: recessed tracks and fields. */
+/* Slabs: frosted panels with a light top edge; the canvas glow reads through them.
+   In the components layer so a bg-* utility on a slab (hover, tints) still wins. */
+@layer components {
+  .slab {
+    background-color: var(--glass);
+  }
+}
 [data-slot="card"],
 .slab {
   border-color: var(--edge);
   box-shadow: inset 0 1px 0 var(--edge), var(--slab-shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
 }
 .well,
 [data-slot="input"],

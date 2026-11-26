@@ -104,7 +104,9 @@ function AgentChat() {
         {empty ? (
           <div className="flex min-h-full flex-col items-center justify-center py-8 text-center">
             <Orb name={name} size="lg" />
-            <h2 className="mt-5 text-2xl font-semibold tracking-tight">Hi, I’m {name}.</h2>
+            <h2 className="mt-5 text-3xl font-semibold tracking-tight">
+              Hi, I’m <span className="font-display text-[1.15em] text-primary">{name}</span>.
+            </h2>
             <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
               Ask about the schedule, the crew or the money. I check the live data before I answer, and I can make changes for you.
             </p>
@@ -207,7 +209,7 @@ function AgentChat() {
   )
 }
 
-/** The agent's mark: initials on the emerald action gradient; pulses while it works. */
+/** The agent's mark: initials on the blue action gradient; pulses while it works. */
 function Orb({ name, size, busy }: { name: string; size: 'xs' | 'sm' | 'lg'; busy?: boolean }) {
   return (
     <span

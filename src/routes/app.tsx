@@ -166,7 +166,10 @@ function Shell() {
                 to={n.to}
                 activeOptions={{ exact: 'exact' in n }}
                 aria-label={n.label}
-                className={cn(item, 'data-[status=active]:bg-accent data-[status=active]:font-medium data-[status=active]:text-accent-foreground')}
+                className={cn(
+                  item,
+                  'data-[status=active]:bg-foreground/8 data-[status=active]:font-medium data-[status=active]:text-foreground data-[status=active]:[&>svg]:text-primary',
+                )}
               >
                 <n.icon size={18} className="shrink-0" />
                 {open && <span className="hidden truncate md:inline">{n.label}</span>}

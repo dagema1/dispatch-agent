@@ -1,6 +1,6 @@
 # Design: Workbench
 
-Dispatch software for a trades office that is open all day on a big monitor. The look is a dark workbench: near-black canvas, charcoal panels, one emerald accent for what the system does, gold for what needs a person. Dark is the primary theme; light mirrors it. Source of truth: `src/styles.css`.
+Dispatch software for a trades office that is open all day on a big monitor. The look is a dark workbench: near-black canvas lit by an electric-blue glow from the top edge (no dot grid), neutral charcoal panels, one electric-blue accent for what the system does, gold for what needs a person. Dark is the primary theme; light mirrors it. Source of truth: `src/styles.css`.
 
 ## Surfaces
 
@@ -22,12 +22,14 @@ Shadows stay soft (`0 1px 2px` + `0 6px 16px -10px`). No glass, no blur, no glow
 
 ## Tiles
 
-`.tile` + one of `tile-action | tile-attn | tile-red | tile-quiet | tile-solid`. Flat icon chips: soft tint of the role colour with the glyph in that colour, no shadow, no gradient. `tile-solid` (filled emerald) only for the brand mark and the agent's own mark (its initials orb on the Agent page). Used for: inbox channel icons (tinted by triage priority), feed event icons, unassigned-job priority.
+`.tile` + one of `tile-action | tile-attn | tile-red | tile-quiet | tile-solid`. Flat icon chips: soft tint of the role colour with the glyph in that colour, no shadow, no gradient. `tile-solid` (filled blue) only for the brand mark and the agent's own mark (its initials orb on the Agent page). Used for: inbox channel icons (tinted by triage priority), feed event icons, unassigned-job priority.
 
 ## Controls
 
-- Buttons: radix-nova shapes. `default` = emerald gradient (dark ink in dark theme, white in light); `outline` = slab with edge highlight.
-- Segmented controls (tabs, toggle groups): a well track with the active segment raised as a small slab. Permission levels add a colour dot to the active segment only (emerald on its own, gold ask first, grey never).
+- Buttons: pills (`rounded-full`). `default` = electric-blue gradient with a lighter blue rim and white ink; `outline` = slab with edge highlight. Light-grey pill for the landing secondary.
+- Nav: active item is a neutral grey pill (`bg-foreground/8`) with a blue icon.
+- Display accent: `.font-display` (Instrument Serif italic) for one blue word in a headline (landing hero, “Hi, I’m Riley”). Never for UI text.
+- Segmented controls (tabs, toggle groups): a well track with the active segment raised as a small slab. Permission levels add a colour dot to the active segment only (blue on its own, gold ask first, grey never).
 - Confirmations: one shared alert dialog (`useConfirm`) for anything customer-facing, destructive or that widens agent autonomy.
 - Icons: lucide only. No emoji or unicode glyphs as icons.
 
@@ -42,7 +44,7 @@ Shadows stay soft (`0 1px 2px` + `0 6px 16px -10px`). No glass, no blur, no glow
 
 ## Motion
 
-Defined in `styles.css`, all inside `prefers-reduced-motion: no-preference`. Press scale 0.97; new items from the live feed slide in with a brief emerald wash (`.arrive`, driven by `useArrivals`); re-planned visits glide to new slots (`.job-block`, 450ms); route change settles up (`.route-in`); theme switch cross-fades via View Transitions. Ease `cubic-bezier(0.16, 1, 0.3, 1)`, no bounce.
+Defined in `styles.css`, all inside `prefers-reduced-motion: no-preference`. Press scale 0.97; new items from the live feed slide in with a brief blue wash (`.arrive`, driven by `useArrivals`); re-planned visits glide to new slots (`.job-block`, 450ms); route change settles up (`.route-in`); theme switch cross-fades via View Transitions. Ease `cubic-bezier(0.16, 1, 0.3, 1)`, no bounce.
 
 ## Don'ts
 
