@@ -57,7 +57,8 @@ Always include DIAG. Never invent prices.`,
   const byCode = new Map(prices.map((p) => [p.code, p]))
   const lines = report.partCodes.filter((p) => byCode.has(p.code)).map((p) => ({ code: p.code, name: byCode.get(p.code)!.name, qty: p.qty, cents: byCode.get(p.code)!.cents }))
   if (!lines.some((l) => l.code === 'DIAG')) lines.unshift({ code: 'DIAG', name: byCode.get('DIAG')!.name, qty: 1, cents: byCode.get('DIAG')!.cents })
-  if (job.priority === 1) lines.push({ code: 'EMERG', name: byCode.get('EMERG')!.name, qty: 1, cents: byCode.get('EMERG')!.cents })
+  const emerg = byCode.get('EMERG')
+  if (job.priority === 1 && emerg) lines.push({ code: 'EMERG', name: emerg.name, qty: 1, cents: emerg.cents })
   const total = lines.reduce((a, l) => a + l.cents * l.qty, 0)
   await run.step('tool', 'invoice.price', { codes: report.partCodes }, { lines, total })
 

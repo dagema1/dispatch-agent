@@ -92,7 +92,7 @@ export function NeedsYou({ snap, onReplan, replanBusy }: { snap: Snapshot; onRep
 
   if (!items.length) {
     return (
-      <div className="mb-4 flex items-center gap-2.5 rounded-2xl border border-(--edge) bg-(--glass) px-4 py-3 text-sm backdrop-blur-xl">
+      <div className="slab flex h-full flex-wrap items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm">
         <CircleCheck className="size-4 text-emerald-500" aria-hidden />
         <span className="font-medium">Nothing needs you right now.</span>
         <span className="text-muted-foreground max-sm:hidden">Emergencies, undelivered replies and held actions show up here.</span>
@@ -102,7 +102,7 @@ export function NeedsYou({ snap, onReplan, replanBusy }: { snap: Snapshot; onRep
 
   const red = items.some((i) => i.tone === 'red')
   return (
-    <section aria-label="Needs you" className={cn('slab mb-4 overflow-hidden rounded-2xl border', red ? 'border-red-500/40' : 'border-(--attn-2)/40')}>
+    <section aria-label="Needs you" className={cn('slab h-full overflow-hidden rounded-2xl border', red ? 'border-red-500/40' : 'border-(--attn-2)/40')}>
       <h2 className="flex items-center gap-2 px-4 pt-3 pb-1 text-sm font-semibold">
         <span className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] tabular-nums', red ? 'bg-red-500 text-white' : 'bg-(--attn-2) text-black')}>
           {items.length}

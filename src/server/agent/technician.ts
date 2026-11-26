@@ -282,7 +282,7 @@ if (!g.__routeSub) {
 }
 
 /** Re-plan in the background after a tech action, then refresh their widget. */
-function afterChange(techId: number, reason: string, note?: string) {
+export function afterChange(techId: number, reason: string, note?: string) {
   void refreshWidget(techId, note)
   replan({ reason })
     .then(() => refreshWidget(techId, note))
@@ -298,7 +298,7 @@ async function pickJob(techId: number, jobId: number | undefined, statuses: stri
   return rows[0] ?? null
 }
 
-async function onMyWay(techId: number, jobId?: number): Promise<string> {
+export async function onMyWay(techId: number, jobId?: number): Promise<string> {
   const job = await pickJob(techId, jobId, ['scheduled'])
   if (!job) return 'No upcoming job found.'
   const [tech] = await db.select().from(schema.technicians).where(eq(schema.technicians.id, techId))
@@ -319,7 +319,7 @@ async function onMyWay(techId: number, jobId?: number): Promise<string> {
   return text
 }
 
-async function arrived(techId: number, jobId?: number): Promise<string> {
+export async function arrived(techId: number, jobId?: number): Promise<string> {
   const job = await pickJob(techId, jobId, ['en_route', 'scheduled'])
   if (!job) return 'Job not found.'
   await claimNow(techId, job.id, { status: 'on_site', scheduledStart: new Date(), scheduledEnd: new Date(Date.now() + job.durationMin * 60_000) })
@@ -336,7 +336,7 @@ async function startDone(techId: number, chatId: number, jobId?: number): Promis
   return `🎙 Send a short voice note for job #${job.id}: what you did and which parts you used. I'll write the report and invoice.`
 }
 
-async function runningLate(techId: number, minutes: number): Promise<string> {
+export async function runningLate(techId: number, minutes: number): Promise<string> {
   const run = await Run.start('dispatch', 'tech_late', `+${minutes} min`)
   const job = await pickJob(techId, undefined, ['on_site', 'en_route'])
   if (job) {
@@ -356,6 +356,11 @@ async function runningLate(techId: number, minutes: number): Promise<string> {
 
 async function onLocation(techId: number, msg: TgMessage) {
   const { latitude: lat, longitude: lng } = msg.location!
+  return updateLocation(techId, lat, lng)
+}
+
+/** A position from the tech's phone (Telegram live location or the field simulator): store it, refresh the ETA. */
+export async function updateLocation(techId: number, lat: number, lng: number) {
   await db.update(schema.technicians).set({ liveLat: lat, liveLng: lng, liveAt: new Date() }).where(eq(schema.technicians.id, techId))
   const [job] = await db
     .select()

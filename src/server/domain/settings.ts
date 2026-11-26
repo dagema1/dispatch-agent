@@ -3,7 +3,18 @@ import { db, schema } from '../db'
 export type Policy = 'auto' | 'approve' | 'never'
 
 export const DEFAULT_SETTINGS = {
-  company: { name: 'Northline Heating & Plumbing', phone: '(720) 555-0142', serviceRadiusKm: 35, hq: { lat: 39.7392, lng: -104.9903 } },
+  company: {
+    name: 'Northline Heating & Plumbing',
+    phone: '(720) 555-0142',
+    email: 'office@northline.example.com',
+    address: '1600 Broadway, Denver, CO',
+    serviceRadiusKm: 35,
+    hq: { lat: 39.7392, lng: -104.9903 },
+  } as Company,
+  /** First-run setup. Until done, the dashboard opens the setup wizard. */
+  setup: { done: false, mode: 'demo' } as { done: boolean; mode: 'demo' | 'own' },
+  /** Demo plumbing: customer messages with no real channel land in the test inbox (Simulators → Email & texts). */
+  sandbox: { testInbox: true },
   /** What the agents may do on their own. */
   policies: {
     send_customer_message: 'auto',
@@ -71,8 +82,12 @@ export type Persona = {
   signOff: string
 }
 
+export type Company = { name: string; phone: string; email: string; address: string; serviceRadiusKm: number; hq: { lat: number; lng: number } }
+
 export type Settings = {
-  company: (typeof DEFAULT_SETTINGS)['company']
+  company: Company
+  setup: { done: boolean; mode: 'demo' | 'own' }
+  sandbox: { testInbox: boolean }
   policies: Record<string, Policy>
   thresholds: (typeof DEFAULT_SETTINGS)['thresholds']
   hours: { open: string; close: string }

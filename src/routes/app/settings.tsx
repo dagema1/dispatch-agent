@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   Ban,
   Bot,
+  Building2,
   CalendarClock,
   Check,
   CircleDashed,
@@ -10,6 +11,7 @@ import {
   CreditCard,
   Database,
   Hand,
+  Inbox,
   KeyRound,
   Mail,
   MapPinned,
@@ -23,20 +25,25 @@ import {
   Snowflake,
   Sparkles,
   Sun,
+  Tags,
   Wallet,
   Zap,
 } from 'lucide-react'
-import { resetDemo, runCronNow, setPolicy, setWeather } from '#/fns'
+import { useEffect, useState } from 'react'
+import { getSetup, resetDemo, runCronNow, saveApiKeys, saveCompany, setPolicy, setSandbox, setWeather } from '#/fns'
+import { ApiKeyFields, type KeyPatch, type KeyStatus, typedKeys } from '#/ui/ApiKeys'
 import { ErrorText, Muted, PageTitle } from '#/ui/bits'
+import { CompanyFields, type CompanyValues } from '#/ui/CompanyForm'
 import { useConfirm } from '#/ui/confirm'
 import { useAction, useSnap } from '#/ui/live'
 import { PersonaSettings } from '#/ui/PersonaSettings'
+import { PriceBook } from '#/ui/PriceBook'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
-const TABS = ['persona', 'permissions', 'integrations', 'automation', 'demo'] as const
+const TABS = ['company', 'persona', 'permissions', 'pricing', 'integrations', 'automation', 'demo'] as const
 type Tab = (typeof TABS)[number]
 
 export const Route = createFileRoute('/app/settings')({
@@ -89,6 +96,8 @@ const LEVEL: Record<Level, { label: string; hint: string; dot: string; icon: Ico
 }
 
 const NAV: Record<Tab, { label: string; icon: Icon }> = {
+  company: { label: 'Company', icon: Building2 },
+  pricing: { label: 'Price book', icon: Tags },
   persona: { label: 'Agent persona', icon: Bot },
   permissions: { label: 'Permissions', icon: ShieldCheck },
   integrations: { label: 'Integrations', icon: Plug },
@@ -98,7 +107,7 @@ const NAV: Record<Tab, { label: string; icon: Icon }> = {
 
 function SettingsPage() {
   const snap = useSnap()
-  const tab = Route.useSearch().tab ?? 'persona'
+  const tab = Route.useSearch().tab ?? 'company'
   const i = snap.integrations
   const connected = [i.gemini, i.telegram, i.ors, i.stripe, !!i.googleAccount, true].filter(Boolean).length
   const asking = Object.values(snap.settings.policies).filter((v) => v === 'approve').length
@@ -139,6 +148,8 @@ function SettingsPage() {
           </ul>
         </nav>
         <div key={tab} className="route-in min-w-0">
+          {tab === 'company' && <Company />}
+          {tab === 'pricing' && <PriceBook />}
           {tab === 'persona' && <PersonaSettings />}
           {tab === 'permissions' && <Permissions />}
           {tab === 'integrations' && <Integrations />}
@@ -259,7 +270,7 @@ function Integrations() {
   ]
   return (
     <div className="space-y-4">
-      <Muted className="block">Every integration is optional. Without one, the feature falls back and the demo keeps working. Keys go in the server’s .env file.</Muted>
+      <Muted className="block">Every integration is optional. Without one, the feature falls back and the demo keeps working. Add keys at the bottom of this page.</Muted>
       <ul className="grid gap-3 sm:grid-cols-2">
         {items.map((it) => (
           <li key={it.name}>
@@ -298,7 +309,144 @@ function Integrations() {
           </li>
         ))}
       </ul>
+      <TestInbox />
+      <Keys />
     </div>
+  )
+}
+
+/** Where customer messages go when no email or text provider is connected. */
+function TestInbox() {
+  const snap = useSnap()
+  const on = (snap.settings as { sandbox?: { testInbox: boolean } }).sandbox?.testInbox ?? true
+  const save = useAction((v: boolean) => setSandbox({ data: { testInbox: v } }))
+  return (
+    <Card size="sm">
+      <CardContent className="flex flex-wrap items-center gap-4">
+        <span className="tile tile-action size-10 shrink-0 rounded-xl">
+          <Inbox className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold">Test inbox</h2>
+          <Muted className="block">
+            With no Gmail or text provider, customer emails and texts are delivered to the test inbox in Simulators, and marked as test deliveries. Off: they wait in the outbox as
+            not delivered.
+          </Muted>
+        </div>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={on ? 'on' : 'off'}
+          onValueChange={(v) => v && save.run(v === 'on')}
+          disabled={save.busy}
+          aria-label="Test inbox"
+        >
+          <ToggleGroupItem value="on" className="px-3">
+            On
+          </ToggleGroupItem>
+          <ToggleGroupItem value="off" className="px-3">
+            Off
+          </ToggleGroupItem>
+        </ToggleGroup>
+        <ErrorText error={save.error} />
+      </CardContent>
+    </Card>
+  )
+}
+
+function Keys() {
+  const [keys, setKeys] = useState<KeyStatus[] | null>(null)
+  const [v, setV] = useState<KeyPatch>({})
+  const [saved, setSaved] = useState(false)
+  const load = () => getSetup().then((d) => setKeys(d.keys as KeyStatus[]))
+  // biome-ignore lint/correctness/useExhaustiveDependencies: load once on open
+  useEffect(() => {
+    load().catch(() => {})
+  }, [])
+  const save = useAction(async () => {
+    await saveApiKeys({ data: typedKeys(v) })
+    setV({})
+    setSaved(true)
+    await load()
+  })
+  const dirty = Object.keys(typedKeys(v)).length > 0
+  return (
+    <Card size="sm">
+      <CardContent>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <span className="tile tile-quiet size-10 shrink-0 rounded-xl">
+            <KeyRound className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold">API keys</h2>
+            <Muted className="block">Saved keys override the server’s defaults and apply straight away. A new Telegram bot token needs a server restart.</Muted>
+          </div>
+          <Button
+            disabled={!dirty || save.busy}
+            onClick={() => {
+              setSaved(false)
+              save.run()
+            }}
+          >
+            {save.busy ? (
+              'Saving…'
+            ) : saved && !dirty ? (
+              <>
+                <Check /> Saved
+              </>
+            ) : (
+              'Save keys'
+            )}
+          </Button>
+        </div>
+        {keys ? <ApiKeyFields keys={keys} value={v} onChange={setV} /> : <Muted>Loading…</Muted>}
+        <ErrorText error={save.error} />
+      </CardContent>
+    </Card>
+  )
+}
+
+/* ---------- Company ---------- */
+
+function Company() {
+  const snap = useSnap()
+  const s = snap.settings as unknown as { company: CompanyValues['company']; hours: CompanyValues['hours'] }
+  const [v, setV] = useState<CompanyValues>({
+    company: { name: s.company.name, phone: s.company.phone, email: s.company.email ?? '', address: s.company.address ?? '', serviceRadiusKm: s.company.serviceRadiusKm },
+    hours: s.hours,
+  })
+  const [done, setDone] = useState<string | null>(null)
+  const save = useAction(async () => {
+    const r = await saveCompany({ data: v })
+    setDone(r.located ? 'Saved.' : 'Saved, but the address could not be found on the map; the service area still uses the old location.')
+  })
+  return (
+    <Card size="sm">
+      <CardContent>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            setDone(null)
+            save.run()
+          }}
+          className="space-y-5"
+        >
+          <div>
+            <h2 className="text-sm font-semibold">Company</h2>
+            <Muted className="block">Used in every customer message, call and page.</Muted>
+          </div>
+          <CompanyFields value={v} onChange={setV} />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" disabled={save.busy}>
+              {save.busy ? 'Saving…' : 'Save company'}
+            </Button>
+            {done && <Muted>{done}</Muted>}
+            <ErrorText error={save.error} />
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -404,12 +552,16 @@ function Automation() {
 
 function Demo() {
   const confirm = useConfirm()
-  const reset = useAction(() => resetDemo())
+  const navigate = useNavigate()
+  const reset = useAction(async () => {
+    await resetDemo()
+    navigate({ to: '/setup' })
+  })
   const ask = async () => {
     const ok = await confirm({
       title: 'Reset all demo data?',
       description:
-        'Jobs, requests, invoices and traces are wiped and re-seeded. Permissions and the agent persona go back to defaults. Telegram links and the Google connection are kept.',
+        'Jobs, requests, invoices and traces are wiped. Company details, permissions and the persona go back to defaults, and setup starts again. Saved API keys, Telegram links and the Google connection are kept.',
       confirm: 'Reset',
       tone: 'danger',
       icon: RotateCcw,

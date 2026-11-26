@@ -100,6 +100,13 @@ function CallPanel() {
   const [booked, setBooked] = useState<Record<string, unknown> | null>(null)
   const call = useRef<VoiceCall | null>(null)
   const end = useRef<HTMLDivElement>(null)
+  // remembered on this device only, so a caller who rings back is recognised without retyping
+  const [phone, setPhone] = useState('')
+  useEffect(() => {
+    try {
+      setPhone(localStorage.getItem('caller-phone') ?? '')
+    } catch {}
+  }, [])
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when the transcript grows
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'nearest' })
@@ -124,7 +131,10 @@ function CallPanel() {
       level: setSpeaking,
       booked: setBooked,
     })
-    await call.current.start()
+    try {
+      if (phone.trim()) localStorage.setItem('caller-phone', phone.trim())
+    } catch {}
+    await call.current.start(phone.trim())
   }
   const live = state === 'live'
   const sources = useCallback(() => [call.current?.micAnalyser ?? null, call.current?.outAnalyser ?? null], [])
@@ -152,9 +162,30 @@ function CallPanel() {
               <PhoneOff /> Hang up
             </Button>
           ) : (
-            <Button className="mt-6 h-12 w-full text-base" onClick={start} disabled={state === 'ending'}>
-              <Phone /> Start call
-            </Button>
+            <div className="mt-6 w-full space-y-3 text-left">
+              <div>
+                <Label htmlFor="caller-phone" className="mb-1.5">
+                  Your phone number <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="caller-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="(303) 555-0187"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="h-11 rounded-xl"
+                  aria-describedby="caller-phone-hint"
+                />
+                <p id="caller-phone-hint" className="mt-1 text-xs text-muted-foreground">
+                  Calling back about a visit, or got cut off? With your number we pick up where you left off.
+                </p>
+              </div>
+              <Button className="h-12 w-full text-base" onClick={start} disabled={state === 'ending'}>
+                <Phone /> Start call
+              </Button>
+            </div>
           )}
           <p className="mt-4 text-xs text-muted-foreground">Calls are transcribed so your booking is accurate.</p>
           {err && (

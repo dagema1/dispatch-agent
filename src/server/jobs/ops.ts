@@ -181,16 +181,17 @@ export async function weatherScan() {
     .where(and(inArray(schema.equipment.kind, kind), lt(schema.equipment.installYear, new Date().getFullYear() - 8)))
     .orderBy(schema.equipment.installYear)
   const ids = [...new Set(rows.map((r) => r.id))].slice(0, 40)
+  const fee = await (await import('../api/customer')).diagFee()
   const temp = trigger === 'cold_snap' ? `lows near ${cToF(minC)}°F` : `highs near ${cToF(maxC)}°F`
   let copy = {
     subject: trigger === 'cold_snap' ? 'Cold snap coming: is your furnace ready?' : 'Heat wave ahead: keep your AC running',
-    body: `Hi {first_name}, forecasts show ${temp} this week. Systems over 8 years old are the most likely to fail when they're working hardest. Book a $89 safety check now and skip the emergency rush: reply to this email or call ${s.company.phone}. — ${s.company.name}`,
+    body: `Hi {first_name}, forecasts show ${temp} this week. Systems over 8 years old are the most likely to fail when they're working hardest. Book a ${fee} safety check now and skip the emergency rush: reply to this email or call ${s.company.phone}. — ${s.company.name}`,
   }
   if (aiEnabled()) {
     copy = await generateJson({
       run,
       name: 'campaign.copy',
-      system: `You write short service-reminder emails for ${s.company.name}, a residential HVAC & plumbing company. Use {first_name} as placeholder. Offer a $89 safety check. Phone: ${s.company.phone}.`,
+      system: `You write short service-reminder emails for ${s.company.name}, a residential HVAC & plumbing company. Use {first_name} as placeholder. Offer a ${fee} safety check. Phone: ${s.company.phone}.`,
       prompt: `Trigger: ${trigger}, ${temp}. Audience: ${ids.length} customers with ${kind.join('/')} older than 8 years.`,
       schema: CampaignSchema,
     }).catch(() => copy)

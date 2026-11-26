@@ -312,7 +312,19 @@ function Calls() {
                     <Phone className="size-4" />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold">{c.customerId ? snap.customers[c.customerId]?.name : 'Unknown caller'}</div>
+                    <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                      {c.customerId ? (snap.customers[c.customerId]?.name ?? c.callerPhone ?? 'Unknown caller') : (c.callerPhone ?? 'Unknown caller')}
+                      {c.reason && (
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-[11px] font-medium',
+                            c.reason === 'new_case' ? 'bg-primary/12 text-primary' : 'bg-foreground/8 text-muted-foreground',
+                          )}
+                        >
+                          {CALL_REASON[c.reason] ?? c.reason}
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-0.5 truncate text-sm text-muted-foreground">
                       {c.summary ? c.summary : last ? `${last.role === 'agent' ? 'Agent' : 'Caller'}: ${last.text}` : 'No transcript'}
                     </p>
@@ -416,3 +428,6 @@ function TestEmailButton() {
     </Sheet>
   )
 }
+
+/** Why someone called, as the receptionist judged it from their number and what they said. */
+const CALL_REASON: Record<string, string> = { new_case: 'New problem', status_update: 'Status check', resume: 'Called back after drop' }

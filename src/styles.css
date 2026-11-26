@@ -9,6 +9,9 @@
 @custom-variant rail-open (&:is([data-rail="open"] *));
 @custom-variant data-horizontal (&[data-orientation="horizontal"]);
 @custom-variant data-vertical (&[data-orientation="vertical"]);
+/* Radix marks open/closed with data-state; the shadcn classes use data-open / data-closed. */
+@custom-variant data-open (&:is([data-state="open"], [data-open]:not([data-open="false"])));
+@custom-variant data-closed (&:is([data-state="closed"], [data-closed]:not([data-closed="false"])));
 @custom-variant data-active (&:is([data-state="active"], [data-active]:not([data-active="false"])));
 
 /*
@@ -233,6 +236,42 @@
 [data-slot="sheet-content"],
 [data-slot="tooltip-content"] {
   box-shadow: inset 0 1px 0 var(--edge), var(--slab-shadow);
+}
+
+/* The rail floats over the canvas as tinted glass: the route motif and top light show through it. */
+.rail-glass {
+  background-color: color-mix(in oklch, var(--glass) 88%, var(--primary) 12%);
+  box-shadow: inset 0 1px 0 var(--edge), var(--slab-shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+}
+:root:not(.dark) .rail-glass {
+  background-color: color-mix(in oklch, var(--glass) 95%, var(--primary) 5%);
+}
+
+/* Overlay motion: dialogs rise and settle, sheets slide the full way, backdrops fade. Closing is quicker than opening. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot="dialog-content"][data-state="open"],
+  [data-slot="alert-dialog-content"][data-state="open"] {
+    animation-duration: 260ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    --tw-enter-translate-y: 0.75rem;
+  }
+  [data-slot="sheet-content"][data-state="open"] {
+    animation-duration: 380ms;
+    animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  [data-slot="dialog-content"][data-state="closed"],
+  [data-slot="alert-dialog-content"][data-state="closed"],
+  [data-slot="sheet-content"][data-state="closed"] {
+    animation-duration: 180ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  }
+  [data-slot$="-overlay"][data-state="open"] { animation-duration: 260ms; }
+  [data-slot$="-overlay"][data-state="closed"] { animation-duration: 180ms; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="sheet-content"] { animation-duration: 1ms !important; }
 }
 
 /* Tiles: flat icon chips. A soft tint of the state colour with the glyph in that colour; no shadow.

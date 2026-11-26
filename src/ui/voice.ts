@@ -56,7 +56,8 @@ export class VoiceCall {
     },
   ) {}
 
-  async start() {
+  /** `phone`: the number the caller typed, so the receptionist can recognise a repeat caller. */
+  async start(phone?: string) {
     this.on.state('connecting')
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
@@ -66,7 +67,7 @@ export class VoiceCall {
           noiseSuppression: true,
         },
       })
-      const cfg = await startVoice()
+      const cfg = await startVoice({ data: { phone: phone || undefined } })
       this.callId = cfg.callId
       const ai = new GoogleGenAI({
         apiKey: cfg.token,
@@ -225,4 +226,102 @@ export class VoiceCall {
         },
       }).catch(() => {})
   }
+}
+
+/** Owner settings: hear a voice say the opening line. Audio is kept per voice and line, so replays are instant. */
+const previews = new Map<string, Uint8Array[]>()
+export type PreviewState = 'loading' | 'playing' | 'idle' | 'error'
+
+export function previewVoice(voice: string, line: string, onState: (s: PreviewState, detail?: string) => void): () => void {
+  const key = `${voice}\n${line}`
+  const ctx = new AudioContext({ sampleRate: 24000 })
+  let at = 0
+  let live = 0
+  let stopped = false
+  let finished = false
+  let session: Session | null = null
+  const sources = new Set<AudioBufferSourceNode>()
+  const done = () => {
+    if (!live && finished && !stopped) {
+      stopped = true
+      onState('idle')
+      void ctx.close()
+    }
+  }
+  const play = (bytes: Uint8Array) => {
+    const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 2)
+    const buf = ctx.createBuffer(1, pcm.length, 24000)
+    const ch = buf.getChannelData(0)
+    for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 0x8000
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.connect(ctx.destination)
+    const t = Math.max(ctx.currentTime + 0.03, at)
+    src.start(t)
+    at = t + buf.duration
+    live++
+    sources.add(src)
+    onState('playing')
+    src.onended = () => {
+      live--
+      sources.delete(src)
+      done()
+    }
+  }
+  const stop = () => {
+    if (stopped) return
+    stopped = true
+    for (const s of sources) s.stop()
+    session?.close()
+    void ctx.close()
+    onState('idle')
+  }
+  const cached = previews.get(key)
+  if (cached) {
+    finished = true
+    for (const b of cached) play(b)
+    return stop
+  }
+  onState('loading')
+  const chunks: Uint8Array[] = []
+  ;(async () => {
+    const { startVoicePreview } = await import('#/fns')
+    const cfg = await startVoicePreview({ data: { voice: voice as never, line } })
+    if (stopped) return
+    const ai = new GoogleGenAI({ apiKey: cfg.token, httpOptions: { apiVersion: 'v1alpha' } })
+    session = await ai.live.connect({
+      model: cfg.model,
+      config: {
+        responseModalities: [Modality.AUDIO],
+        systemInstruction: cfg.system,
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+      },
+      callbacks: {
+        onmessage: (m: LiveServerMessage) => {
+          for (const p of m.serverContent?.modelTurn?.parts ?? [])
+            if (p.inlineData?.data) {
+              const b = fromB64(p.inlineData.data)
+              chunks.push(b)
+              if (!stopped) play(b)
+            }
+          if (m.serverContent?.turnComplete) {
+            previews.set(key, chunks)
+            finished = true
+            session?.close()
+            done()
+          }
+        },
+        onerror: (e) => {
+          if (!stopped) onState('error', (e as ErrorEvent).message || 'Preview failed')
+        },
+      },
+    })
+    session.sendClientContent({ turns: [{ role: 'user', parts: [{ text: `Say this line: "${line}"` }] }], turnComplete: true })
+  })().catch((e) => {
+    if (!stopped) {
+      stopped = true
+      onState('error', (e as Error).message)
+    }
+  })
+  return stop
 }

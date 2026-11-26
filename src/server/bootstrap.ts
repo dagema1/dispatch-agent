@@ -19,6 +19,8 @@ const g = globalThis as unknown as { __boot?: Promise<void> }
 export function ensureBooted() {
   g.__boot ??= (async () => {
     await runMigrations()
+    // owner-entered API keys (setup wizard) override .env before anything uses them
+    await (await import('./lib/keys')).applyKeys()
     startWorker()
     startTelegramPolling(async (u) => void (await onTelegramUpdate(u)), onOwnerReady)
     if (!process.env.EXTERNAL_CRON) startLocalCron()

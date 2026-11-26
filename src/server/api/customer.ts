@@ -1,8 +1,9 @@
-import { eq } from 'drizzle-orm'
+import { and, desc, eq, gt, sql } from 'drizzle-orm'
 import { diagnoseAndQuote } from '../agent/diagnosis'
-import { handleInbound } from '../agent/front-desk'
+import { digits, findCustomer, handleInbound } from '../agent/front-desk'
 import { db, schema } from '../db'
 import { replan } from '../domain/dispatch'
+import { caseBrief, openCase } from '../domain/followup'
 import { alertOwner, firstName, messageCustomer } from '../domain/messaging'
 import { personaPrompt } from '../domain/persona'
 import { getSettings } from '../domain/settings'
@@ -80,10 +81,60 @@ export async function acceptQuote(token: string, tier: 'good' | 'better' | 'best
 
 // ---------- browser voice receptionist (Gemini Live) ----------
 
-export async function voiceSession() {
+/** The diagnostic fee as the price book has it today, so the receptionist never quotes a stale number. */
+export async function diagFee() {
+  const [d] = await db.select().from(schema.priceItems).where(eq(schema.priceItems.code, 'DIAG'))
+  return d ? `$${(d.cents / 100).toFixed(d.cents % 100 ? 2 : 0)}` : '$89'
+}
+
+/**
+ * What we know about a caller from the number they typed before connecting: who they are, any
+ * open case, and whether their last call dropped before we finished. Lets the receptionist tell a
+ * status check, a cut-off call and a new problem apart.
+ */
+async function callerContext(phone: string | undefined) {
+  if (!phone || digits(phone).length < 7) return { customerId: null, brief: '' }
+  const customer = await findCustomer({ phone })
+  const lines: string[] = []
+  if (customer) {
+    lines.push(
+      `Caller ID matches ${customer.name}, ${customer.address}${customer.email ? `, ${customer.email}` : ''}. Do not ask for details we already have; confirm them instead.`,
+    )
+    const c = await openCase(customer.id)
+    if (c) lines.push(caseBrief(c))
+  } else lines.push('This number is not in our records yet: treat it as a new customer.')
+  const [prev] = await db
+    .select()
+    .from(schema.calls)
+    .where(
+      and(
+        sql`right(regexp_replace(coalesce(${schema.calls.callerPhone}, ''), '\D', '', 'g'), 10) = ${digits(phone)}`,
+        gt(schema.calls.startedAt, new Date(Date.now() - 3 * 3_600_000)),
+      ),
+    )
+    .orderBy(desc(schema.calls.startedAt))
+    .limit(1)
+  if (prev && !prev.requestId) {
+    const said = prev.transcript
+      .filter((t) => t.role === 'caller')
+      .map((t) => t.text)
+      .join(' ')
+      .slice(0, 500)
+    const mins = Math.max(1, Math.round((Date.now() - prev.startedAt.getTime()) / 60_000))
+    lines.push(`Their previous call ${mins} min ago ended before anything was booked (likely cut off).${said ? ` They had said: "${said}"` : ''}`)
+  }
+  return { customerId: customer?.id ?? null, brief: lines.join('\n') }
+}
+
+export async function voiceSession(input: { phone?: string } = {}) {
   const s = await getSettings()
   const { token, model } = await createLiveToken()
-  const [call] = await db.insert(schema.calls).values({}).returning()
+  const ctx = await callerContext(input.phone)
+  const fee = await diagFee()
+  const [call] = await db
+    .insert(schema.calls)
+    .values({ callerPhone: input.phone || null, customerId: ctx.customerId })
+    .returning()
   return {
     token,
     model,
@@ -93,7 +144,11 @@ export async function voiceSession() {
 ${personaPrompt(s.persona, s.company.name)}
 SAFETY FIRST: if the caller mentions a gas smell, carbon monoxide alarm, sparks/burning smell, or water near electrical panels, immediately tell them to leave the house and call 911 (gas: also Xcel Energy 1-800-895-2999) before anything else, then still book an emergency visit.
 Collect: what's wrong, full name, service address, and a phone number (email optional). Ask whether anyone vulnerable (elderly, infant, medical needs) is in the home if it's a no-heat or no-cooling issue.
-Then call book_service. Read back the arrival window it returns. Never promise prices except: diagnostic visit is $89, waived if they go ahead with the repair. If book_service fails, apologise and say the office will call back within 15 minutes.${s.agents.front_desk?.instructions?.trim() ? `\n\nAdditional instructions from the owner (follow them unless they conflict with safety rules):\n${s.agents.front_desk.instructions.trim()}` : ''}`,
+Then call book_service. Read back the arrival window it returns. Never promise prices except: diagnostic visit is ${fee}, waived if they go ahead with the repair. If book_service fails, apologise and say the office will call back within 15 minutes.${
+      ctx.brief
+        ? `\n\nCALLER CONTEXT (from the number they entered):\n${ctx.brief}\nFirst work out why they are calling and call log_call_reason once: "status_update" if they are asking about the open case (answer from the context above, do not book again), "resume" if they are picking up a call that was cut off (carry on from what they said, don't start over), or "new_case" for a different problem (then book it with book_service).`
+        : ''
+    }${s.agents.front_desk?.instructions?.trim() ? `\n\nAdditional instructions from the owner (follow them unless they conflict with safety rules):\n${s.agents.front_desk.instructions.trim()}` : ''}`,
     tools: [
       {
         name: 'book_service',
@@ -110,17 +165,45 @@ Then call book_service. Read back the arrival window it returns. Never promise p
           required: ['name', 'address', 'issue'],
         },
       },
+      {
+        name: 'log_call_reason',
+        description: 'Record why the caller is calling: a status update on an open case, resuming a call that was cut off, or a new problem.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            reason: { type: 'STRING', enum: ['status_update', 'resume', 'new_case'] },
+            note: { type: 'STRING', description: 'one short line on what they want' },
+          },
+          required: ['reason'],
+        },
+      },
     ],
   }
 }
 
 export async function voiceTool(callId: number, name: string, args: Record<string, unknown>) {
+  const [thisCall] = await db.select().from(schema.calls).where(eq(schema.calls.id, callId))
+  if (!thisCall) return { error: 'unknown call' }
+  if (name === 'log_call_reason') {
+    const reason = ['status_update', 'resume', 'new_case'].includes(String(args.reason)) ? String(args.reason) : 'new_case'
+    await db
+      .update(schema.calls)
+      .set({ reason, summary: args.note ? String(args.note).slice(0, 300) : thisCall.summary })
+      .where(eq(schema.calls.id, callId))
+    await publish('call.reason', { callId, reason })
+    return { ok: true }
+  }
   if (name !== 'book_service') return { error: 'unknown tool' }
   const res = await handleInbound({
     channel: 'voice',
     text: String(args.issue ?? ''),
     externalId: `call:${callId}`,
-    customer: { name: String(args.name ?? ''), phone: (args.phone as string) || null, email: (args.email as string) || null, address: String(args.address ?? '') },
+    customer: {
+      name: String(args.name ?? ''),
+      phone: (args.phone as string) || thisCall.callerPhone || null,
+      email: (args.email as string) || null,
+      address: String(args.address ?? ''),
+    },
   })
   await db
     .update(schema.calls)
@@ -147,9 +230,25 @@ export async function endCall(callId: number, transcript: Array<{ role: 'caller'
     .map((t) => t.text)
     .join(' ')
     .slice(0, 300)
-  await db.update(schema.calls).set({ transcript, summary, endedAt: new Date() }).where(eq(schema.calls.id, callId))
+  const [before] = await db.select().from(schema.calls).where(eq(schema.calls.id, callId))
+  await db
+    .update(schema.calls)
+    .set({ transcript, summary: before?.reason && before.summary ? before.summary : summary, endedAt: new Date() })
+    .where(eq(schema.calls.id, callId))
   const [call] = await db.select().from(schema.calls).where(eq(schema.calls.id, callId))
   if (call?.requestId) await db.update(schema.requests).set({ firstResponseAt: call.startedAt }).where(eq(schema.requests.id, call.requestId))
   await publish('call.ended', { callId, turns: transcript.length })
   return { ok: true }
+}
+
+/** Owner settings: hear a voice before choosing it. Same Live model as calls, reading one line. */
+export async function voicePreview(voice: string, line: string) {
+  const { token, model } = await createLiveToken()
+  return {
+    token,
+    model,
+    voice,
+    line,
+    system: 'You are a voice preview. When given a line, say exactly that line once, warmly and naturally, and nothing else.',
+  }
 }

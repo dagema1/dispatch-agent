@@ -5,14 +5,18 @@ import { db, getPool, schema } from './index'
 import { runMigrations } from './migrate'
 import { makeCustomers, PRICE_BOOK, ROUTINE_JOBS, rng, TECHS } from './seed-data'
 
-/** Reset the demo company to a clean, realistic state: 5 technicians, 40 customers, a partly booked week. */
-export async function seed({ quiet = false } = {}) {
+/**
+ * Reset the demo company to a clean, realistic state: 5 technicians, 40 customers, a partly booked week.
+ * `empty` keeps only the technicians and price book (a company starting on its own data).
+ * Setup is cleared too, so the next visit to the dashboard opens the setup wizard.
+ */
+export async function seed({ quiet = false, empty = false } = {}) {
   await runMigrations()
   const links = new Map((await db.select().from(schema.technicians)).map((t) => [t.name, t.telegramChatId]))
   await db.execute(
     sql`TRUNCATE agent_steps, agent_runs, approvals, events, queue, messages, calls, invoices, quotes, jobs, requests, equipment, customers, technicians, price_items, campaigns RESTART IDENTITY CASCADE`,
   )
-  await db.execute(sql`DELETE FROM settings WHERE key NOT IN ('google_oauth', 'telegram_owner')`)
+  await db.execute(sql`DELETE FROM settings WHERE key NOT IN ('google_oauth', 'telegram_owner', 'api_keys')`)
 
   // keep Telegram links across resets
   const techRows = await db
@@ -23,6 +27,8 @@ export async function seed({ quiet = false } = {}) {
     .returning()
 
   await db.insert(schema.priceItems).values(PRICE_BOOK)
+
+  if (empty) return replan({ reason: 'fresh start' })
 
   const customers = makeCustomers(40)
   const custRows = await db

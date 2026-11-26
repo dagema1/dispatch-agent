@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as BookRouteImport } from './routes/book'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAgentRouteImport } from './routes/app/agent'
@@ -21,6 +22,7 @@ import { Route as AppInboxRouteImport } from './routes/app/inbox'
 import { Route as AppMoneyRouteImport } from './routes/app/money'
 import { Route as AppRoiRouteImport } from './routes/app/roi'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppSimRouteImport } from './routes/app/sim'
 import { Route as AppTeamRouteImport } from './routes/app/team'
 import { Route as CPaidRouteImport } from './routes/c/paid'
 import { Route as ApiCronNameRouteImport } from './routes/api/cron/$name'
@@ -43,6 +45,11 @@ const AppRoute = AppRouteImport.update({
 const BookRoute = BookRouteImport.update({
   id: '/book',
   path: '/book',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiEventsRoute = ApiEventsRouteImport.update({
@@ -90,6 +97,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSimRoute = AppSimRouteImport.update({
+  id: '/sim',
+  path: '/sim',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTeamRoute = AppTeamRouteImport.update({
   id: '/team',
   path: '/team',
@@ -135,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/book': typeof BookRoute
+  '/setup': typeof SetupRoute
   '/api/events': typeof ApiEventsRoute
   '/app/agent': typeof AppAgentRoute
   '/app/agents': typeof AppAgentsRoute
@@ -143,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/app/money': typeof AppMoneyRoute
   '/app/roi': typeof AppRoiRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/sim': typeof AppSimRoute
   '/app/team': typeof AppTeamRoute
   '/c/paid': typeof CPaidRoute
   '/app/': typeof AppIndexRoute
@@ -156,6 +170,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/book': typeof BookRoute
+  '/setup': typeof SetupRoute
   '/api/events': typeof ApiEventsRoute
   '/app/agent': typeof AppAgentRoute
   '/app/agents': typeof AppAgentsRoute
@@ -164,6 +179,7 @@ export interface FileRoutesByTo {
   '/app/money': typeof AppMoneyRoute
   '/app/roi': typeof AppRoiRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/sim': typeof AppSimRoute
   '/app/team': typeof AppTeamRoute
   '/c/paid': typeof CPaidRoute
   '/app': typeof AppIndexRoute
@@ -179,6 +195,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/book': typeof BookRoute
+  '/setup': typeof SetupRoute
   '/api/events': typeof ApiEventsRoute
   '/app/agent': typeof AppAgentRoute
   '/app/agents': typeof AppAgentsRoute
@@ -187,6 +204,7 @@ export interface FileRoutesById {
   '/app/money': typeof AppMoneyRoute
   '/app/roi': typeof AppRoiRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/sim': typeof AppSimRoute
   '/app/team': typeof AppTeamRoute
   '/c/paid': typeof CPaidRoute
   '/app/': typeof AppIndexRoute
@@ -203,6 +221,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/book'
+    | '/setup'
     | '/api/events'
     | '/app/agent'
     | '/app/agents'
@@ -211,6 +230,7 @@ export interface FileRouteTypes {
     | '/app/money'
     | '/app/roi'
     | '/app/settings'
+    | '/app/sim'
     | '/app/team'
     | '/c/paid'
     | '/app/'
@@ -224,6 +244,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/book'
+    | '/setup'
     | '/api/events'
     | '/app/agent'
     | '/app/agents'
@@ -232,6 +253,7 @@ export interface FileRouteTypes {
     | '/app/money'
     | '/app/roi'
     | '/app/settings'
+    | '/app/sim'
     | '/app/team'
     | '/c/paid'
     | '/app'
@@ -246,6 +268,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/book'
+    | '/setup'
     | '/api/events'
     | '/app/agent'
     | '/app/agents'
@@ -254,6 +277,7 @@ export interface FileRouteTypes {
     | '/app/money'
     | '/app/roi'
     | '/app/settings'
+    | '/app/sim'
     | '/app/team'
     | '/c/paid'
     | '/app/'
@@ -269,6 +293,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   BookRoute: typeof BookRoute
+  SetupRoute: typeof SetupRoute
   ApiEventsRoute: typeof ApiEventsRoute
   CPaidRoute: typeof CPaidRoute
   ApiCronNameRoute: typeof ApiCronNameRoute
@@ -300,6 +325,13 @@ declare module '@tanstack/react-router' {
       path: '/book'
       fullPath: '/book'
       preLoaderRoute: typeof BookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/events': {
@@ -363,6 +395,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/sim': {
+      id: '/app/sim'
+      path: '/sim'
+      fullPath: '/app/sim'
+      preLoaderRoute: typeof AppSimRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/team': {
@@ -432,6 +471,7 @@ interface AppRouteChildren {
   AppMoneyRoute: typeof AppMoneyRoute
   AppRoiRoute: typeof AppRoiRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppSimRoute: typeof AppSimRoute
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
 }
@@ -444,6 +484,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppMoneyRoute: AppMoneyRoute,
   AppRoiRoute: AppRoiRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppSimRoute: AppSimRoute,
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
 }
@@ -454,6 +495,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   BookRoute: BookRoute,
+  SetupRoute: SetupRoute,
   ApiEventsRoute: ApiEventsRoute,
   CPaidRoute: CPaidRoute,
   ApiCronNameRoute: ApiCronNameRoute,

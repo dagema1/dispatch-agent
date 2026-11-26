@@ -1,13 +1,13 @@
-import { Mail, Phone, RotateCcw, Save } from 'lucide-react'
-import { useState } from 'react'
+import { Check, Loader2, Mail, Phone, Play, RotateCcw, Save, Square } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { setPersona } from '#/fns'
 import { personalize, salutation } from '#/server/domain/persona'
 import type { Persona } from '#/server/domain/settings'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { cn } from '@/lib/utils'
 import { ErrorText, Muted, Section } from './bits'
 import { useAction, useSnap } from './live'
 
@@ -54,27 +54,11 @@ export function PersonaSettings() {
             if (dirty) save.run()
           }}
         >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="agent-name">Name</Label>
-              <Input id="agent-name" maxLength={40} required value={p.agentName} onChange={(e) => set('agentName', e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="agent-voice">Call voice</Label>
-              <Select value={p.voice} onValueChange={(v) => set('voice', v as Persona['voice'])}>
-                <SelectTrigger id="agent-voice" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {VOICES.map(([v, d]) => (
-                    <SelectItem key={v} value={v}>
-                      {v} <span className="text-muted-foreground">· {d}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-1.5 sm:max-w-xs">
+            <Label htmlFor="agent-name">Name</Label>
+            <Input id="agent-name" maxLength={40} required value={p.agentName} onChange={(e) => set('agentName', e.target.value)} />
           </div>
+          <VoicePicker value={p.voice} onChange={(v) => set('voice', v)} line={opening} />
 
           <Choice
             label="Tone"
@@ -165,3 +149,72 @@ const Preview = ({ icon: Icon, label, children }: { icon: React.ComponentType<{ 
     <p className="text-sm leading-relaxed whitespace-pre-wrap">{children}</p>
   </div>
 )
+
+/** Eight voices as cards: play one to hear it say the opening line, tap the card to choose it. */
+function VoicePicker({ value, onChange, line }: { value: Persona['voice']; onChange: (v: Persona['voice']) => void; line: string }) {
+  const [playing, setPlaying] = useState<{ voice: string; state: 'loading' | 'playing' } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const stop = useRef<(() => void) | null>(null)
+  useEffect(() => () => stop.current?.(), [])
+  const play = async (voice: Persona['voice']) => {
+    stop.current?.()
+    if (playing?.voice === voice) {
+      setPlaying(null)
+      return
+    }
+    setError(null)
+    const { previewVoice } = await import('./voice')
+    stop.current = previewVoice(voice, line, (st, detail) => {
+      if (st === 'idle') setPlaying((x) => (x?.voice === voice ? null : x))
+      else if (st === 'error') {
+        setPlaying(null)
+        setError(detail ? `Couldn't play ${voice}: ${detail}` : `Couldn't play ${voice}.`)
+      } else setPlaying({ voice, state: st })
+    })
+  }
+  return (
+    <fieldset className="space-y-1.5">
+      <legend className="mb-1.5 text-sm font-medium">Call voice</legend>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {VOICES.map(([v, d]) => {
+          const on = v === value
+          const me = playing?.voice === v ? playing.state : null
+          return (
+            <div
+              key={v}
+              className={cn(
+                'relative flex items-center gap-2 rounded-2xl border p-2 pl-3 transition-colors',
+                on ? 'border-primary/60 bg-primary/10' : 'border-border bg-foreground/3 hover:bg-foreground/6',
+              )}
+            >
+              <button type="button" aria-pressed={on} onClick={() => onChange(v)} className="min-w-0 flex-1 text-left after:absolute after:inset-0 after:rounded-2xl">
+                <span className="flex items-center gap-1 text-sm font-medium">
+                  {v} {on && <Check className="size-3.5 text-primary" />}
+                </span>
+                <span className="block truncate text-[11px] text-muted-foreground">{d}</span>
+              </button>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant={me ? 'default' : 'secondary'}
+                className="relative z-10 shrink-0"
+                aria-label={me ? `Stop ${v}` : `Play ${v}`}
+                onClick={() => play(v)}
+              >
+                {me === 'loading' ? (
+                  <Loader2 className="animate-spin" />
+                ) : me === 'playing' ? (
+                  <Square className="size-3 fill-current" />
+                ) : (
+                  <Play className="size-3.5 fill-current" />
+                )}
+              </Button>
+            </div>
+          )
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground">Plays the opening line below in that voice. Uses Gemini Live, like a real call.</p>
+      {error && <ErrorText error={error} />}
+    </fieldset>
+  )
+}

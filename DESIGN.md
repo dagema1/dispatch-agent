@@ -42,9 +42,10 @@ Shadows stay soft. No heavy drop shadows, no coloured glows on components (the t
 
 ## Layout
 
-- **Sidebar** (md+): 4.5rem icon rail with tooltips, expands to 15rem with labels and a title. Stored in `localStorage.rail`; the boot script mirrors it to `html[data-rail]` so skeletons match before hydration (`rail-open:` variant).
+- **Sidebar** (md+): a floating panel inset 0.75rem from the edges, `.rail-glass` (glass tinted 12% blue in dark, 5% in light, blur 22px) so the canvas and route motif show through. 5rem icon rail with tooltips, expands to 16rem with labels and a title. Stored in `localStorage.rail`; the boot script mirrors it to `html[data-rail]` so skeletons match before hydration (`rail-open:` variant). The customer page is a quiet link card at the foot (globe tile, "Book, call, track"), never a second primary button.
 - **Phones**: no sidebar. Logo in the header; a bottom tab bar (Board, Inbox, Approvals, Money, More). More opens a sheet with the rest, customer page, theme and sign out. Tables become stacked cards (`RichTable`).
 - **Top bar**: company + live status left, "Ask Riley" field right (hidden on Agent chat, which has its own composer).
+- **Board is a bento**: Needs you (2/3) beside Unassigned (1/3); KPI tiles; the timeline full width; the map (2/3) beside Live activity (1/3).
 - **Needs you** (board, top): the one list of things only the owner can do: P1 emergencies waiting (Call back), undelivered replies (Connect), visits past their window (Re-plan), pending approvals (Review). Empty state says so plainly.
 - **Floating dock**: page controls bottom centre (board: day picker + Re-plan). Sits above the phone tab bar and the safe area.
 - **Page widths**: cap 1600px; settings and inbox `max-w-5xl`, approvals `max-w-4xl`, agent chat `max-w-3xl`, team and ROI `max-w-6xl`. The board stays wide. Grids that collapse on phones use `grid-cols-[minmax(0,1fr)]` so wide children (timeline) scroll inside their card instead of widening the page.
@@ -54,13 +55,20 @@ Shadows stay soft. No heavy drop shadows, no coloured glows on components (the t
 
 Phone first. `CustomerShell`: glass header with company, theme toggle and a blue "Call" pill (`tel:` link). Under it a red safety strip on every page except payment confirmation: gas smell or CO alarm → leave, call 911 or the utility from outside. Copy speaks to the homeowner in their words ("You told us …"). Unknown links show an empty state with the phone number and a link to book.
 
+## Demo tools
+
+- **Setup** (`/setup`): first run and after a reset. Four steps (start, company, integrations, ready) on the signed-out backdrop. Demo uses the server's keys; "My company" shows the key fields.
+- **Simulators** (`/app/sim`): Technicians (play a tech: accept, take, drive, arrive, late, note, done, duty) and Email & texts (the customer's mailbox and phone; customer's own messages on the right in blue, ours on the left; each line says how it was delivered).
+- **Price book** (Settings): how prices reach a customer in four steps, then the items by trade, edited in a dialog.
+- **Voices** (Settings → persona): eight cards, each with a play button that speaks the opening line.
+
 ## Live data
 
 One EventSource per browser, not per tab: a Web Locks leader owns it and relays over `BroadcastChannel('dispatch-events')` (`src/ui/live.tsx`). Keeps tabs under the 6-connection limit.
 
 ## Motion
 
-All inside `prefers-reduced-motion: no-preference`. Press scale 0.97; new feed items slide in with a brief blue wash (`.arrive`); re-planned visits glide (`.job-block`, 450ms); route change settles up (`.route-in`); theme switch cross-fades via View Transitions. Ease `cubic-bezier(0.16, 1, 0.3, 1)`, no bounce.
+All inside `prefers-reduced-motion: no-preference`. Overlays: dialogs and alert dialogs fade, rise 0.75rem and settle from 97% scale in 260ms; sheets slide the full way in 380ms (`cubic-bezier(0.32,0.72,0,1)`); closing is 180ms; backdrops fade with a 2px blur. Radix marks state with `data-state`, so `data-open:` / `data-closed:` are custom variants in `styles.css`. Press scale 0.97; new feed items slide in with a brief blue wash (`.arrive`); re-planned visits glide (`.job-block`, 450ms); route change settles up (`.route-in`); theme switch cross-fades via View Transitions. Ease `cubic-bezier(0.16, 1, 0.3, 1)`, no bounce.
 
 ## Don'ts
 

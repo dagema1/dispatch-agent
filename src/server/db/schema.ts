@@ -65,7 +65,7 @@ export const requests = pgTable(
   'requests',
   {
     id: serial('id').primaryKey(),
-    channel: text('channel').notNull().$type<'voice' | 'email' | 'web' | 'telegram' | 'sim'>(),
+    channel: text('channel').notNull().$type<'voice' | 'email' | 'sms' | 'web' | 'telegram' | 'sim'>(),
     externalId: text('external_id'),
     customerId: integer('customer_id').references(() => customers.id),
     rawText: text('raw_text').notNull(),
@@ -112,6 +112,8 @@ export const jobs = pgTable(
     etaAt: ts('eta_at'),
     calendarEventId: text('calendar_event_id'),
     lockedTech: boolean('locked_tech').notNull().default(false),
+    /** The technician acknowledged the assignment (Telegram or the field simulator). */
+    acceptedAt: ts('accepted_at'),
     report: jsonb('report').$type<JsonObject>(),
     completedAt: ts('completed_at'),
     createdAt: createdAt(),
@@ -164,6 +166,8 @@ export const messages = pgTable('messages', {
   subject: text('subject'),
   body: text('body').notNull(),
   delivered: boolean('delivered').notNull().default(false),
+  /** How it went out: gmail, telegram, or test (the demo's test inbox). Null when it stayed in the outbox. */
+  via: text('via'),
   createdAt: createdAt(),
 })
 
@@ -173,6 +177,10 @@ export const calls = pgTable('calls', {
   customerId: integer('customer_id').references(() => customers.id),
   transcript: jsonb('transcript').$type<Array<{ role: 'caller' | 'agent'; text: string }>>().notNull().default([]),
   summary: text('summary'),
+  /** Number the caller gave before connecting, used to recognise repeat callers. */
+  callerPhone: text('caller_phone'),
+  /** Why they called, as the receptionist judged it: new_case, status_update or resume. */
+  reason: text('reason'),
   startedAt: createdAt(),
   endedAt: ts('ended_at'),
 })

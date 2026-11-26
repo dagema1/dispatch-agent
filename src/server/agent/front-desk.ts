@@ -1,4 +1,4 @@
-import { eq, ilike, or } from 'drizzle-orm'
+import { eq, ilike, or, sql } from 'drizzle-orm'
 import { db, schema } from '../db'
 import { defaultWindow, replan } from '../domain/dispatch'
 import { alertOwner, firstName, messageCustomer, messageTechnician } from '../domain/messaging'
@@ -16,7 +16,7 @@ import { act, registerExecutor } from './policy'
 import { Run } from './trace'
 
 export type Inbound = {
-  channel: 'voice' | 'email' | 'web' | 'sim'
+  channel: 'voice' | 'email' | 'sms' | 'web' | 'sim'
   text: string
   externalId?: string
   customer?: { name?: string | null; email?: string | null; phone?: string | null; address?: string | null }
@@ -74,6 +74,12 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
         phone: input.customer?.phone ?? t.phone,
         email: input.customer?.email ?? t.email,
       })
+    else if (customer.lat == null && (input.customer?.address || t.address)) {
+      // a known customer we were missing an address for (they replied to our question): fill it in
+      const addr = (input.customer?.address || t.address) as string
+      const loc = await run.timed('tool', 'geocode', { address: addr }, () => geocode(addr))
+      if (loc) [customer] = await db.update(schema.customers).set({ address: addr, lat: loc.lat, lng: loc.lng }).where(eq(schema.customers.id, customer.id)).returning()
+    }
 
     const [req] = await db
       .insert(schema.requests)
@@ -237,13 +243,13 @@ export async function handleInbound(input: Inbound): Promise<IntakeResult> {
   }
 }
 
-const chan = (i: Inbound) => (i.channel === 'voice' ? 'voice' : i.channel === 'web' ? 'web' : 'email')
+const chan = (i: Inbound) => (i.channel === 'voice' ? 'voice' : i.channel === 'web' ? 'web' : i.channel === 'sms' ? 'sms' : 'email')
 
-async function findCustomer(c: Inbound['customer']) {
+export async function findCustomer(c: Inbound['customer']) {
   if (!c) return null
   const conds = []
   if (c.email) conds.push(ilike(schema.customers.email, c.email))
-  if (c.phone) conds.push(eq(schema.customers.phone, c.phone))
+  if (c.phone && digits(c.phone).length >= 7) conds.push(phoneMatches(c.phone))
   if (!conds.length && c.name) conds.push(ilike(schema.customers.name, c.name))
   if (!conds.length) return null
   const [hit] = await db
@@ -263,3 +269,7 @@ async function createCustomer(run: Run, c: { name?: string | null; email?: strin
     .returning()
   return row
 }
+
+export const digits = (p: string) => p.replace(/\D/g, '').slice(-10)
+/** Same number whatever the formatting: "(720) 555-0142", "720.555.0142" and "+17205550142" all match. */
+export const phoneMatches = (p: string) => sql`right(regexp_replace(coalesce(${schema.customers.phone}, ''), '\D', '', 'g'), 10) = ${digits(p)}`

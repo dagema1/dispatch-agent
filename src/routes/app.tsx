@@ -6,6 +6,8 @@ import {
   ChartNoAxesCombined,
   CircleDollarSign,
   ExternalLink,
+  FlaskConical,
+  Globe,
   Inbox,
   LogOut,
   Menu,
@@ -32,7 +34,9 @@ import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/app')({
   beforeLoad: async () => {
-    if (!(await getSession()).owner) throw redirect({ to: '/' })
+    const s = await getSession()
+    if (!s.owner) throw redirect({ to: '/' })
+    if (!s.setupDone) throw redirect({ to: '/setup' })
   },
   loader: () => getSnapshot(),
   component: AppLayout,
@@ -53,6 +57,7 @@ const NAV = [
   { to: '/app/agent', label: 'Agent chat', icon: Sparkles },
   { to: '/app/team', label: 'Agents', icon: Bot, also: '/app/agents' },
   { to: '/app/roi', label: 'ROI & simulator', icon: ChartNoAxesCombined },
+  { to: '/app/sim', label: 'Simulators', icon: FlaskConical },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ] as const
 
@@ -64,7 +69,7 @@ function AppSkeleton() {
   return (
     <div className="canvas flex min-h-screen flex-col md:flex-row" aria-busy="true">
       <output className="sr-only">Loading the front office…</output>
-      <div className={cn(railClass, 'max-md:hidden md:w-18 md:items-center md:px-0 rail-open:md:w-60 rail-open:md:items-stretch rail-open:md:px-3')}>
+      <div className={cn(railClass, 'max-md:hidden md:w-20 md:items-center md:px-0 rail-open:md:w-64 rail-open:md:items-stretch rail-open:md:px-3')}>
         <div className="mr-1 flex shrink-0 items-center gap-2.5 md:mr-0 md:mb-3 rail-open:md:px-0.5">
           <Skeleton className="size-9 shrink-0 rounded-xl" />
           <div className="hidden flex-1 space-y-1.5 rail-open:md:block">
@@ -81,7 +86,7 @@ function AppSkeleton() {
           ))}
         </div>
         <div className="flex shrink-0 items-center gap-1 md:mt-auto md:flex-col md:items-stretch">
-          <Skeleton className="h-10 w-10 rounded-full md:mb-1 rail-open:md:w-full" />
+          <Skeleton className="h-10 w-10 rounded-2xl md:mb-2 rail-open:md:h-12 rail-open:md:w-full" />
           <div className="hidden flex-col items-center gap-1 md:flex rail-open:flex-row rail-open:justify-between">
             {keys('foot', 3).map((k) => (
               <Skeleton key={k} className="size-10 rounded-xl" />
@@ -136,7 +141,7 @@ function AppLayout() {
 const RAIL_KEY = 'rail'
 /** Shared by the rail and its loading skeleton so both are the same box. */
 const railClass =
-  'sticky top-0 z-20 flex items-center gap-1 border-b border-(--edge) bg-(--glass) px-2 py-2 shadow-(--slab-shadow) backdrop-blur-xl md:h-screen md:shrink-0 md:flex-col md:items-stretch md:border-r md:border-b-0 md:py-3 motion-safe:md:transition-[width] motion-safe:md:duration-200'
+  'rail-glass sticky top-0 z-20 flex md:self-start items-center gap-1 border-b border-(--edge) px-2 py-2 md:top-3 md:m-3 md:mr-0 md:h-[calc(100dvh-1.5rem)] md:shrink-0 md:flex-col md:items-stretch md:rounded-3xl md:border md:py-3 motion-safe:md:transition-[width] motion-safe:md:duration-200'
 
 /** Read synchronously (the dashboard renders client-only) so the first frame already has the right width. */
 const readRail = () => {
@@ -152,7 +157,7 @@ function useRail() {
   const [open, setOpen] = useState(readRail)
   useEffect(() => {
     // the board's floating dock centres itself on the work area using this width
-    document.documentElement.style.setProperty('--rail', open ? '15rem' : '4.5rem')
+    document.documentElement.style.setProperty('--rail', open ? '16.75rem' : '5.75rem')
     document.documentElement.dataset.rail = open ? 'open' : 'closed'
   }, [open])
   const toggle = () =>
@@ -182,7 +187,7 @@ function Shell() {
   const pending = snap?.approvals.filter((a) => a.status === 'pending').length ?? 0
   const [open, toggle] = useRail()
   const item = cn(
-    'relative flex h-10 shrink-0 items-center gap-3 rounded-xl text-sm text-muted-foreground transition-[background-color,color] hover:bg-secondary hover:text-foreground',
+    'relative flex h-10 shrink-0 items-center gap-3 rounded-xl text-sm text-muted-foreground transition-[background-color,color] hover:bg-foreground/6 hover:text-foreground',
     open ? 'md:w-full md:px-3' : 'w-10 justify-center',
     'w-10 justify-center md:justify-start',
     !open && 'md:justify-center',
@@ -190,7 +195,7 @@ function Shell() {
   return (
     <div className="canvas isolate flex min-h-screen flex-col md:flex-row">
       <RouteMotif className="absolute inset-x-0 top-0 -z-10 h-56 w-full opacity-60" />
-      <aside data-open={open} className={cn(railClass, 'max-md:hidden', open ? 'md:w-60 md:px-3' : 'md:w-18 md:items-center md:px-0')}>
+      <aside data-open={open} className={cn(railClass, 'max-md:hidden', open ? 'md:w-64 md:px-3' : 'md:w-20 md:items-center md:px-0')}>
         <div className={cn('mr-1 flex shrink-0 items-center gap-2.5 md:mr-0 md:mb-3', open && 'md:px-0.5')}>
           <div className="tile tile-solid size-9 shrink-0 rounded-full" title={snap?.company.name}>
             <Wrench size={17} />
@@ -230,22 +235,29 @@ function Shell() {
           ))}
         </nav>
         <div className="flex shrink-0 items-center gap-1 md:mt-auto md:flex-col md:items-stretch">
-          <RailItem open={open} label="Open customer page">
+          <RailItem open={open} label="Customer booking page">
             <a
               href="/book"
               target="_blank"
               rel="noreferrer"
-              aria-label="Open customer page"
+              aria-label="Open the customer booking page in a new tab"
               className={cn(
-                'group/cta flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.16),0_6px_18px_-8px_var(--primary)] transition-[background-color,scale] outline-none hover:bg-[color-mix(in_oklch,var(--primary),white_10%)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]',
-                open ? 'w-10 md:mb-1 md:w-full md:px-4' : 'w-10 md:mb-1',
+                'group/cta flex shrink-0 items-center gap-2.5 rounded-2xl text-sm outline-none transition-[background-color,scale] focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98] md:mb-2',
+                open
+                  ? 'border border-(--edge) bg-foreground/4 p-2 hover:bg-foreground/8'
+                  : 'size-10 justify-center text-muted-foreground hover:bg-foreground/6 hover:text-foreground',
               )}
             >
-              <ExternalLink size={17} className="shrink-0" />
+              <span className={cn('grid shrink-0 place-items-center', open && 'tile tile-action size-8 rounded-xl')}>
+                <Globe size={open ? 16 : 18} />
+              </span>
               {open && (
                 <>
-                  <span className="hidden md:inline">Customer page</span>
-                  <ArrowUpRight size={15} className="ml-auto hidden shrink-0 transition-transform group-hover/cta:translate-x-0.5 group-hover/cta:-translate-y-0.5 md:inline" />
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block truncate font-medium">Customer page</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">Book, call, track</span>
+                  </span>
+                  <ArrowUpRight size={15} className="mr-1 shrink-0 text-muted-foreground transition-transform group-hover/cta:translate-x-0.5 group-hover/cta:-translate-y-0.5" />
                 </>
               )}
             </a>

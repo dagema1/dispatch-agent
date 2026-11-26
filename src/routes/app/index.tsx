@@ -133,7 +133,39 @@ function Board() {
         </Button>
       </Dock>
       <ErrorText error={replan.error ?? toggle.error} />
-      <NeedsYou snap={snap} onReplan={askReplan} replanBusy={replan.busy} />
+      {/* bento: what needs a person, next to what has no slot yet */}
+      <div className="mb-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">
+          <NeedsYou snap={snap} onReplan={askReplan} replanBusy={replan.busy} />
+        </div>
+        <Section title={`Unassigned (${unassigned.length})`} className="h-full">
+          {unassigned.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Every open job has a slot.</p>
+          ) : (
+            <ul className="-mr-2 max-h-80 space-y-1 overflow-y-auto pr-2">
+              {unassigned.map((j) => (
+                <li key={j.id}>
+                  <button type="button" className="flex w-full items-center gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-secondary" onClick={() => setOpenId(j.id)}>
+                    <PriorityTile p={j.priority} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{j.title}</span>
+                      {+new Date(j.windowEnd) < Date.parse(snap.now) ? (
+                        <span className="block truncate text-xs font-medium text-red-600 dark:text-red-400">
+                          {j.customer.name} · window missed {dayTime(j.windowEnd)}
+                        </span>
+                      ) : (
+                        <Muted className="block truncate">
+                          {j.customer.name} · window ends {dayTime(j.windowEnd)}
+                        </Muted>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      </div>
 
       <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Stat
@@ -154,79 +186,48 @@ function Board() {
         />
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-4">
-          <Section title="Technician routes" right={<Muted>{day === snap.today ? 'Today' : dayLabel(day)} · 7am to 7pm</Muted>}>
-            <RouteTimeline
-              techs={snap.techs}
-              jobs={dayJobs}
-              isToday={day === snap.today}
-              nowMin={nowMin}
-              isNew={isNew}
-              isLive={isLive}
-              onOpen={setOpenId}
-              onToggleTech={askToggle}
-              toggleBusy={toggle.busy}
-            />
-          </Section>
+      <div className="space-y-4">
+        <Section title="Technician routes" right={<Muted>{day === snap.today ? 'Today' : dayLabel(day)} · 7am to 7pm</Muted>}>
+          <RouteTimeline
+            techs={snap.techs}
+            jobs={dayJobs}
+            isToday={day === snap.today}
+            nowMin={nowMin}
+            isNew={isNew}
+            isLive={isLive}
+            onOpen={setOpenId}
+            onToggleTech={askToggle}
+            toggleBusy={toggle.busy}
+          />
+        </Section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold tracking-tight">Live map</CardTitle>
-              <CardDescription>
-                {mapTechs.filter((t) => t.live).length} of {mapTechs.length} technicians sharing location · {dayJobs.length} visits{' '}
-                {day === snap.today ? 'today' : `on ${dayLabel(day)}`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="relative overflow-hidden rounded-2xl ring-1 ring-border">
-                <ClientOnly fallback={<Skeleton className="h-[400px] rounded-none" />}>
-                  <Suspense fallback={<Skeleton className="h-[400px] rounded-none" />}>
-                    <FleetMap techs={mapTechs} jobs={mapJobs} routes={routes} height={400} />
-                  </Suspense>
-                </ClientOnly>
-                <span className="pointer-events-none absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-(--glass-strong) backdrop-blur-md px-2.5 py-1 text-xs font-medium ring-1 ring-border">
-                  <MapPin className="size-3.5" /> Denver metro
-                </span>
-                <MapInsight unassigned={unassigned.length} openP1={openP1} />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
-          <Section title={`Unassigned (${unassigned.length})`}>
-            {unassigned.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Every open job has a slot.</p>
-            ) : (
-              <ul className="space-y-2">
-                {unassigned.map((j) => (
-                  <li key={j.id}>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-xl p-2 text-left transition-colors hover:bg-secondary"
-                      onClick={() => setOpenId(j.id)}
-                    >
-                      <PriorityTile p={j.priority} />
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">{j.title}</span>
-                        {+new Date(j.windowEnd) < Date.parse(snap.now) ? (
-                          <span className="block truncate text-xs font-medium text-red-600 dark:text-red-400">
-                            {j.customer.name} · window missed {dayTime(j.windowEnd)}
-                          </span>
-                        ) : (
-                          <Muted className="block truncate">
-                            {j.customer.name} · window ends {dayTime(j.windowEnd)}
-                          </Muted>
-                        )}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold tracking-tight">Live map</CardTitle>
+                <CardDescription>
+                  {mapTechs.filter((t) => t.live).length} of {mapTechs.length} technicians sharing location · {dayJobs.length} visits{' '}
+                  {day === snap.today ? 'today' : `on ${dayLabel(day)}`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="relative overflow-hidden rounded-2xl ring-1 ring-border">
+                  <ClientOnly fallback={<Skeleton className="h-[420px] rounded-none" />}>
+                    <Suspense fallback={<Skeleton className="h-[420px] rounded-none" />}>
+                      <FleetMap techs={mapTechs} jobs={mapJobs} routes={routes} height={420} />
+                    </Suspense>
+                  </ClientOnly>
+                  <span className="pointer-events-none absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-(--glass-strong) backdrop-blur-md px-2.5 py-1 text-xs font-medium ring-1 ring-border">
+                    <MapPin className="size-3.5" /> Denver metro
+                  </span>
+                  <MapInsight unassigned={unassigned.length} openP1={openP1} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
           <Section
+            className="h-full"
             title={
               <span className="inline-flex items-center gap-1.5">
                 <Activity className="size-3.5" /> Live activity
@@ -245,8 +246,13 @@ function Board() {
 const EVENT_TEXT: Record<string, (p: Record<string, unknown>) => string> = {
   'request.created': (p) => `New ${p.channel} request${p.customer ? ` from ${p.customer}` : ''}: ${p.issue} (P${p.priority})${p.safety ? ` · safety: ${p.safety}` : ''}`,
   'plan.updated': (p) => `Fleet re-planned (${p.reason}): ${p.scheduled} scheduled, ${p.moved} moved`,
-  'message.sent': (p) => `Message to ${p.to}: ${p.subject}${p.delivered ? '' : ' (outbox)'}`,
+  'message.sent': (p) => `${p.channel === 'sms' ? 'Text' : 'Message'} to ${p.to}: ${p.subject}${p.delivered ? (p.via === 'test' ? ' (test inbox)' : '') : ' (outbox)'}`,
   'message.tech': (p) => `Telegram to ${p.name}: ${p.preview}`,
+  'message.received': (p) => `${p.channel === 'sms' ? 'Text' : 'Email'} from ${p.from}: ${p.preview}`,
+  'job.accepted': (p) => `${String(p.name).split(' ')[0]} accepted visit #${p.jobId}`,
+  'tech.note': (p) => `${String(p.name).split(' ')[0]} noted on #${p.jobId}: ${p.preview}`,
+  'call.reason': (p) =>
+    `Call #${p.callId}: ${p.reason === 'status_update' ? 'asking for a status update' : p.reason === 'resume' ? 'calling back after a dropped call' : 'a new problem'}`,
   'approval.requested': (p) => `Approval needed: ${p.summary}`,
   'approval.decided': (p) => `${p.decision}: ${p.summary}`,
   'quote.created': (p) => `Quote #${p.quoteId} built${p.replacementLead ? ' · replacement lead' : ''}`,
@@ -279,7 +285,7 @@ function Dock({ children }: { children: React.ReactNode }) {
     <div
       role="toolbar"
       aria-label="Board controls"
-      className="slab fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-30 flex max-w-[calc(100vw-1.5rem)] items-center justify-between gap-2 overflow-x-auto rounded-full border bg-(--glass-strong) p-1.5 sm:inset-x-auto sm:left-1/2 md:bottom-4 sm:-translate-x-1/2 md:left-[calc(50%+var(--rail,4.5rem)/2)]"
+      className="slab fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-30 flex max-w-[calc(100vw-1.5rem)] items-center justify-between gap-2 overflow-x-auto rounded-full border bg-(--glass-strong) p-1.5 sm:inset-x-auto sm:left-1/2 md:bottom-4 sm:-translate-x-1/2 md:left-[calc(50%+var(--rail,5.75rem)/2)]"
     >
       {children}
     </div>,
@@ -322,7 +328,7 @@ function Feed({
   const isNew = useArrivals(shown.map((e) => e.id))
   if (!shown.length) return <Empty icon={Activity}>Waiting for activity. Try booking from the customer page.</Empty>
   return (
-    <ScrollArea className="h-[520px] pr-3">
+    <ScrollArea className="h-[470px] pr-3">
       <ul className="space-y-1.5">
         {shown.map((e) => {
           const person = NEEDS_PERSON.has(e.type)

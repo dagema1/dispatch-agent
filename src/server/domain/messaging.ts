@@ -18,20 +18,30 @@ export async function messageCustomer(opts: {
   jobId?: number | null
   subject: string
   body: string
-  channel?: 'email' | 'voice' | 'web'
+  channel?: 'email' | 'sms' | 'voice' | 'web'
 }) {
   const [c] = await db.select().from(schema.customers).where(eq(schema.customers.id, opts.customerId))
   if (!c) throw new Error('customer not found')
   // the persona's salutation and sign-off apply to every customer message, whichever agent wrote it
-  opts = { ...opts, body: personalize(opts.body, c.name, (await getSettings()).persona) }
+  const settings = await getSettings()
+  opts = { ...opts, body: personalize(opts.body, c.name, settings.persona) }
+  // email when we have an address, a text when we only have a phone number
+  const channel = opts.channel ?? (c.email ? 'email' : c.phone ? 'sms' : 'email')
   let delivered = false
-  if ((opts.channel ?? 'email') === 'email' && c.email && (await gmailConnected())) {
+  let via: 'gmail' | 'test' | null = null
+  if (channel === 'email' && c.email && (await gmailConnected())) {
     try {
       await sendGmail({ to: c.email, subject: opts.subject, body: opts.body })
       delivered = true
+      via = 'gmail'
     } catch (e) {
       console.warn('[gmail] send failed', (e as Error).message)
     }
+  }
+  // no real channel: the demo's test inbox receives it (Simulators → Email & texts), and says so
+  if (!delivered && settings.sandbox.testInbox && ((channel === 'email' && c.email) || (channel === 'sms' && c.phone))) {
+    delivered = true
+    via = 'test'
   }
   const [m] = await db
     .insert(schema.messages)
@@ -40,10 +50,11 @@ export async function messageCustomer(opts: {
       requestId: opts.requestId ?? null,
       jobId: opts.jobId ?? null,
       direction: 'out',
-      channel: opts.channel ?? 'email',
-      subject: opts.subject,
+      channel,
+      subject: channel === 'sms' ? null : opts.subject,
       body: opts.body,
       delivered,
+      via,
     })
     .returning()
   if (opts.requestId) {
@@ -53,8 +64,8 @@ export async function messageCustomer(opts: {
       .where(eq(schema.requests.id, opts.requestId))
       .catch(() => {})
   }
-  await publish('message.sent', { messageId: m.id, customerId: c.id, to: c.name, subject: opts.subject, delivered })
-  return { messageId: m.id, delivered }
+  await publish('message.sent', { messageId: m.id, customerId: c.id, to: c.name, subject: opts.subject, channel, delivered, via })
+  return { messageId: m.id, delivered, via }
 }
 
 export async function messageTechnician(technicianId: number, text: string, jobId?: number) {
@@ -62,7 +73,7 @@ export async function messageTechnician(technicianId: number, text: string, jobI
   if (!t) throw new Error('technician not found')
   let delivered = false
   if (t.telegramChatId) delivered = await sendTelegram(t.telegramChatId, text)
-  await db.insert(schema.messages).values({ technicianId, jobId: jobId ?? null, direction: 'out', channel: 'telegram', body: text, delivered })
+  await db.insert(schema.messages).values({ technicianId, jobId: jobId ?? null, direction: 'out', channel: 'telegram', body: text, delivered, via: delivered ? 'telegram' : null })
   await publish('message.tech', { technicianId, name: t.name, delivered, preview: text.slice(0, 80) })
   return { delivered }
 }

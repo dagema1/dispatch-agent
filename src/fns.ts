@@ -19,7 +19,10 @@ const owner = createMiddleware({ type: 'function' }).server(async ({ next }) => 
 
 export const getSession = createServerFn({ method: 'GET' }).handler(async () => {
   const a = await import('./server/auth')
-  return { owner: a.isOwner(), demoPassword: a.usingDemoPassword() }
+  const owner = a.isOwner()
+  // only a signed-in owner learns whether setup is done
+  const setupDone = owner ? (await (await import('./server/domain/settings')).getSettings()).setup.done : true
+  return { owner, demoPassword: a.usingDemoPassword(), setupDone }
 })
 
 export const login = createServerFn({ method: 'POST' })
@@ -254,10 +257,12 @@ export const getPaid = createServerFn({ method: 'GET' })
 
 // ---------- voice ----------
 
-export const startVoice = createServerFn({ method: 'POST' }).handler(async () => {
-  await boot()
-  return (await import('./server/api/customer')).voiceSession()
-})
+export const startVoice = createServerFn({ method: 'POST' })
+  .validator(z.object({ phone: z.string().trim().max(30).optional() }).optional())
+  .handler(async ({ data }) => {
+    await boot()
+    return (await import('./server/api/customer')).voiceSession({ phone: data?.phone || undefined })
+  })
 
 export const voiceToolCall = createServerFn({ method: 'POST' })
   .validator(z.object({ callId: z.number().int(), name: z.string(), args: z.record(z.string(), z.unknown()) }))
@@ -266,3 +271,205 @@ export const voiceToolCall = createServerFn({ method: 'POST' })
 export const endVoice = createServerFn({ method: 'POST' })
   .validator(z.object({ callId: z.number().int(), transcript: z.array(z.object({ role: z.enum(['caller', 'agent']), text: z.string() })).max(400) }))
   .handler(async ({ data }) => (await import('./server/api/customer')).endCall(data.callId, data.transcript))
+
+// ---------- setup & company ----------
+
+const company = z.object({
+  name: z.string().trim().min(2).max(80),
+  phone: z.string().trim().min(7).max(30),
+  email: z.string().trim().email().max(120).or(z.literal('')),
+  address: z.string().trim().min(5).max(200),
+  serviceRadiusKm: z.number().int().min(5).max(200),
+})
+const hours = z.object({ open: z.string().regex(/^\d{2}:\d{2}$/), close: z.string().regex(/^\d{2}:\d{2}$/) })
+const keyPatch = z
+  .object({
+    GEMINI_API_KEY: z.string().max(200),
+    TELEGRAM_BOT_TOKEN: z.string().max(200),
+    TELEGRAM_OWNER_CHAT_ID: z.string().max(40),
+    ORS_API_KEY: z.string().max(400),
+    // payments stay in Stripe test mode: live keys are refused here
+    STRIPE_SECRET_KEY: z
+      .string()
+      .max(300)
+      .refine((v) => v === '' || v.startsWith('sk_test_'), 'Use a Stripe test key (sk_test_…)'),
+    GOOGLE_CLIENT_ID: z.string().max(300),
+    GOOGLE_CLIENT_SECRET: z.string().max(300),
+  })
+  .partial()
+
+export const getSetup = createServerFn({ method: 'GET' })
+  .middleware([owner])
+  .handler(async () => {
+    await boot()
+    const { getSettings } = await import('./server/domain/settings')
+    const { keyStatus } = await import('./server/lib/keys')
+    const { integrations } = await import('./server/lib/env')
+    const st = await getSettings()
+    return { company: st.company, hours: st.hours, setup: st.setup, sandbox: st.sandbox, keys: await keyStatus(), integrations: integrations() }
+  })
+
+/** Save the company profile; the address is geocoded so the service area and HQ follow it. */
+async function storeCompany(c: z.infer<typeof company>) {
+  const { getSettings, saveSetting } = await import('./server/domain/settings')
+  const prev = (await getSettings()).company
+  let hq = prev.hq
+  if (c.address !== prev.address) {
+    const loc = await (await import('./server/integrations/routing')).geocode(c.address).catch(() => null)
+    if (loc) hq = { lat: loc.lat, lng: loc.lng }
+  }
+  await saveSetting('company', { ...c, hq })
+  return hq !== prev.hq || c.address === prev.address
+}
+
+export const saveCompany = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(z.object({ company, hours }))
+  .handler(async ({ data }) => {
+    const located = await storeCompany(data.company)
+    await (await import('./server/domain/settings')).saveSetting('hours', data.hours)
+    return { ok: true, located }
+  })
+
+export const saveApiKeys = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(keyPatch)
+  .handler(async ({ data }) => {
+    await (await import('./server/lib/keys')).saveKeys(data)
+    return { ok: true }
+  })
+
+/** Finish first-run setup: load demo or empty data, then company, hours and keys. */
+export const completeSetup = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(z.object({ mode: z.enum(['demo', 'own']), loadData: z.boolean(), company, hours, keys: keyPatch.optional() }))
+  .handler(async ({ data }) => {
+    await boot()
+    // seeding clears settings, so it runs first
+    if (data.loadData) await (await import('./server/db/seed')).seed({ quiet: true, empty: data.mode === 'own' })
+    const { saveSetting } = await import('./server/domain/settings')
+    await storeCompany(data.company)
+    await saveSetting('hours', data.hours)
+    await (await import('./server/lib/keys')).saveKeys(data.keys ?? {}, { demo: data.mode === 'demo' })
+    await saveSetting('setup', { done: true, mode: data.mode })
+    return { ok: true }
+  })
+
+export const setSandbox = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(z.object({ testInbox: z.boolean() }))
+  .handler(async ({ data }) => {
+    await (await import('./server/domain/settings')).saveSetting('sandbox', data)
+    return { ok: true }
+  })
+
+// ---------- price book ----------
+
+export const getPriceBook = createServerFn({ method: 'GET' })
+  .middleware([owner])
+  .handler(async () => {
+    const { db, schema } = await import('./server/db')
+    return db.select().from(schema.priceItems).orderBy(schema.priceItems.trade, schema.priceItems.cents)
+  })
+
+export const savePriceItem = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(
+    z.object({
+      originalCode: z.string().max(20).optional(),
+      code: z
+        .string()
+        .trim()
+        .toUpperCase()
+        .regex(/^[A-Z0-9-]{2,20}$/, 'Code: 2–20 letters, digits or dashes'),
+      name: z.string().trim().min(2).max(120),
+      trade: z.enum(['hvac', 'plumbing', 'any']),
+      cents: z.number().int().min(0).max(10_000_000),
+      minutes: z.number().int().min(0).max(1440),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { db, schema } = await import('./server/db')
+    const { eq } = await import('drizzle-orm')
+    const { originalCode, ...item } = data
+    if (originalCode && originalCode !== item.code) {
+      const [clash] = await db.select().from(schema.priceItems).where(eq(schema.priceItems.code, item.code))
+      if (clash) throw new Error(`Code ${item.code} is already used`)
+      await db.update(schema.priceItems).set(item).where(eq(schema.priceItems.code, originalCode))
+    } else await db.insert(schema.priceItems).values(item).onConflictDoUpdate({ target: schema.priceItems.code, set: item })
+    return { ok: true }
+  })
+
+export const deletePriceItem = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(z.object({ code: z.string().max(20) }))
+  .handler(async ({ data }) => {
+    const { db, schema } = await import('./server/db')
+    const { eq } = await import('drizzle-orm')
+    if (data.code === 'DIAG' || data.code === 'EMERG') throw new Error('Every invoice relies on this item. Change its price instead of deleting it.')
+    await db.delete(schema.priceItems).where(eq(schema.priceItems.code, data.code))
+    return { ok: true }
+  })
+
+// ---------- simulators ----------
+
+export const getField = createServerFn({ method: 'GET' })
+  .middleware([owner])
+  .handler(async () => {
+    await boot()
+    return (await import('./server/sim/field')).fieldView()
+  })
+
+export const fieldAct = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(
+    z.object({
+      techId: z.number().int(),
+      act: z.discriminatedUnion('action', [
+        z.object({ action: z.literal('accept'), jobId: z.number().int() }),
+        z.object({ action: z.literal('take'), jobId: z.number().int() }),
+        z.object({ action: z.literal('omw'), jobId: z.number().int() }),
+        z.object({ action: z.literal('arrive'), jobId: z.number().int() }),
+        z.object({ action: z.literal('late'), minutes: z.number().int().min(5).max(120) }),
+        z.object({ action: z.literal('note'), jobId: z.number().int(), text: z.string().trim().min(2).max(1000) }),
+        z.object({ action: z.literal('done'), jobId: z.number().int(), text: z.string().trim().min(3).max(2000) }),
+        z.object({ action: z.literal('drive'), jobId: z.number().int().optional() }),
+        z.object({ action: z.literal('locate'), lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }),
+        z.object({ action: z.literal('duty'), active: z.boolean() }),
+      ]),
+    }),
+  )
+  .handler(async ({ data }) => {
+    await boot()
+    return (await import('./server/sim/field')).fieldAction(data.techId, data.act)
+  })
+
+export const getTestThreads = createServerFn({ method: 'GET' })
+  .middleware([owner])
+  .handler(async () => (await import('./server/sim/inbox')).inboxThreads())
+
+export const getTestThread = createServerFn({ method: 'GET' })
+  .middleware([owner])
+  .validator(z.object({ customerId: z.number().int() }))
+  .handler(async ({ data }) => (await import('./server/sim/inbox')).inboxThread(data.customerId))
+
+export const sendAsCustomer = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(
+    z.object({
+      customerId: z.number().int().optional(),
+      newCustomer: z.object({ name: z.string().trim().min(2).max(100), email: z.string().email().optional(), phone: z.string().max(30).optional() }).optional(),
+      channel: z.enum(['email', 'sms']),
+      subject: z.string().max(200).optional(),
+      body: z.string().trim().min(1).max(4000),
+    }),
+  )
+  .handler(async ({ data }) => {
+    await boot()
+    return (await import('./server/sim/inbox')).customerSends(data)
+  })
+
+export const startVoicePreview = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .validator(z.object({ voice: z.enum(['Aoede', 'Kore', 'Puck', 'Charon', 'Leda', 'Orus', 'Zephyr', 'Fenrir']), line: z.string().trim().min(2).max(240) }))
+  .handler(async ({ data }) => (await import('./server/api/customer')).voicePreview(data.voice, data.line))
