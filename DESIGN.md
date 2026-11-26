@@ -26,7 +26,7 @@ Shadows stay soft (`0 1px 2px` + `0 6px 16px -10px`). No glass, no blur, no glow
 
 ## Controls
 
-- Buttons: radix-nova shapes. `default` = violet gradient with white text; `outline` = slab with edge highlight.
+- Buttons: radix-nova shapes. `default` = emerald gradient (dark ink in dark theme, white in light); `outline` = slab with edge highlight.
 - Segmented controls (tabs, toggle groups): a well track with the active segment raised as a small slab. Permission levels add a colour dot to the active segment only (emerald on its own, gold ask first, grey never).
 - Confirmations: one shared alert dialog (`useConfirm`) for anything customer-facing, destructive or that widens agent autonomy.
 - Icons: lucide only. No emoji or unicode glyphs as icons.
