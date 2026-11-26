@@ -217,13 +217,15 @@ export async function voiceTool(callId: number, name: string, args: Record<strin
     technician: res.booking?.technician.split(' ')[0] ?? null,
     arrival: res.booking?.startText ?? null,
     note:
-      res.status === 'booked'
-        ? 'Read back the arrival time. Tell them they will get a text/email with a live tracking link.'
-        : res.status === 'awaiting_customer'
-          ? 'Address could not be found; ask them to repeat it with street, city and zip, then call book_service again with the corrected address.'
-          : res.status === 'duplicate'
-            ? 'This request is already logged and the office has it. Do not book again; tell them the office will follow up.'
-            : 'Could not fit a slot; the office will call back within 15 minutes.',
+      res.status === 'booked' && res.awaitingApproval
+        ? 'This is an after-hours visit: tell them our on-call technician is confirming it now and they will get a text or email with the arrival time within about 15 minutes. Do not promise the time yet.'
+        : res.status === 'booked'
+          ? 'Read back the arrival time. Tell them they will get a text/email with a live tracking link.'
+          : res.status === 'awaiting_customer'
+            ? 'Address could not be found; ask them to repeat it with street, city and zip, then call book_service again with the corrected address.'
+            : res.status === 'duplicate'
+              ? 'This request is already logged and the office has it. Do not book again; tell them the office will follow up.'
+              : 'Could not fit a slot; the office will call back within 15 minutes.',
   }
 }
 

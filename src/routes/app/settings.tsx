@@ -33,7 +33,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { addDemoQuote, getSetup, postOfficeBoard, resetDemo, runCronNow, saveApiKeys, saveCompany, setOfficeLog, setPolicy, setSandbox, setWeather } from '#/fns'
+import { addDemoQuote, getSetup, postOfficeBoard, releaseCapacity, resetDemo, runCronNow, saveApiKeys, saveCompany, setOfficeLog, setPolicy, setSandbox, setWeather } from '#/fns'
 import { ApiKeyFields, type KeyPatch, type KeyStatus, typedKeys } from '#/ui/ApiKeys'
 import { ErrorText, Muted, PageTitle, PanelHead } from '#/ui/bits'
 import { CompanyFields, type CompanyValues } from '#/ui/CompanyForm'
@@ -67,6 +67,7 @@ const POLICY_GROUPS: Array<{ title: string; icon: Icon; items: Array<[key: strin
       ['send_customer_message', 'Reply to customers', 'Confirmations, questions and schedule updates'],
       ['send_quote', 'Send quotes', 'Good, better, best options from the price book'],
       ['send_campaign', 'Send marketing campaigns', 'Seasonal or weather offers to many customers at once'],
+      ['reply_outside_area', 'Turn away out-of-area requests', 'Reply that we can’t serve the address. Off: the office decides'],
     ],
   },
   {
@@ -486,6 +487,32 @@ function Company() {
 
 type WeatherMode = 'cold_snap' | 'heat_wave' | 'off'
 
+/** Emergency capacity the weather scan held back; shown only while it is active. */
+function CapacityReserve() {
+  const snap = useSnap()
+  const cap = (snap.settings as { capacity?: { reserveMin: number; until: string; reason: string } }).capacity
+  const release = useAction(() => releaseCapacity())
+  const today = new Intl.DateTimeFormat('en-CA').format(new Date())
+  if (!cap?.reserveMin || !cap.until || cap.until < today) return null
+  return (
+    <Card size="sm" className="border-(--attn-2)/40">
+      <CardContent className="flex flex-wrap items-center gap-4">
+        <span className="tile tile-attn size-10 shrink-0 rounded-xl">{cap.reason === 'heat_wave' ? <Sun className="size-5" /> : <Snowflake className="size-5" />}</span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold">Emergency capacity held</h2>
+          <Muted className="block">
+            {cap.reason === 'heat_wave' ? 'Heat wave' : 'Cold snap'} ahead: the last {cap.reserveMin} min of every technician’s day only takes P1 emergencies, through {cap.until}.
+          </Muted>
+        </div>
+        <Button size="sm" variant="outline" disabled={release.busy} onClick={() => release.run()}>
+          {release.busy ? 'Releasing…' : 'Release'}
+        </Button>
+        <ErrorText error={release.error} />
+      </CardContent>
+    </Card>
+  )
+}
+
 function Automation() {
   const snap = useSnap()
   const confirm = useConfirm()
@@ -508,13 +535,14 @@ function Automation() {
   }
 
   const jobs = [
-    ['tick', 'Watchdog', 'Every minute', 'Checks the inbox, SLA alerts, queued work and payments'],
-    ['morning', 'Morning plan', 'Daily 6:30', 'Re-plans the day, sends each tech their route, briefs the owner'],
-    ['weather', 'Weather scan', 'Daily 6:00', 'Cold snap or heat wave ahead: drafts a maintenance campaign for approval'],
+    ['tick', 'Watchdog', 'Every minute', 'Checks the inbox, SLA alerts, visit reminders for tomorrow, queued work and payments'],
+    ['morning', 'Morning plan', 'Daily 6:30', 'Re-plans the day, sends each tech their route, briefs the owner (Telegram, and email when Gmail is connected)'],
+    ['weather', 'Weather scan', 'Daily 17:00', 'Cold snap or heat wave ahead: holds emergency capacity and drafts a maintenance campaign for approval'],
   ] as const
 
   return (
     <div className="space-y-4">
+      <CapacityReserve />
       <Card className="gap-0 py-0">
         <PanelHead title="Scheduled jobs" right={<Muted className="max-sm:hidden">Run by Cloud Scheduler in production</Muted>} />
         <ul className="divide-y">

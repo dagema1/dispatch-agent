@@ -455,6 +455,14 @@ export const postOfficeBoard = createServerFn({ method: 'POST' })
   .middleware([owner])
   .handler(async () => (await import('./server/agent/board-widget')).postBoard())
 
+export const releaseCapacity = createServerFn({ method: 'POST' })
+  .middleware([owner])
+  .handler(async () => {
+    await (await import('./server/domain/settings')).saveSetting('capacity', { reserveMin: 0, until: '', reason: '' })
+    await (await import('./server/domain/dispatch')).replan({ reason: 'emergency capacity released' })
+    return { ok: true }
+  })
+
 // ---------- price book ----------
 
 export const getPriceBook = createServerFn({ method: 'GET' })

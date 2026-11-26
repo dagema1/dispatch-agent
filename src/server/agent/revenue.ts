@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '../db'
-import { firstName, messageCustomer } from '../domain/messaging'
+import { alertOwner, firstName, messageCustomer } from '../domain/messaging'
 import { getSettings } from '../domain/settings'
 import { aiEnabled, generateJson, type Media } from '../integrations/gemini'
 import { createPaymentLink, isPaid, stripeEnabled } from '../integrations/stripe'
@@ -55,6 +55,22 @@ Always include DIAG. Never invent prices.`,
   }
 
   const byCode = new Map(prices.map((p) => [p.code, p]))
+  // Work the technician described that has no price-book code is never priced by the agent
+  // (policy price_outside_book): the invoice carries book prices only and a person prices the rest.
+  const unknown = report.partCodes.filter((p) => !byCode.has(p.code))
+  if (unknown.length) {
+    const what = unknown.map((u) => `${u.code}${u.qty > 1 ? ` ×${u.qty}` : ''}`).join(', ')
+    const out = await act(run, {
+      policy: 'price_outside_book',
+      tool: 'price_outside_book',
+      args: { jobId, items: unknown },
+      summary: `Job #${jobId}: price items not in the price book (${what})`,
+    })
+    if (out.status === 'refused')
+      await alertOwner(
+        `Job #${jobId} (${job.title}): the technician's note mentions ${what}, which isn't in the price book. The invoice leaves it out; price it by hand if it should be charged.`,
+      )
+  }
   const lines = report.partCodes.filter((p) => byCode.has(p.code)).map((p) => ({ code: p.code, name: byCode.get(p.code)!.name, qty: p.qty, cents: byCode.get(p.code)!.cents }))
   if (!lines.some((l) => l.code === 'DIAG')) lines.unshift({ code: 'DIAG', name: byCode.get('DIAG')!.name, qty: 1, cents: byCode.get('DIAG')!.cents })
   const emerg = byCode.get('EMERG')
@@ -153,3 +169,6 @@ export async function sweepPayments() {
     .where(and(inArray(schema.invoices.status, ['sent']), isNotNull(schema.invoices.stripeSessionId)))
   for (const i of open) await checkPaid(i.id).catch(() => {})
 }
+
+// Only reached if the owner allows custom prices: the items wait in Approvals for a person to price.
+registerExecutor('price_outside_book', async (a) => ({ noted: true, items: a.items }))

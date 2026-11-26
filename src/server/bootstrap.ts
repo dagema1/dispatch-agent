@@ -3,6 +3,7 @@ import './agent/revenue'
 import './agent/owner'
 import './agent/office-log'
 import './agent/board-widget'
+import './agent/follow-ups'
 import { onOwnerReady } from './agent/owner-bot'
 import { onTelegramUpdate } from './agent/telegram-bot'
 import { runMigrations } from './db/migrate'
@@ -48,8 +49,8 @@ function startLocalCron() {
     const hm = new Intl.DateTimeFormat('en-GB', { timeZone: env.TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date())
     const day = new Intl.DateTimeFormat('en-CA', { timeZone: env.TZ }).format(new Date())
     for (const [name, at] of [
-      ['weather', '06:00'],
       ['morning', '06:30'],
+      ['weather', '17:00'],
     ] as const) {
       const key = `${name}:${day}`
       if (hm >= at && hm < '07:30' && !done.has(key)) {

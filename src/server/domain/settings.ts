@@ -17,6 +17,8 @@ export const DEFAULT_SETTINGS = {
   sandbox: { testInbox: true },
   /** Post bookings, assignments and technician updates to the office Telegram group as a running log. */
   officeLog: { telegram: true },
+  /** Emergency capacity: the last `reserveMin` of each technician's day is kept for P1 calls, through `until` (YYYY-MM-DD). Set by the weather scan. */
+  capacity: { reserveMin: 0, until: '', reason: '' },
   /** What the agents may do on their own. */
   policies: {
     send_customer_message: 'auto',
@@ -31,6 +33,7 @@ export const DEFAULT_SETTINGS = {
     apply_discount: 'approve',
     refund: 'never',
     price_outside_book: 'never',
+    reply_outside_area: 'never',
   } as Record<string, Policy>,
   thresholds: {
     /** Below this model confidence the decision goes to the approval queue. */
@@ -91,6 +94,7 @@ export type Settings = {
   setup: { done: boolean; mode: 'demo' | 'own' }
   sandbox: { testInbox: boolean }
   officeLog: { telegram: boolean }
+  capacity: { reserveMin: number; until: string; reason: string }
   policies: Record<string, Policy>
   thresholds: (typeof DEFAULT_SETTINGS)['thresholds']
   hours: { open: string; close: string }

@@ -3,9 +3,11 @@ import { and, asc, eq, ilike, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { db, schema } from '../db'
 import { replan } from '../domain/dispatch'
+import { alertOwner } from '../domain/messaging'
 import { getSettings } from '../domain/settings'
 import { aiEnabled, runTools, type Tool } from '../integrations/gemini'
 import { setWeatherOverride } from '../integrations/weather'
+import { publish } from '../lib/bus'
 import { addDays, dayOf, fmtDayTime, zoned } from '../lib/time'
 import { act, registerExecutor } from './policy'
 import { Run } from './trace'
@@ -115,6 +117,46 @@ const tools: Tool[] = [
       }),
   },
   {
+    name: 'apply_discount',
+    description: 'Give a customer a discount on an unpaid invoice (amount in dollars). Needs owner approval per policy.',
+    params: z.object({ invoiceId: z.number().int(), amountUsd: z.number().positive(), reason: z.string() }),
+    handler: async (raw) => {
+      const a = raw as { invoiceId: number; amountUsd: number; reason: string }
+      const [inv] = await db.select().from(schema.invoices).where(eq(schema.invoices.id, a.invoiceId))
+      if (!inv) return { error: 'invoice not found' }
+      if (inv.status === 'paid') return { error: 'invoice already paid; that would be a refund' }
+      const cents = Math.round(a.amountUsd * 100)
+      if (cents >= inv.totalCents) return { error: 'discount would make the invoice free; void it instead' }
+      return act(null, {
+        policy: 'apply_discount',
+        tool: 'apply_discount',
+        args: { invoiceId: a.invoiceId, cents, reason: a.reason },
+        summary: `Discount $${a.amountUsd.toFixed(2)} on invoice #${a.invoiceId} (${a.reason})`,
+      })
+    },
+  },
+  {
+    name: 'refund_invoice',
+    description: 'Request a refund on a paid invoice. Refunds are handled by a person per policy.',
+    params: z.object({ invoiceId: z.number().int(), amountUsd: z.number().positive().optional(), reason: z.string() }),
+    handler: async (raw) => {
+      const a = raw as { invoiceId: number; amountUsd?: number; reason: string }
+      const out = await act(null, {
+        policy: 'refund',
+        tool: 'refund_invoice',
+        args: a,
+        summary: `Refund ${a.amountUsd ? `$${a.amountUsd.toFixed(2)}` : 'in full'} on invoice #${a.invoiceId} (${a.reason})`,
+      })
+      if (out.status === 'refused') {
+        await alertOwner(
+          `Refund requested on invoice #${a.invoiceId}${a.amountUsd ? ` ($${a.amountUsd.toFixed(2)})` : ''}: ${a.reason}. Refunds are done by a person in the Stripe dashboard.`,
+        )
+        return { status: 'refused', reason: 'Refunds are handled by a person. The office has been alerted.' }
+      }
+      return out
+    },
+  },
+  {
     name: 'simulate_weather',
     description: 'Demo control: pretend a cold snap or heat wave is coming (affects triage priority and the weather campaign). mode=off restores real weather.',
     params: z.object({ mode: z.enum(['cold_snap', 'heat_wave', 'off']) }),
@@ -152,6 +194,27 @@ const tools: Tool[] = [
     },
   },
 ]
+
+registerExecutor('apply_discount', async (a) => {
+  const [inv] = await db
+    .select()
+    .from(schema.invoices)
+    .where(eq(schema.invoices.id, Number(a.invoiceId)))
+  if (!inv || inv.status === 'paid') throw new Error('invoice not found or already paid')
+  const cents = Number(a.cents)
+  const lines = [...inv.lines, { code: 'DISCOUNT', name: `Discount: ${String(a.reason).slice(0, 60)}`, qty: 1, cents: -cents }]
+  const total = lines.reduce((s, l) => s + l.cents * l.qty, 0)
+  // the old payment link charges the old amount: drop it so the next send makes a new one
+  await db.update(schema.invoices).set({ lines, totalCents: total, payUrl: null, stripeSessionId: null }).where(eq(schema.invoices.id, inv.id))
+  await publish('invoice.discounted', { invoiceId: inv.id, cents, totalCents: total })
+  return { invoiceId: inv.id, totalCents: total }
+})
+
+// Only reached if the owner changes the refund policy: hand the refund to a person with the details.
+registerExecutor('refund_invoice', async (a) => {
+  await alertOwner(`Refund approved on invoice #${a.invoiceId}${a.amountUsd ? ` ($${Number(a.amountUsd).toFixed(2)})` : ''}: issue it in the Stripe dashboard.`)
+  return { handedOff: true }
+})
 
 registerExecutor('move_job', async (a) => {
   const jobId = Number(a.jobId)

@@ -77,4 +77,13 @@ describe('optimiser', () => {
     expect(opt.unassigned.length).toBe(0)
     expect(base.unassigned.length).toBeGreaterThan(0)
   })
+
+  it('keeps the reserved end of the day for emergencies only', () => {
+    const t: OptTech = { ...techs[0], reserveMin: 90 }
+    // a routine visit that would end inside the last 90 min is refused, an emergency is not
+    const late = job(1, 1, { winStart: 900, winEnd: 900 })
+    expect(evalRoute(t, [late], travel).ok).toBe(false)
+    expect(evalRoute(t, [{ ...late, priority: 1 }], travel).ok).toBe(true)
+    expect(evalRoute(techs[0], [late], travel).ok).toBe(true)
+  })
 })

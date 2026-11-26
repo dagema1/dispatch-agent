@@ -9,6 +9,7 @@ import type { Media } from '../integrations/gemini'
 import { geocode, haversineKm } from '../integrations/routing'
 import { getWeather } from '../integrations/weather'
 import { publish } from '../lib/bus'
+import { env } from '../lib/env'
 import { links } from '../lib/links'
 import { dayOf, fmtDayTime, fmtTime } from '../lib/time'
 import { diagnoseAndQuote } from './diagnosis'
@@ -35,6 +36,8 @@ export type IntakeResult = {
   quoteId?: number
   replyText: string
   status: 'booked' | 'awaiting_customer' | 'escalated' | 'duplicate'
+  /** booked, but an after-hours call-out waits for the owner's approval before anyone is told */
+  awaitingApproval?: boolean
 }
 
 registerExecutor('send_customer_message', async (a) => messageCustomer(a as Parameters<typeof messageCustomer>[0]))
@@ -143,17 +146,32 @@ async function intake(input: Inbound, resumed?: typeof schema.requests.$inferSel
     }
     const distance = haversineKm(settings.company.hq, { lat: customer.lat, lng: customer.lng! })
     if (distance > settings.company.serviceRadiusKm) {
+      // "never" by default: a person decides what to tell someone we can't serve (refer, make an exception)
       const msg = `Thanks for reaching out. Unfortunately ${customer.address} is outside our service area, so we can't send a technician. We recommend contacting a local licensed contractor.`
-      if (!input.dryRun)
-        await act(run, {
-          policy: 'send_customer_message',
-          tool: 'send_customer_message',
-          args: { customerId: customer.id, requestId: req.id, subject: `Re: ${t.issue}`, body: msg, channel: chan(input) },
-          summary: 'Out-of-area reply',
-        })
-      await db.update(schema.requests).set({ status: 'closed' }).where(eq(schema.requests.id, req.id))
-      await run.end('done', `outside service area (${distance.toFixed(0)} km)`)
-      return { requestId: req.id, customerId: customer.id, priority: t.priority, safety: t.safety, replyText: msg, status: 'escalated' }
+      const out = input.dryRun
+        ? null
+        : await act(run, {
+            policy: 'reply_outside_area',
+            tool: 'send_customer_message',
+            args: { customerId: customer.id, requestId: req.id, subject: `Re: ${t.issue}`, body: msg, channel: chan(input) },
+            summary: `Out-of-area reply to ${customer.name} (${distance.toFixed(0)} km away)`,
+          })
+      const sent = out?.status === 'done'
+      await db
+        .update(schema.requests)
+        .set({ status: sent ? 'closed' : 'escalated' })
+        .where(eq(schema.requests.id, req.id))
+      if (!sent && !input.dryRun)
+        await alertOwner(`Outside the service area: ${customer.name}, ${customer.address} (${distance.toFixed(0)} km), ${t.issue}. Request #${req.id} needs a person to reply.`)
+      await run.end('done', `outside service area (${distance.toFixed(0)} km), ${sent ? 'replied' : 'escalated to the office'}`)
+      return {
+        requestId: req.id,
+        customerId: customer.id,
+        priority: t.priority,
+        safety: t.safety,
+        replyText: sent ? msg : 'This address is outside our usual service area. Someone from the office will call you back to talk through options.',
+        status: 'escalated',
+      }
     }
 
     // 5. Photos → diagnosis agent → good/better/best quote.
@@ -213,29 +231,62 @@ async function intake(input: Inbound, resumed?: typeof schema.requests.$inferSel
       await alertOwner(`Could not fit P${t.priority} job #${job.id} (${t.issue}) for ${customer.name}: needs a manual decision`, { replan: true })
     }
     if (quoteId) parts.push(`From your photos we've prepared repair and replacement options with upfront prices: ${links.quote(quoteId)}`)
-    else if (t.priority > 1) parts.push(`If you can, send photos of the unit and its label here so the technician brings the right parts: ${links.photos(req.id)}`)
+    else parts.push(`If you can, send photos of the unit and its label here so the technician brings the right parts: ${links.photos(req.id)}`)
     const reply = personalize(parts.join('\n\n'), customer.name, settings.persona)
+    const subject = `Your ${settings.company.name} appointment`
+    const techText =
+      tech && placed.scheduledStart && dayOf(placed.scheduledStart) === dayOf(new Date())
+        ? `🆕 <b>P${t.priority} added to your route</b>\n#${job.id} ${t.issue}\n${customer.name}, ${customer.address}\nArrive ${fmtTime(placed.scheduledStart)}${replacementLead ? '\n💡 Replacement opportunity (old unit) — quote attached in dashboard' : ''}`
+        : null
 
-    if (input.channel !== 'voice') {
+    // A visit outside opening hours calls someone out: the owner approves that (policy after_hours_dispatch)
+    // before the technician or the customer is told. Phone callers get the written confirmation too.
+    let awaitingApproval = false
+    if (booking && tech && placed.scheduledStart && outsideHours(placed.scheduledStart, settings.hours)) {
+      const out = await act(run, {
+        policy: 'after_hours_dispatch',
+        tool: 'after_hours_dispatch',
+        args: { customerId: customer.id, requestId: req.id, jobId: job.id, technicianId: tech.id, subject, body: reply, channel: chan(input), techText },
+        summary: `After-hours call-out: ${tech.name} to ${customer.name} at ${fmtDayTime(placed.scheduledStart)} for ${t.issue}`,
+      })
+      awaitingApproval = out.status === 'pending_approval'
+      if (awaitingApproval)
+        await act(run, {
+          policy: 'send_customer_message',
+          tool: 'send_customer_message',
+          args: {
+            customerId: customer.id,
+            requestId: req.id,
+            jobId: job.id,
+            subject: `We're arranging your ${settings.company.name} visit`,
+            body: personalize(
+              [
+                safety?.script,
+                `Hi ${firstName(customer.name)}, we've got your request (${t.issue}). It's outside our opening hours, so our on-call technician is confirming now. We'll message you the arrival time as soon as it's confirmed, usually within 15 minutes.`,
+              ]
+                .filter(Boolean)
+                .join('\n\n'),
+              customer.name,
+              settings.persona,
+            ),
+            channel: chan(input),
+          },
+          summary: `Tell ${customer.name} the after-hours visit is being confirmed`,
+        })
+    } else {
       await act(run, {
         policy: 'send_customer_message',
         tool: 'send_customer_message',
-        args: { customerId: customer.id, requestId: req.id, jobId: job.id, subject: `Your ${settings.company.name} appointment`, body: reply, channel: chan(input) },
+        args: { customerId: customer.id, requestId: req.id, jobId: job.id, subject, body: reply, channel: chan(input) },
         summary: `Confirm booking with ${customer.name}`,
         confidence: t.confidence,
       })
+      if (tech && techText) await messageTechnician(tech.id, techText, job.id)
     }
     await db
       .update(schema.requests)
       .set({ status: booking ? 'booked' : 'escalated', firstResponseAt: new Date() })
       .where(eq(schema.requests.id, req.id))
-    if (tech && placed.scheduledStart && dayOf(placed.scheduledStart) === dayOf(new Date())) {
-      await messageTechnician(
-        tech.id,
-        `🆕 <b>P${t.priority} added to your route</b>\n#${job.id} ${t.issue}\n${customer.name}, ${customer.address}\nArrive ${fmtTime(placed.scheduledStart)}${replacementLead ? '\n💡 Replacement opportunity (old unit) — quote attached in dashboard' : ''}`,
-        job.id,
-      )
-    }
     await run.end(
       'done',
       booking
@@ -252,6 +303,7 @@ async function intake(input: Inbound, resumed?: typeof schema.requests.$inferSel
       quoteId,
       replyText: reply,
       status: booking ? 'booked' : 'escalated',
+      awaitingApproval,
     }
   } catch (e) {
     await run.step('error', 'intake', null, { error: (e as Error).message })
@@ -290,6 +342,26 @@ export async function fixAndBook(
   const result = await intake({ channel: req.channel as Inbound['channel'], text: req.rawText, externalId: req.externalId ?? undefined, customer: { address } }, req)
   return { ok: true, result }
 }
+
+/** Is this moment outside opening hours (company time zone)? */
+export function outsideHours(d: Date, hours: { open: string; close: string }) {
+  const hm = new Intl.DateTimeFormat('en-GB', { timeZone: env.TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d)
+  return hm < hours.open || hm >= hours.close
+}
+
+// The approved (or automatic) after-hours call-out: tell the technician and confirm with the customer.
+registerExecutor('after_hours_dispatch', async (a) => {
+  await messageCustomer({
+    customerId: Number(a.customerId),
+    requestId: Number(a.requestId),
+    jobId: Number(a.jobId),
+    subject: String(a.subject),
+    body: String(a.body),
+    channel: a.channel as 'email' | 'sms' | 'voice' | 'web',
+  })
+  if (a.techText) await messageTechnician(Number(a.technicianId), String(a.techText), Number(a.jobId))
+  return { confirmed: true }
+})
 
 const chan = (i: Inbound) => (i.channel === 'voice' ? 'voice' : i.channel === 'web' ? 'web' : i.channel === 'sms' ? 'sms' : 'email')
 

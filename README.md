@@ -26,9 +26,9 @@ An agent that does the dispatcher / CSR job at a residential HVAC and plumbing c
 
 | Job | Schedule | What it does |
 |---|---|---|
-| `tick` (watchdog) | every minute | Polls Gmail, raises SLA alerts for unanswered urgent requests, drains the job queue, checks Stripe for payments |
-| `morning` | 06:30 company time | Re-plans the day, sends each tech their route, sends the owner a summary |
-| `weather` | 06:00 company time | Checks the Open-Meteo forecast; a cold snap or heat wave drafts a targeted maintenance campaign (sending it needs approval) |
+| `tick` (watchdog) | every minute | Polls Gmail, raises SLA alerts for unanswered urgent requests, queues tomorrow's visit reminders (from 17:00), drains the job queue (reminders, review requests, quote follow-ups, payment reminders), checks Stripe for payments |
+| `morning` | 06:30 company time | Re-plans the day, sends each tech their route, sends the owner a summary (office Telegram group, and email when Gmail is connected) |
+| `weather` | 17:00 company time | Checks the 3-day Open-Meteo forecast; a cold snap or heat wave holds the last 90 min of each technician's day for emergencies (next 3 days) and drafts a targeted maintenance campaign (sending it needs approval) |
 
 Locally these run on in-process timers. In production, Cloud Scheduler calls `POST /api/cron/<name>` with `Authorization: Bearer $CRON_SECRET`.
 
@@ -141,7 +141,7 @@ gcloud run deploy dispatch-agent --source . --region us-central1 \
 - `EXTERNAL_CRON=1` turns off the local timers. Create the three jobs:
 
 ```bash
-for job in "tick:* * * * *" "morning:30 6 * * *" "weather:0 6 * * *"; do
+for job in "tick:* * * * *" "morning:30 6 * * *" "weather:0 17 * * *"; do
   name=${job%%:*}; cron=${job#*:}
   gcloud scheduler jobs create http "dispatch-$name" --location us-central1 \
     --schedule "$cron" --time-zone "America/Denver" --http-method POST \

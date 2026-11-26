@@ -8,13 +8,13 @@ import { Run } from '../agent/trace'
 import { db, schema } from '../db'
 import { replan } from '../domain/dispatch'
 import { alertOwner, firstName, messageCustomer } from '../domain/messaging'
-import { getSettings } from '../domain/settings'
+import { getSettings, saveSetting } from '../domain/settings'
 import { aiEnabled, generateJson } from '../integrations/gemini'
-import { deleteCalendarEvent, gmailConnected, pollInbox, upsertCalendarEvent } from '../integrations/google'
+import { deleteCalendarEvent, gmailConnected, pollInbox, sendGmail, upsertCalendarEvent } from '../integrations/google'
 import { cToF, getWeather } from '../integrations/weather'
 import { publish } from '../lib/bus'
 import { drain, registerHandler } from '../lib/queue'
-import { dayOf, fmtDayTime, fmtTime } from '../lib/time'
+import { addDays, dayOf, fmtDayTime, fmtTime } from '../lib/time'
 
 /**
  * Proactive work. Three scheduled entry points (Cloud Scheduler → /api/cron/<name>, or the
@@ -115,7 +115,9 @@ export async function watchdog() {
       )
     }
   }
-  // 3. queued work, payments
+  // 3. tomorrow's visit reminders (from 17:00), then queued work and payments
+  const { queueVisitReminders } = await import('../agent/follow-ups')
+  await queueVisitReminders().catch((e) => console.warn('[reminders]', (e as Error).message))
   out.queue = await drain()
   await sweepPayments()
   return out
@@ -141,14 +143,21 @@ export async function morningPlan() {
   const todays = jobs.filter((j) => j.scheduledStart && dayOf(j.scheduledStart) === today)
   const unassigned = jobs.filter((j) => j.status === 'unassigned').length
   const value = todays.reduce((a, j) => a + j.estValueCents, 0)
-  await alertOwner(
-    `☀️ Morning plan: ${todays.length} visits today across ${techs.length} techs, ~$${Math.round(value / 100).toLocaleString()} booked, ${res.travelMin} min driving.${unassigned ? ` ${unassigned} job(s) unassigned.` : ''} Routes sent to ${briefed} tech(s).`,
-  )
+  const summary = `☀️ Morning plan: ${todays.length} visits today across ${techs.length} techs, ~$${Math.round(value / 100).toLocaleString()} booked, ${res.travelMin} min driving.${unassigned ? ` ${unassigned} job(s) unassigned.` : ''} Routes sent to ${briefed} tech(s).`
+  await alertOwner(summary)
+  // the owner's inbox gets it too when Gmail is connected
+  const { company } = await getSettings()
+  if (company.email && (await gmailConnected()))
+    await sendGmail({ to: company.email, subject: `Morning plan for ${today}`, body: summary.replace('☀️ ', '') }).catch((e) =>
+      console.warn('[gmail] morning summary', (e as Error).message),
+    )
   await run.end('done', `${todays.length} visits, ${briefed} briefed`)
   return { visits: todays.length, briefed, unassigned, travelMin: res.travelMin }
 }
 
-// ---------- weather scan (06:00) ----------
+const RESERVE_MIN = 90
+
+// ---------- weather scan (17:00) ----------
 
 const CampaignSchema = z.object({ subject: z.string(), body: z.string().describe('plain text, under 120 words, friendly, no fake urgency') })
 
@@ -172,6 +181,14 @@ export async function weatherScan() {
   if (existing) return { trigger, campaignId: existing.id, minC, maxC }
 
   const run = await Run.start('ops', 'cron_weather', trigger)
+  // keep the end of each technician's day free for the emergency calls a freeze or heat wave brings
+  const until = addDays(dayOf(new Date()), 2)
+  await saveSetting('capacity', { reserveMin: RESERVE_MIN, until, reason: trigger })
+  await run.step('tool', 'reserve_capacity', { minutesPerTech: RESERVE_MIN, until }, { ok: true })
+  await replan({ reason: `${trigger === 'cold_snap' ? 'cold snap' : 'heat wave'}: emergency capacity reserved`, run })
+  await alertOwner(
+    `${trigger === 'cold_snap' ? '🥶 Cold snap' : '🥵 Heat wave'} ahead: the last ${RESERVE_MIN} min of every technician's day is held for emergencies through ${until}. Release it in Settings → Automation.`,
+  )
   // target: customers with the relevant equipment, oldest first (most likely to fail)
   const kind = trigger === 'cold_snap' ? ['furnace', 'boiler', 'heat_pump'] : ['ac', 'heat_pump']
   const rows = await db

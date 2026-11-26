@@ -16,6 +16,8 @@ export type OptTech = {
   startNode: number
   startMin: number
   endMin: number
+  /** Emergency reserve: only P1 visits may run into the last `reserveMin` minutes of the day. */
+  reserveMin?: number
 }
 
 export type OptJob = {
@@ -81,6 +83,7 @@ export function evalRoute(tech: OptTech, seq: OptJob[], travel: Travel): RouteEv
       if (start > job.winEnd) return { ok: false, cost: Infinity, stops, travel: 0 }
     }
     const end = start + job.durationMin
+    if (tech.reserveMin && job.priority !== 1 && job.pinnedStart === undefined && end > tech.endMin - tech.reserveMin) return { ok: false, cost: Infinity, stops, travel: 0 }
     travelSum += drive
     cost += drive + PRIORITY_WAIT_WEIGHT[job.priority] * Math.max(0, start - Math.max(job.winStart, tech.startMin))
     if (job.wantsSenior && !tech.senior) cost += NOT_SENIOR_PENALTY

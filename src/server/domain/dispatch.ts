@@ -6,6 +6,7 @@ import { publish } from '../lib/bus'
 import { enqueue } from '../lib/queue'
 import { addDays, dayOf, MIN, zoned } from '../lib/time'
 import { type OptJob, type OptTech, optimise } from './optimizer'
+import { getSettings } from './settings'
 
 type JobRow = typeof schema.jobs.$inferSelect
 type TechRow = typeof schema.technicians.$inferSelect
@@ -34,6 +35,7 @@ export async function replan(opts: { reason: string; days?: number; run?: Run | 
   const horizonEnd = zoned(addDays(today, days.length), '00:00')
 
   const techs = await db.select().from(schema.technicians).where(sql`${schema.technicians.active}`)
+  const { capacity } = await getSettings()
   const open = await db
     .select({ job: schema.jobs, lat: schema.customers.lat, lng: schema.customers.lng })
     .from(schema.jobs)
@@ -80,6 +82,8 @@ export async function replan(opts: { reason: string; days?: number; run?: Run | 
         startNode: di === 0 ? techNode.get(t.id)! : homeNode.get(t.id)!,
         startMin: Math.max(ws, nowMin),
         endMin: we,
+        // weather alert: hold the end of each day for emergencies
+        reserveMin: capacity.reserveMin > 0 && capacity.until && day <= capacity.until ? capacity.reserveMin : 0,
       }
     })
 
