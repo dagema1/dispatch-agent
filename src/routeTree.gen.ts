@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as BookRouteImport } from './routes/book'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAgentRouteImport } from './routes/app/agent'
 import { Route as AppAgentsRouteImport } from './routes/app/agents'
@@ -55,6 +56,11 @@ const SetupRoute = SetupRouteImport.update({
 const ApiEventsRoute = ApiEventsRouteImport.update({
   id: '/api/events',
   path: '/api/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/book': typeof BookRoute
   '/setup': typeof SetupRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/health': typeof ApiHealthRoute
   '/app/agent': typeof AppAgentRoute
   '/app/agents': typeof AppAgentsRoute
   '/app/approvals': typeof AppApprovalsRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByTo {
   '/book': typeof BookRoute
   '/setup': typeof SetupRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/health': typeof ApiHealthRoute
   '/app/agent': typeof AppAgentRoute
   '/app/agents': typeof AppAgentsRoute
   '/app/approvals': typeof AppApprovalsRoute
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/book': typeof BookRoute
   '/setup': typeof SetupRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/health': typeof ApiHealthRoute
   '/app/agent': typeof AppAgentRoute
   '/app/agents': typeof AppAgentsRoute
   '/app/approvals': typeof AppApprovalsRoute
@@ -223,6 +232,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/setup'
     | '/api/events'
+    | '/api/health'
     | '/app/agent'
     | '/app/agents'
     | '/app/approvals'
@@ -246,6 +256,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/setup'
     | '/api/events'
+    | '/api/health'
     | '/app/agent'
     | '/app/agents'
     | '/app/approvals'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/setup'
     | '/api/events'
+    | '/api/health'
     | '/app/agent'
     | '/app/agents'
     | '/app/approvals'
@@ -295,6 +307,7 @@ export interface RootRouteChildren {
   BookRoute: typeof BookRoute
   SetupRoute: typeof SetupRoute
   ApiEventsRoute: typeof ApiEventsRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   CPaidRoute: typeof CPaidRoute
   ApiCronNameRoute: typeof ApiCronNameRoute
   ApiGoogleCallbackRoute: typeof ApiGoogleCallbackRoute
@@ -339,6 +352,13 @@ declare module '@tanstack/react-router' {
       path: '/api/events'
       fullPath: '/api/events'
       preLoaderRoute: typeof ApiEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -497,6 +517,7 @@ const rootRouteChildren: RootRouteChildren = {
   BookRoute: BookRoute,
   SetupRoute: SetupRoute,
   ApiEventsRoute: ApiEventsRoute,
+  ApiHealthRoute: ApiHealthRoute,
   CPaidRoute: CPaidRoute,
   ApiCronNameRoute: ApiCronNameRoute,
   ApiGoogleCallbackRoute: ApiGoogleCallbackRoute,

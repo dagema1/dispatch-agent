@@ -126,6 +126,34 @@ pnpm build       # production build → .output/
 
 ---
 
+## Deploy (Dokploy, or any Docker host)
+
+The repo has a `Dockerfile`: one container for the app, Postgres next to it.
+
+1. **Database.** In the Dokploy project, create a **Postgres** service and copy its *internal* connection URL. Tables are created on first start.
+2. **App.** Create an **Application** from this GitHub repo, branch `master`, build type **Dockerfile**. The container listens on port `3000`.
+3. **Environment** (Application → Environment):
+
+   ```env
+   DATABASE_URL=postgresql://…              # the internal URL from step 1
+   APP_URL=https://dispatch-agent.example.com
+   GEMINI_API_KEY=…
+   TELEGRAM_BOT_TOKEN=…
+   TELEGRAM_OWNER_CHAT_ID=…
+   ORS_API_KEY=…
+   STRIPE_SECRET_KEY=sk_test_…
+   OWNER_PASSWORD=…
+   SESSION_SECRET=<long random string>
+   CRON_SECRET=<long random string>
+   GOOGLE_CLIENT_ID=…                       # optional: Gmail + Calendar
+   GOOGLE_CLIENT_SECRET=…
+   ```
+
+   Leave `EXTERNAL_CRON` unset: the scheduled jobs then run inside the container.
+4. **Domain** (Application → Domains): your host name, container port `3000`, HTTPS on with Let's Encrypt. Point a DNS `A` record for the name at the server first.
+5. **Deploy.** Keep **one replica**: the Telegram bot long-polls (two pollers get 409 Conflict) and the queue runs in-process. The image's health check calls `/api/health`, which also starts the bot, queue and timers right after a deploy.
+6. **First run.** Stop any local dev server using the same bot token. Open `https://<your domain>/setup` and pick the demo company. For Google, add `https://<your domain>/api/google/callback` as a redirect URI on the OAuth client.
+
 ## Deploy (Google Cloud Run + Cloud Scheduler)
 
 **1. Database.** Create a Postgres database (Neon free tier works) and copy its connection string. Tables are created on first boot; demo data is loaded from `/setup`.
