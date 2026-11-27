@@ -32,13 +32,24 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
+// beforeLoad runs on every click inside the dashboard. Checking the session there each time put a
+// server round trip in front of every page change (the old page stayed up meanwhile), so a passed
+// check is trusted for a few minutes. Signing out reloads the page, which clears it.
+const SESSION_TTL = 5 * 60_000
+let sessionCheckedAt = 0
+
 export const Route = createFileRoute('/app')({
   beforeLoad: async () => {
+    if (Date.now() - sessionCheckedAt < SESSION_TTL) return
     const s = await getSession()
     if (!s.owner) throw redirect({ to: '/' })
     if (!s.setupDone) throw redirect({ to: '/setup' })
+    sessionCheckedAt = Date.now()
   },
   loader: () => getSnapshot(),
+  // the live stream and LiveProvider keep the snapshot fresh; reloading it on every page change only
+  // delayed the change. router.invalidate() (after setup or a reset) still reloads it.
+  staleTime: Number.POSITIVE_INFINITY,
   component: AppLayout,
   ssr: false,
   pendingComponent: AppSkeleton,
@@ -133,8 +144,25 @@ function AppLayout() {
   const initial = Route.useLoaderData()
   return (
     <LiveProvider initial={initial}>
+      <NavProgress />
       <Shell />
     </LiveProvider>
+  )
+}
+
+/** A thin bar at the top while the next page loads, so a click never looks ignored. Waits 150 ms to avoid flicker. */
+function NavProgress() {
+  const pending = useRouterState({ select: (s) => s.status === 'pending' })
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    if (!pending) return setShow(false)
+    const t = setTimeout(() => setShow(true), 150)
+    return () => clearTimeout(t)
+  }, [pending])
+  return (
+    <div aria-hidden className={cn('pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden transition-opacity', show ? 'opacity-100' : 'opacity-0')}>
+      <div className="h-full w-1/3 animate-[nav-progress_1.1s_ease-in-out_infinite] rounded-full bg-primary" />
+    </div>
   )
 }
 
@@ -184,6 +212,8 @@ function RailItem({ open, label, children }: { open: boolean; label: string; chi
 function Shell() {
   const { snap, connected } = useLive()
   const path = useRouterState({ select: (s) => s.location.pathname })
+  // the page on screen: location changes as soon as a link is clicked, the resolved one once the page is ready
+  const shownPath = useRouterState({ select: (s) => (s.resolvedLocation ?? s.location).pathname })
   const pending = snap?.approvals.filter((a) => a.status === 'pending').length ?? 0
   const [open, toggle] = useRail()
   const item = cn(
@@ -304,7 +334,7 @@ function Shell() {
         </header>
         <main className="min-w-0 flex-1 p-4 pb-44 md:p-6 md:pb-28">
           {snap ? (
-            <div key={path} className="route-in mx-auto w-full max-w-[1600px]">
+            <div key={shownPath} className="route-in mx-auto w-full max-w-[1600px]">
               <ConfirmProvider>
                 <Outlet />
               </ConfirmProvider>

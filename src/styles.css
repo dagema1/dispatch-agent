@@ -523,3 +523,12 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+@keyframes nav-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
