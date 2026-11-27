@@ -1,4 +1,19 @@
-export const TZ = 'America/Denver'
+/**
+ * The company's time zone (COMPANY_TZ on the server, America/Denver by default). The server reads it
+ * from the environment and hands the same value to the browser in the page head, so the screen and
+ * the agents always agree on "today" and opening hours.
+ */
+export function companyTz(): string {
+  const fallback = 'America/Denver'
+  const v = typeof window !== 'undefined' ? (window as { __COMPANY_TZ?: string }).__COMPANY_TZ : process.env.COMPANY_TZ?.trim()
+  if (!v) return fallback
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: v })
+    return v
+  } catch {
+    return fallback
+  }
+}
 export const money = (cents: number | null | undefined, digits = 0) =>
   cents == null
     ? '—'
@@ -11,7 +26,7 @@ export const money = (cents: number | null | undefined, digits = 0) =>
 export const time = (d: string | Date | null | undefined) =>
   d
     ? new Intl.DateTimeFormat('en-US', {
-        timeZone: TZ,
+        timeZone: companyTz(),
         hour: 'numeric',
         minute: '2-digit',
       }).format(new Date(d))
@@ -19,7 +34,7 @@ export const time = (d: string | Date | null | undefined) =>
 export const dayTime = (d: string | Date | null | undefined) =>
   d
     ? new Intl.DateTimeFormat('en-US', {
-        timeZone: TZ,
+        timeZone: companyTz(),
         weekday: 'short',
         month: 'short',
         day: 'numeric',
@@ -34,10 +49,10 @@ export const dayLabel = (day: string) =>
     month: 'short',
     day: 'numeric',
   }).format(new Date(`${day}T12:00:00Z`))
-export const dayOf = (d: string | Date) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(d))
+export const dayOf = (d: string | Date) => new Intl.DateTimeFormat('en-CA', { timeZone: companyTz() }).format(new Date(d))
 export const minutesOfDay = (d: string | Date) => {
   const p = new Intl.DateTimeFormat('en-GB', {
-    timeZone: TZ,
+    timeZone: companyTz(),
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',

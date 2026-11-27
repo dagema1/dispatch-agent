@@ -1,4 +1,5 @@
 import { createRootRoute, HeadContent, Scripts } from '@tanstack/react-router'
+import { companyTz } from '#/ui/format'
 import { THEME_BOOT } from '#/ui/theme'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import appCss from '../styles.css?url'
@@ -15,7 +16,8 @@ export const Route = createRootRoute({
       },
     ],
     // theme bootstrap runs before paint; rendered through HeadContent so server and client trees match
-    scripts: [{ children: THEME_BOOT }],
+    // the company time zone, so dates render the same on the server and in the browser
+    scripts: [{ children: THEME_BOOT }, { children: `window.__COMPANY_TZ=${JSON.stringify(companyTz())}` }],
     links: [
       { rel: 'stylesheet', href: appCss },
       {

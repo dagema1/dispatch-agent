@@ -3,7 +3,7 @@ import { db, schema } from '../db'
 import { getSettings } from '../domain/settings'
 import { googleAccount } from '../integrations/google'
 import { getWeather, getWeatherOverride } from '../integrations/weather'
-import { integrations } from '../lib/env'
+import { env, integrations } from '../lib/env'
 import { sign, verify } from '../lib/links'
 import { addDays, dayOf, zoned } from '../lib/time'
 
@@ -133,7 +133,7 @@ export async function kpis() {
     bookingRate: reqs.length ? booked / reqs.length : 0,
     medianResponseSec: median,
     afterHours: reqs.filter((r) => {
-      const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Denver', hour: 'numeric', hour12: false }).format(r.createdAt))
+      const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: env.TZ, hour: 'numeric', hour12: false }).format(r.createdAt))
       return h < 8 || h >= 17
     }).length,
     jobsDone: jobs.length,

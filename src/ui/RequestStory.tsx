@@ -37,7 +37,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { Empty, Priority, Status } from './bits'
 import { ThreadDialog, TranscriptButton } from './Conversation'
-import { AGENT_LABEL, ago, dayOf, dayTime, money, triggerLabel } from './format'
+import { AGENT_LABEL, ago, companyTz, dayOf, dayTime, money, triggerLabel } from './format'
 import { useSnap } from './live'
 import { Composer } from './NeedsYou'
 
@@ -226,7 +226,7 @@ const Fact = ({ label, value, wide }: { label: string; value: React.ReactNode; w
   </div>
 )
 
-const timeOnly = (d: string | Date) => new Intl.DateTimeFormat('en-US', { timeZone: 'America/Denver', hour: 'numeric', minute: '2-digit' }).format(new Date(d))
+const timeOnly = (d: string | Date) => new Intl.DateTimeFormat('en-US', { timeZone: companyTz(), hour: 'numeric', minute: '2-digit' }).format(new Date(d))
 const sameDay = (a: string | Date, b: string | Date) => dayOf(a) === dayOf(b)
 /** "Wed, Nov 25, 3:33 PM to 5:00 PM", or both dates when the window crosses midnight. */
 const windowText = (a: string | Date, b: string | Date) => `${dayTime(a)} to ${sameDay(a, b) ? timeOnly(b) : dayTime(b)}`
