@@ -68,9 +68,11 @@ const NAV = [
   { to: '/app/agent', label: 'Agent chat', icon: Sparkles },
   { to: '/app/team', label: 'Agents', icon: Bot, also: '/app/agents' },
   { to: '/app/roi', label: 'ROI & simulator', icon: ChartNoAxesCombined },
-  { to: '/app/sim', label: 'Simulators', icon: FlaskConical },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ] as const
+
+/** Test tools, not part of the office's own work: shown next to the customer page, apart from the main list. */
+const SIM = { to: '/app/sim', label: 'Simulators', icon: FlaskConical } as const
 
 /** Stable keys for fixed-length placeholder lists. */
 const keys = (p: string, n: number) => Array.from({ length: n }, (_, i) => `${p}${i}`)
@@ -97,6 +99,7 @@ function AppSkeleton() {
           ))}
         </div>
         <div className="flex shrink-0 items-center gap-1 md:mt-auto md:flex-col md:items-stretch">
+          <Skeleton className="h-10 w-10 rounded-2xl rail-open:md:h-12 rail-open:md:w-full" />
           <Skeleton className="h-10 w-10 rounded-2xl md:mb-2 rail-open:md:h-12 rail-open:md:w-full" />
           <div className="hidden flex-col items-center gap-1 md:flex rail-open:flex-row rail-open:justify-between">
             {keys('foot', 3).map((k) => (
@@ -165,6 +168,10 @@ function NavProgress() {
     </div>
   )
 }
+
+/** The two cards at the foot of the rail (simulators, customer page). */
+const footCard =
+  'group/cta flex shrink-0 items-center gap-2.5 rounded-2xl text-sm outline-none transition-[background-color,scale] focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]'
 
 const RAIL_KEY = 'rail'
 /** Shared by the rail and its loading skeleton so both are the same box. */
@@ -265,6 +272,28 @@ function Shell() {
           ))}
         </nav>
         <div className="flex shrink-0 items-center gap-1 md:mt-auto md:flex-col md:items-stretch">
+          <RailItem open={open} label={SIM.label}>
+            <Link
+              to={SIM.to}
+              aria-label={SIM.label}
+              className={cn(
+                footCard,
+                open
+                  ? 'border border-(--edge) bg-foreground/4 p-2 hover:bg-foreground/8 data-[status=active]:bg-foreground/10'
+                  : 'size-10 justify-center text-muted-foreground hover:bg-foreground/6 hover:text-foreground data-[status=active]:bg-foreground/8 data-[status=active]:text-primary',
+              )}
+            >
+              <span className={cn('grid shrink-0 place-items-center', open && 'tile tile-quiet size-8 rounded-xl')}>
+                <SIM.icon size={open ? 16 : 18} />
+              </span>
+              {open && (
+                <span className="min-w-0 flex-1 leading-tight">
+                  <span className="block truncate font-medium">{SIM.label}</span>
+                  <span className="block truncate text-[11px] text-muted-foreground">Play a tech or customer</span>
+                </span>
+              )}
+            </Link>
+          </RailItem>
           <RailItem open={open} label="Customer booking page">
             <a
               href="/book"
@@ -272,7 +301,8 @@ function Shell() {
               rel="noreferrer"
               aria-label="Open the customer booking page in a new tab"
               className={cn(
-                'group/cta flex shrink-0 items-center gap-2.5 rounded-2xl text-sm outline-none transition-[background-color,scale] focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98] md:mb-2',
+                footCard,
+                'md:mb-2',
                 open
                   ? 'border border-(--edge) bg-foreground/4 p-2 hover:bg-foreground/8'
                   : 'size-10 justify-center text-muted-foreground hover:bg-foreground/6 hover:text-foreground',
@@ -352,7 +382,7 @@ const PRIMARY = ['/app', '/app/inbox', '/app/approvals', '/app/money'] as const
 function MobileTabs({ pending }: { pending: number }) {
   const [more, setMore] = useState(false)
   const path = useRouterState({ select: (s) => s.location.pathname })
-  const rest = NAV.filter((n) => !(PRIMARY as readonly string[]).includes(n.to))
+  const rest = [...NAV.filter((n) => !(PRIMARY as readonly string[]).includes(n.to)), SIM]
   const inRest = rest.some((n) => path.startsWith(n.to) || ('also' in n && path.startsWith(n.also)))
   const tab = 'relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl py-1.5 text-[11px] text-muted-foreground transition-colors'
   return (
