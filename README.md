@@ -13,7 +13,7 @@ An agent that does the dispatcher / CSR job at a residential HVAC and plumbing c
 | **Intake** | Browser voice receptionist (Gemini Live), email (Gmail poll or the test form) and web booking all go through one pipeline: safety check, triage (priority, trade, reasons), booking, reply with a tracking link. | `/book`, Inbox |
 | **Photo quotes** | Customer photos of the unit, its label or error lights → Gemini vision diagnosis → good / better / best options, priced only from the price book. Units past their expected lifespan are flagged as replacement leads. | `/book` → Details & photos, Quotes & invoices |
 | **Fleet dispatch** | Skills, time windows, priority and real drive times (OpenRouteService matrix) → optimised routes for 5 techs. It re-plans on every emergency, delay, sick call or finished job and tells the customers it moves. | Dispatch board |
-| **Technician app** | Telegram, no typing needed. A persistent button keyboard (My route, Running late, Job done, Send location). Today's route arrives as an **interactive HTML widget** (Bot API 10.4) with On my way / Arrived / Job done per visit. Live location drives customer ETAs. | Telegram, `/c/track/…` |
+| **Technician app** | Telegram, no typing needed. A persistent button keyboard (My route, Running late, Job done, Send location). Today's route arrives with On my way / Arrived / Job done per visit, as an **interactive HTML widget** (Bot API 10.4) where Telegram allows it, otherwise as text with inline buttons. Live location drives customer ETAs. | Telegram, `/c/track/…` |
 | **Job-to-cash** | Tech sends a voice note → job report → invoice → Stripe **test-mode** payment link → automatic reminders until paid. | Quotes & invoices |
 | **Office group** | A pinned **button panel** (Brief, Board, Approvals with a live count, Re-plan, Ask the copilot). Answers are **ephemeral** (Bot API 10.2/10.4): only whoever tapped sees them. Approval cards can be approved or rejected by anyone in the group; the card shows who decided. | Telegram group |
 | **Guardrails** | Every action passes a policy engine: *auto*, *needs approval* or *never*, per action type. Low model confidence forces approval. Every model call, tool call and policy decision is traced. | Approvals, Agent traces, Settings |
@@ -114,7 +114,7 @@ Every integration is optional. Without a key, the feature falls back (rules inst
 2. **Office group:** add the bot to a group with everyone who should see alerts, then send `/owner` there (or set `TELEGRAM_OWNER_CHAT_ID`). The bot posts the button panel and pins it if it is an admin; `/menu` re-posts it. The group also gets a running dispatch log: bookings, technician assignments and slot changes, and what technicians are sent and report (accepted, on the way, on site, running late, notes, done), batched into silent messages. Turn it off in Settings → Integrations → Office group log. A **live board** is posted and pinned with the panel (or from Settings → Integrations → Live board in Telegram): every technician's day with done/total and what they're on now, unassigned visits and pending approvals, re-rendered in place on every schedule change. Tap a technician for their route; Re-plan re-plans the day. Production Telegram allows HTML widgets (Bot API 10.4) only in private chats, so in a group the board is a text message that edits itself, with a button per technician (route shown only to whoever tapped) and Re-plan; where widgets are allowed it is sent as the widget.
 3. **Technicians:** each tech opens a private chat with the bot, sends `/start` and taps their name. The button keyboard appears under the chat.
 
-Telegram currently delivers HTML widgets only in **private chats** in production. Techs get the widget; on a client that can't show it, the route falls back to text with inline buttons. Ephemeral messages work in groups.
+Telegram enables Bot API 10.4 HTML widgets per bot, and this bot is not enabled yet (`INPUT_MEDIA_WIDGET_NOT_ALLOWED` in every chat). The route and the live board therefore run as self-editing text with inline buttons; every send tries the widget first, so they switch over on their own once Telegram allows it. Ephemeral messages work in groups.
 
 ### Checks
 
@@ -191,4 +191,4 @@ src/
 - The eval set is small (45 cases). Treat the percentages as directional.
 - The simulator compares against a modelled human office, not a measured one.
 - Without an ORS key (or when ORS is slow), drive times fall back to distance-based estimates, and traces say so.
-- Telegram widgets reach techs only in private chats. That's a Telegram production limit, not a choice.
+- Telegram has not enabled HTML widgets for this bot yet, so routes and the board are text with buttons for now. That's a Telegram-side switch, not a choice.
