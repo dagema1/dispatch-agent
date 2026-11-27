@@ -88,6 +88,8 @@ if (!g.__officeLog) {
   g.__officeLog = true
   subscribe((ev) => {
     if (!LOGGED.has(ev.type)) return
+    // loading the demo company plans the whole week at once: not news for the office
+    if (ev.type === 'job.planned' && (ev.payload.reason === 'seed' || ev.payload.reason === 'fresh start')) return
     queue.push(ev)
     if (!timer) timer = setTimeout(() => void flush().catch((e) => console.warn('[office-log]', (e as Error).message)), BATCH_MS)
   })
