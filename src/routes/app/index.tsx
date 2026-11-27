@@ -66,6 +66,8 @@ function Board() {
   const todays = snap.jobs.filter((j) => j.scheduledStart && dayOf(j.scheduledStart) === snap.today)
   // a P1 is open from the moment it is triaged, whether or not a job exists yet
   const openP1 = snap.jobs.filter((j) => j.priority === 1 && !['done', 'cancelled'].includes(j.status)).length + waitingP1(snap).length
+  // of those, the ones with no technician yet (an unslotted job, or a request still being worked out)
+  const unslottedP1 = snap.jobs.filter((j) => j.priority === 1 && j.status === 'unassigned').length + waitingP1(snap).length
   const nowMin = minutesOfDay(snap.now)
   const w = snap.weather
   const open = openId != null ? (snap.jobs.find((j) => j.id === openId) ?? null) : null
@@ -176,7 +178,13 @@ function Board() {
           ratio={todays.length ? todays.filter((j) => j.status === 'done').length / todays.length : 0}
         />
         <Stat label="Booked value today" icon={CircleDollarSign} value={money(todays.reduce((a, j) => a + j.estValueCents, 0))} hint="estimated, before upsells" />
-        <Stat label="Open emergencies" icon={Siren} value={openP1} tone={openP1 ? 'bad' : 'good'} hint={openP1 ? 'jump the queue on re-plan' : 'none waiting'} />
+        <Stat
+          label="Open emergencies"
+          icon={Siren}
+          value={openP1}
+          tone={openP1 ? 'bad' : 'good'}
+          hint={!openP1 ? 'none waiting' : unslottedP1 ? `${unslottedP1} without a technician yet` : 'all have a technician'}
+        />
         <Stat
           label="Unassigned"
           icon={Inbox}
@@ -223,7 +231,7 @@ function Board() {
                   <span className="pointer-events-none absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-(--glass-strong) backdrop-blur-md px-2.5 py-1 text-xs font-medium ring-1 ring-border">
                     <MapPin className="size-3.5" /> Denver metro
                   </span>
-                  <MapInsight unassigned={unassigned.length} openP1={openP1} />
+                  <MapInsight unassigned={unassigned.length} openP1={openP1} unslottedP1={unslottedP1} />
                 </div>
               </CardContent>
             </Card>
@@ -299,13 +307,15 @@ function Dock({ children }: { children: React.ReactNode }) {
 }
 
 /** One line of judgement floating over the map, like a dispatcher looking over your shoulder. */
-function MapInsight({ unassigned, openP1 }: { unassigned: number; openP1: number }) {
+function MapInsight({ unassigned, openP1, unslottedP1 }: { unassigned: number; openP1: number; unslottedP1: number }) {
   const msg =
-    openP1 > 0
-      ? { title: `${openP1} emergenc${openP1 === 1 ? 'y' : 'ies'} open`, sub: 'Emergencies jump the queue on the next re-plan.' }
-      : unassigned > 0
-        ? { title: `${unassigned} visit${unassigned === 1 ? '' : 's'} without a slot`, sub: 'Re-plan from the dock to fit them in.' }
-        : { title: 'Every visit has a slot', sub: 'Routes are re-planned automatically on every change.' }
+    unslottedP1 > 0
+      ? { title: `${unslottedP1} emergenc${unslottedP1 === 1 ? 'y' : 'ies'} without a technician`, sub: 'Emergencies jump the queue on the next re-plan.' }
+      : openP1 > 0
+        ? { title: `${openP1} emergenc${openP1 === 1 ? 'y' : 'ies'} in progress`, sub: 'First in line on a route; everything else planned around it.' }
+        : unassigned > 0
+          ? { title: `${unassigned} visit${unassigned === 1 ? '' : 's'} without a slot`, sub: 'Re-plan from the dock to fit them in.' }
+          : { title: 'Every visit has a slot', sub: 'Routes are re-planned automatically on every change.' }
   return (
     <div className="absolute inset-x-3 bottom-3 z-10 flex items-center gap-3 rounded-2xl border bg-(--glass-strong) p-3 backdrop-blur-xl shadow-(--slab-shadow)">
       <span className={cn('tile size-9 shrink-0 rounded-full', openP1 ? 'tile-red' : 'tile-quiet')}>
