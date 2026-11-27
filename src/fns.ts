@@ -363,7 +363,7 @@ const company = z.object({
 const hours = z.object({ open: z.string().regex(/^\d{2}:\d{2}$/), close: z.string().regex(/^\d{2}:\d{2}$/) })
 const keyPatch = z
   .object({
-    GEMINI_API_KEY: z.string().max(200),
+    GEMINI_API_KEY: z.string().max(1000),
     TELEGRAM_BOT_TOKEN: z.string().max(200),
     TELEGRAM_OWNER_CHAT_ID: z.string().max(40),
     ORS_API_KEY: z.string().max(400),

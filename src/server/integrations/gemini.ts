@@ -19,22 +19,31 @@ export async function withNotes(system: string, agent: string | undefined) {
  * - every call recorded on the agent trace with latency and token counts
  * Callers check `aiEnabled()` and fall back to rules when the key is missing or the call fails.
  */
-const g = globalThis as unknown as { __genai?: GoogleGenAI }
-function client(): GoogleGenAI {
-  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set')
-  g.__genai ??= new GoogleGenAI({ apiKey: env.GEMINI_API_KEY, httpOptions: { timeout: 10_000 } })
-  return g.__genai
+const g = globalThis as unknown as { __genai?: { raw: string; clients: GoogleGenAI[] } }
+/** GEMINI_API_KEY may hold several comma-separated keys; each one is its own client. */
+export const geminiKeys = () =>
+  (env.GEMINI_API_KEY ?? '')
+    .split(',')
+    .map((k) => k.trim())
+    .filter(Boolean)
+function clients(): GoogleGenAI[] {
+  const raw = env.GEMINI_API_KEY ?? ''
+  if (g.__genai?.raw !== raw) g.__genai = { raw, clients: geminiKeys().map((apiKey) => new GoogleGenAI({ apiKey, httpOptions: { timeout: 10_000 } })) }
+  if (!g.__genai.clients.length) throw new Error('GEMINI_API_KEY not set')
+  return g.__genai.clients
 }
+const client = () => clients()[0]!
 export const aiEnabled = () => !!env.GEMINI_API_KEY
 export const MODEL = () => env.GEMINI_MODEL
 
 // --- rate limiting (free tier: keep well under the per-minute cap) ---
+// free-tier quota is per Google Cloud project, so keys from separate projects each add their own share
 const RPM = Number(process.env.GEMINI_RPM ?? 12)
 let nextSlot = 0
 async function slot() {
   const now = Date.now()
   const at = Math.max(now, nextSlot)
-  nextSlot = at + Math.ceil(60_000 / RPM)
+  nextSlot = at + Math.ceil(60_000 / (RPM * Math.max(1, geminiKeys().length)))
   if (at > now) await new Promise((r) => setTimeout(r, at - now))
 }
 
@@ -45,28 +54,41 @@ const g2 = globalThis as unknown as { __geminiDown?: Map<string, number> }
 g2.__geminiDown ??= new Map()
 const down = g2.__geminiDown
 
-/** Call fn with the first healthy model; overloaded models are skipped for 2 minutes. */
-async function withRetry<T>(fn: (model: string) => Promise<T>): Promise<T & { _model?: string }> {
+/**
+ * Call fn with the first healthy model. A key out of quota (429) is parked for 10 minutes for that
+ * model and the next key is tried; an overloaded model (503, timeout) is skipped for 2 minutes.
+ */
+async function withRetry<T>(fn: (model: string, ai: GoogleGenAI) => Promise<T>): Promise<T & { _model?: string }> {
   let last: unknown
+  const ais = clients()
   const chain = modelChain()
-  const healthy = chain.filter((m) => (down.get(m) ?? 0) < Date.now())
+  const now = Date.now()
+  const ok = (k: string) => (down.get(k) ?? 0) < now
+  const healthy = chain.filter((m) => ok(m) && ais.some((_, i) => ok(`${i}:${m}`)))
   for (const model of healthy.length ? healthy : chain) {
-    for (let i = 0; i < 2; i++) {
-      try {
-        await slot()
-        const out = (await fn(model)) as T & { _model?: string }
-        if (out && typeof out === 'object') out._model = model
-        return out
-      } catch (e) {
-        last = e
-        const msg = String((e as Error).message ?? e)
-        // overloaded, slow, missing or out of quota: waiting rarely helps, the next model usually answers at once
-        if (/503|UNAVAILABLE|overloaded|high demand|timed? ?out|aborted|404|NOT_FOUND|429|RESOURCE_EXHAUSTED/i.test(msg)) {
-          down.set(model, Date.now() + (/429|RESOURCE_EXHAUSTED/i.test(msg) ? 600_000 : 120_000))
-          break // next model
+    const keys = ais.map((_, i) => i).filter((i) => ok(`${i}:${model}`))
+    nextKey: for (const i of keys.length ? keys : ais.map((_, i) => i)) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await slot()
+          const out = (await fn(model, ais[i]!)) as T & { _model?: string }
+          if (out && typeof out === 'object') out._model = model
+          return out
+        } catch (e) {
+          last = e
+          const msg = String((e as Error).message ?? e)
+          if (/429|RESOURCE_EXHAUSTED/i.test(msg)) {
+            down.set(`${i}:${model}`, Date.now() + 600_000)
+            continue nextKey // same model, next key
+          }
+          // overloaded, slow or missing: waiting rarely helps, the next model usually answers at once
+          if (/503|UNAVAILABLE|overloaded|high demand|timed? ?out|aborted|404|NOT_FOUND/i.test(msg)) {
+            down.set(model, Date.now() + 120_000)
+            break nextKey
+          }
+          if (!/500|fetch failed/i.test(msg)) throw e
+          await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt))
         }
-        if (!/500|fetch failed/i.test(msg)) throw e
-        await new Promise((r) => setTimeout(r, 1500 * 2 ** i))
       }
     }
   }
@@ -90,8 +112,8 @@ export async function generateJson<T>(opts: {
   const contents: Content[] = [{ role: 'user', parts }]
   const call = async () => {
     const t0 = Date.now()
-    const res = await withRetry((model) =>
-      client().models.generateContent({
+    const res = await withRetry((model, ai) =>
+      ai.models.generateContent({
         model,
         contents,
         config: {
@@ -130,8 +152,8 @@ function safeParse<T>(schema: z.ZodType<T>, text: string): { ok: true; value: T 
 export async function generateText(opts: { run?: Run | null; name: string; system: string; prompt: string; media?: Media[] }): Promise<string> {
   const system = await withNotes(opts.system, opts.run?.agent)
   const t0 = Date.now()
-  const res = await withRetry((model) =>
-    client().models.generateContent({
+  const res = await withRetry((model, ai) =>
+    ai.models.generateContent({
       model,
       contents: [{ role: 'user', parts: [...(opts.media ?? []).map((m) => ({ inlineData: m })), { text: opts.prompt }] }],
       config: { systemInstruction: system, temperature: 0.4 },
@@ -165,8 +187,8 @@ export async function runTools(opts: { run: Run; system: string; history: Conten
   const byName = new Map(opts.tools.map((t) => [t.name, t]))
   for (let step = 0; step < (opts.maxSteps ?? 8); step++) {
     const t0 = Date.now()
-    const res = await withRetry((model) =>
-      client().models.generateContent({
+    const res = await withRetry((model, ai) =>
+      ai.models.generateContent({
         model,
         contents: history,
         config: { systemInstruction: system, tools: [{ functionDeclarations: toDeclarations(opts.tools) }], temperature: 0.2 },
@@ -222,7 +244,7 @@ export async function liveModel(): Promise<string> {
   if (env.GEMINI_LIVE_MODEL) return env.GEMINI_LIVE_MODEL
   if (cachedLive) return cachedLive
   const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=500', {
-    headers: { 'x-goog-api-key': env.GEMINI_API_KEY ?? '' },
+    headers: { 'x-goog-api-key': geminiKeys()[0] ?? '' },
     signal: AbortSignal.timeout(10_000),
   })
   if (!res.ok) throw new Error(`models.list ${res.status}`)
