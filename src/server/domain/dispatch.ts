@@ -130,7 +130,8 @@ export async function replan(opts: { reason: string; days?: number; run?: Run | 
           scheduledStart: p.start,
           scheduledEnd: p.end,
           sequence: p.seq,
-          etaAt: p.start,
+          // a technician already driving keeps the ETA worked out from the drive
+          etaAt: keepStatus && old.etaAt ? old.etaAt : p.start,
           status: keepStatus ? old.status : 'scheduled',
         })
         .where(sql`${schema.jobs.id} = ${jobId}`)

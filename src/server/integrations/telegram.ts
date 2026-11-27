@@ -21,19 +21,28 @@ async function chatMigrated(from: string, to: string) {
   for (const fn of migrateHooks) await fn(from, to).catch((e) => console.warn('[telegram] migrate hook', (e as Error).message))
 }
 
+// failures before the request reached Telegram: safe to send again without a duplicate message
+const CONNECT_FAILED = new Set(['ETIMEDOUT', 'ECONNREFUSED', 'ENETUNREACH', 'EHOSTUNREACH', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT'])
+
 export async function tg<T = unknown>(method: string, body: Record<string, unknown> = {}): Promise<T> {
-  let res: Response
-  try {
-    res = await fetch(`${API()}/${method}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(method === 'getUpdates' ? 40_000 : 10_000),
-    })
-  } catch (e) {
-    // undici hides the real reason (DNS, reset, timeout) in `cause`
-    const cause = (e as { cause?: { code?: string; message?: string } }).cause
-    throw new Error(`telegram ${method}: ${(e as Error).message}${cause ? ` (${cause.code ?? cause.message})` : ''}`)
+  let res: Response | undefined
+  for (let attempt = 0; !res; attempt++) {
+    try {
+      res = await fetch(`${API()}/${method}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(method === 'getUpdates' ? 40_000 : 10_000),
+      })
+    } catch (e) {
+      // undici hides the real reason (DNS, reset, timeout) in `cause`
+      const cause = (e as { cause?: { code?: string; message?: string } }).cause
+      if (method !== 'getUpdates' && attempt < 2 && cause?.code && CONNECT_FAILED.has(cause.code)) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
+        continue
+      }
+      throw new Error(`telegram ${method}: ${(e as Error).message}${cause ? ` (${cause.code ?? cause.message})` : ''}`)
+    }
   }
   const data = (await res.json()) as { ok: boolean; result: T; description?: string; parameters?: { migrate_to_chat_id?: number } }
   const moved = data.parameters?.migrate_to_chat_id

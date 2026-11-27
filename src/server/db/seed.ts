@@ -18,7 +18,7 @@ export async function seed({ quiet = false, empty = false, quote = false } = {})
   await db.execute(
     sql`TRUNCATE agent_steps, agent_runs, approvals, events, queue, messages, calls, invoices, quotes, jobs, requests, equipment, customers, technicians, price_items, campaigns RESTART IDENTITY CASCADE`,
   )
-  await db.execute(sql`DELETE FROM settings WHERE key NOT IN ('google_oauth', 'telegram_owner', 'api_keys')`)
+  await db.execute(sql`DELETE FROM settings WHERE key NOT IN ('google_oauth', 'telegram_owner', 'telegram_board', 'telegram_board_dm', 'api_keys')`)
 
   // keep Telegram links across resets
   const techRows = await db

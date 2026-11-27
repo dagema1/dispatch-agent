@@ -71,7 +71,11 @@ Always include DIAG. Never invent prices.`,
         `Job #${jobId} (${job.title}): the technician's note mentions ${what}, which isn't in the price book. The invoice leaves it out; price it by hand if it should be charged.`,
       )
   }
-  const lines = report.partCodes.filter((p) => byCode.has(p.code)).map((p) => ({ code: p.code, name: byCode.get(p.code)!.name, qty: p.qty, cents: byCode.get(p.code)!.cents }))
+  // one line per code (a model listing the same part twice means once); the emergency surcharge
+  // follows the job's priority, never the model
+  const qty = new Map<string, number>()
+  for (const p of report.partCodes) if (byCode.has(p.code) && p.code !== 'EMERG') qty.set(p.code, Math.max(qty.get(p.code) ?? 0, p.qty))
+  const lines = [...qty].map(([code, q]) => ({ code, name: byCode.get(code)!.name, qty: q, cents: byCode.get(code)!.cents }))
   if (!lines.some((l) => l.code === 'DIAG')) lines.unshift({ code: 'DIAG', name: byCode.get('DIAG')!.name, qty: 1, cents: byCode.get('DIAG')!.cents })
   const emerg = byCode.get('EMERG')
   if (job.priority === 1 && emerg) lines.push({ code: 'EMERG', name: emerg.name, qty: 1, cents: emerg.cents })

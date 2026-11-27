@@ -261,7 +261,7 @@ function AgentChat() {
                 <li key={i} className="arrive-pop flex gap-3">
                   <Orb name={name} size="xs" />
                   <div className="min-w-0 flex-1 space-y-2 pt-0.5">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{m.text}</p>
+                    <Reply text={m.text} />
                     {(m.used?.length || m.runId) && (
                       <div className="flex flex-wrap items-center gap-1.5">
                         {m.used?.map((u) => (
@@ -339,5 +339,49 @@ function Orb({ name, size, busy }: { name: string; size: 'xs' | 'sm' | 'lg'; bus
     >
       {initials(name)}
     </span>
+  )
+}
+
+/** The model's light markdown (bold, bullet lines) as text, never raw asterisks. */
+function Reply({ text }: { text: string }) {
+  const inline = (line: string) =>
+    line.split(/(\*\*[^*]+\*\*)/g).map((part, k) =>
+      part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static split of one line
+        <strong key={k} className="font-semibold">
+          {part.slice(2, -2)}
+        </strong>
+      ) : (
+        part
+      ),
+    )
+  const blocks: Array<{ list: boolean; lines: string[] }> = []
+  for (const raw of text.split('\n')) {
+    const m = raw.match(/^\s*(?:[*\-•]|\d+\.)\s+(.*)$/)
+    const list = !!m
+    const line = m ? m[1] : raw
+    const last = blocks.at(-1)
+    if (last && last.list === list) last.lines.push(line)
+    else blocks.push({ list, lines: [line] })
+  }
+  return (
+    <div className="space-y-2 text-sm leading-relaxed">
+      {blocks.map((b, i) =>
+        b.list ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static parse of one reply
+          <ul key={i} className="list-disc space-y-0.5 pl-5">
+            {b.lines.map((l, j) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: static parse of one reply
+              <li key={j}>{inline(l)}</li>
+            ))}
+          </ul>
+        ) : (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static parse of one reply
+          <p key={i} className="whitespace-pre-wrap">
+            {inline(b.lines.join('\n').trim())}
+          </p>
+        ),
+      )}
+    </div>
   )
 }

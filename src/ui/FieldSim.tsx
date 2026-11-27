@@ -226,7 +226,7 @@ export function FieldSim() {
                             </Button>
                           </>
                         )}
-                        {busy?.endsWith(String(j.id)) && <Muted className="self-center">Working…</Muted>}
+                        {busy?.replace(/^\D+/, '') === String(j.id) && <Muted className="self-center">Working…</Muted>}
                       </div>
                     )}
                   </li>

@@ -31,7 +31,7 @@ function Roi() {
           hint="industry norm: hours, or a missed call"
           tone="good"
         />
-        <Stat label="Requests handled" icon={Inbox} value={k.requests} hint={`${k.afterHours} after hours · ${pct(k.bookingRate)} booked`} ratio={k.bookingRate ?? undefined} />
+        <Stat label="Requests handled" icon={Inbox} value={k.requests} hint={`${pct(k.bookingRate)} booked · ${k.afterHours} after hours`} ratio={k.bookingRate ?? undefined} />
         <Stat
           icon={Wallet}
           label="Collected / invoiced"

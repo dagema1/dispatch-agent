@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { db, schema } from '../db'
 import { getSettings, type Policy } from '../domain/settings'
 import { publish } from '../lib/bus'
@@ -86,6 +86,12 @@ export async function decideApproval(id: number, decision: 'approved' | 'rejecte
     .update(schema.approvals)
     .set({ status: decision, decidedAt: new Date(), result: result as object })
     .where(eq(schema.approvals.id, id))
+  // the run that asked is finished once a person has answered
+  if (ap.runId)
+    await db
+      .update(schema.agentRuns)
+      .set({ status: 'done', outcome: sql`coalesce(${schema.agentRuns.outcome}, '') || ${` · ${decision}`}`, endedAt: new Date() })
+      .where(and(eq(schema.agentRuns.id, ap.runId), eq(schema.agentRuns.status, 'waiting_approval')))
   await publish('approval.decided', { approvalId: id, decision, summary: ap.summary })
   return result
 }

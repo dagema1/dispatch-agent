@@ -26,12 +26,13 @@ type Wire = { t: 'event'; ev: DomainEvent } | { t: 'status'; connected: boolean 
 /**
  * One server stream for all open dashboard tabs. Browsers allow about six connections per host
  * over HTTP/1.1, and every tab holding its own EventSource used to starve page loads once a few
- * tabs were open. One tab (the holder of a Web Lock) owns the EventSource and relays events to
- * the others over a BroadcastChannel; when it closes, the lock passes to another tab. The leader
- * sends a heartbeat; a tab that hears nothing for a while (the leader was frozen in the background,
- * or is an old copy of the page) opens its own stream rather than going dark.
+ * tabs were open. Only visible tabs take part: one of them (the holder of a Web Lock) owns the
+ * EventSource and relays events to the others over a BroadcastChannel. A tab going to the
+ * background leaves (its timers get throttled and it may be frozen), and refreshes when it comes
+ * back. The leader sends a heartbeat; a visible tab that hears nothing for a while opens its own
+ * stream, and closes it again as soon as a leader is heard.
  */
-function shareEvents(onEvent: (ev: DomainEvent) => void, onStatus: (c: boolean) => void): () => void {
+function shareEvents(onEvent: (ev: DomainEvent) => void, onStatus: (c: boolean) => void, onResume: () => void): () => void {
   const solo = (): (() => void) => {
     const es = new EventSource('/api/events')
     es.onopen = () => onStatus(true)
@@ -44,15 +45,13 @@ function shareEvents(onEvent: (ev: DomainEvent) => void, onStatus: (c: boolean) 
   const ch = new BroadcastChannel('dispatch-events')
   let leader = false
   let lastStatus = false
-  let closeStream: (() => void) | null = null
-  let disposed = false
-  let lastHeard = 0
+  let lastHeard = Date.now()
   let own: (() => void) | null = null
-  // created up front so unmounting can always hand the lock back, even if it is granted a moment later
-  let release = () => {}
-  const held = new Promise<void>((r) => {
-    release = r
-  })
+  let leave: (() => void) | null = null
+  const dropOwn = () => {
+    own?.()
+    own = null
+  }
   const status = (c: boolean) => {
     lastStatus = c
     onStatus(c)
@@ -60,45 +59,73 @@ function shareEvents(onEvent: (ev: DomainEvent) => void, onStatus: (c: boolean) 
   }
   ch.onmessage = (m: MessageEvent<Wire>) => {
     const w = m.data
-    if (w.t !== 'hello') lastHeard = Date.now()
+    if (w.t !== 'hello' && !leader) {
+      lastHeard = Date.now()
+      dropOwn()
+    }
     if (w.t === 'event' && !leader) onEvent(w.ev)
     else if (w.t === 'status' && !leader) onStatus(w.connected)
     else if (w.t === 'hello' && leader) ch.postMessage({ t: 'status', connected: lastStatus } satisfies Wire)
   }
-  const ac = new AbortController()
-  navigator.locks
-    .request('dispatch-events', { signal: ac.signal }, () => {
-      // granted after this provider was already gone: give it straight back
-      if (disposed) return
-      leader = true
-      own?.()
-      own = null
-      const es = new EventSource('/api/events')
-      es.onopen = () => status(true)
-      es.onerror = () => status(false)
-      es.addEventListener('domain', (m) => {
-        const ev = JSON.parse((m as MessageEvent).data) as DomainEvent
-        onEvent(ev)
-        ch.postMessage({ t: 'event', ev } satisfies Wire)
-      })
-      closeStream = () => es.close()
-      // hold the lock until this tab's provider unmounts
-      return held
+
+  const join = () => {
+    if (leave) return
+    let gone = false
+    let closeStream: (() => void) | null = null
+    // created up front so leaving can always hand the lock back, even if it is granted a moment later
+    let release = () => {}
+    const held = new Promise<void>((r) => {
+      release = r
     })
-    .catch(() => {})
-  ch.postMessage({ t: 'hello' } satisfies Wire)
-  const started = Date.now()
+    const ac = new AbortController()
+    navigator.locks
+      .request('dispatch-events', { signal: ac.signal }, () => {
+        // granted after this tab already left: give it straight back
+        if (gone) return
+        leader = true
+        dropOwn()
+        const es = new EventSource('/api/events')
+        es.onopen = () => status(true)
+        es.onerror = () => status(false)
+        es.addEventListener('domain', (m) => {
+          const ev = JSON.parse((m as MessageEvent).data) as DomainEvent
+          onEvent(ev)
+          ch.postMessage({ t: 'event', ev } satisfies Wire)
+        })
+        closeStream = () => es.close()
+        return held
+      })
+      .catch(() => {})
+    lastHeard = Date.now()
+    ch.postMessage({ t: 'hello' } satisfies Wire)
+    leave = () => {
+      gone = true
+      leader = false
+      ac.abort() // a tab still waiting for the lock must not take it after it left
+      closeStream?.()
+      release()
+      dropOwn()
+      leave = null
+    }
+  }
+  const visible = () => document.visibilityState === 'visible'
+  const onVisibility = () => {
+    if (visible()) {
+      join()
+      onResume()
+    } else leave?.()
+  }
+  document.addEventListener('visibilitychange', onVisibility)
+  if (visible()) join()
+
   const beat = setInterval(() => {
     if (leader) ch.postMessage({ t: 'status', connected: lastStatus } satisfies Wire)
-    else if (!own && Date.now() - Math.max(lastHeard, started) > 8000) own = solo()
+    else if (leave && !own && visible() && Date.now() - lastHeard > 8000) own = solo()
   }, 3000)
   return () => {
-    disposed = true
     clearInterval(beat)
-    own?.()
-    ac.abort() // a tab still waiting for the lock must not take it after it is gone
-    closeStream?.()
-    release()
+    document.removeEventListener('visibilitychange', onVisibility)
+    leave?.()
     ch.close()
   }
 }
@@ -122,7 +149,7 @@ export function LiveProvider({ initial, children }: { initial: Snapshot | null; 
       clearTimeout(timer.current)
       timer.current = setTimeout(() => refresh().catch(() => {}), ev.type === 'tech.location' ? 1500 : 350)
     }
-    const stop = shareEvents(onEvent, setConnected)
+    const stop = shareEvents(onEvent, setConnected, () => refresh().catch(() => {}))
     const poll = setInterval(() => refresh().catch(() => {}), 30_000)
     return () => {
       stop()

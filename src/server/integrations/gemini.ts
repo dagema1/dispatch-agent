@@ -60,11 +60,12 @@ async function withRetry<T>(fn: (model: string) => Promise<T>): Promise<T & { _m
       } catch (e) {
         last = e
         const msg = String((e as Error).message ?? e)
-        if (/503|UNAVAILABLE|overloaded|high demand|timed? ?out|aborted|404|NOT_FOUND/i.test(msg)) {
-          down.set(model, Date.now() + 120_000)
+        // overloaded, slow, missing or out of quota: waiting rarely helps, the next model usually answers at once
+        if (/503|UNAVAILABLE|overloaded|high demand|timed? ?out|aborted|404|NOT_FOUND|429|RESOURCE_EXHAUSTED/i.test(msg)) {
+          down.set(model, Date.now() + (/429|RESOURCE_EXHAUSTED/i.test(msg) ? 600_000 : 120_000))
           break // next model
         }
-        if (!/429|500|RESOURCE_EXHAUSTED|fetch failed/i.test(msg)) throw e
+        if (!/500|fetch failed/i.test(msg)) throw e
         await new Promise((r) => setTimeout(r, 1500 * 2 ** i))
       }
     }
