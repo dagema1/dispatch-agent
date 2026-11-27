@@ -69,7 +69,6 @@ function Team() {
   const supervised = ROSTER.filter((r) => configs[r.key]?.supervised).length
   return (
     <div className="mx-auto max-w-6xl">
-      <AgentsTabs />
       <PageTitle
         title="Agent team"
         sub={`Five specialists behind ${name}. Customers only ever meet ${name}.`}
@@ -80,6 +79,7 @@ function Team() {
           </span>
         }
       />
+      <AgentsTabs />
       <ul className="grid gap-4 xl:grid-cols-2">
         {ROSTER.map((r) => (
           <li key={r.key}>

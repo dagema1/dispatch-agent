@@ -143,7 +143,7 @@ export const CountChip = ({ children, tone }: { children: React.ReactNode; tone?
   <span
     className={cn(
       'grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums',
-      tone === 'red' ? 'bg-red-500 text-white' : tone === 'attn' ? 'bg-(--attn-2) text-black' : 'bg-foreground/8 font-medium text-muted-foreground',
+      tone === 'red' ? 'bg-destructive text-white' : tone === 'attn' ? 'bg-(--attn-2) text-black' : 'bg-foreground/8 font-medium text-muted-foreground',
     )}
   >
     {children}

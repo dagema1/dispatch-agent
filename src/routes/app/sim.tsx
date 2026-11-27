@@ -22,14 +22,14 @@ const META: Record<Tab, { label: string; icon: React.ComponentType<{ className?:
 function Simulators() {
   const tab = Route.useSearch().tab ?? 'field'
   return (
-    <div>
+    <div className="mx-auto max-w-6xl">
+      <PageTitle title={tab === 'field' ? 'Field simulator' : 'Test inbox'} sub={META[tab].sub} />
       <SegmentedNav
         label="Simulators"
         className="mb-4"
         active={tab}
         items={TABS.map((t) => ({ key: t, label: META[t].label, icon: META[t].icon, link: { to: '/app/sim', search: { tab: t } } }))}
       />
-      <PageTitle title={tab === 'field' ? 'Field simulator' : 'Test inbox'} sub={META[tab].sub} />
       <TabPanel order={TABS} active={tab}>
         {tab === 'field' ? <FieldSim /> : <MessageSim />}
       </TabPanel>

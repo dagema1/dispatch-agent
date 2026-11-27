@@ -114,7 +114,7 @@ function SettingsPage() {
   const tab = Route.useSearch().tab ?? 'company'
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-6xl">
       <PageTitle title="Settings" />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         <SegmentedNav

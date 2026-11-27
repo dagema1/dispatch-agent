@@ -153,7 +153,7 @@ function AgentChat() {
       <header className="flex items-center gap-3 pb-3">
         {!empty && <Orb name={name} size="sm" />}
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold tracking-tight">{name}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{name}</h1>
           <p className="truncate text-xs text-muted-foreground">Operations agent · reads the live board · risky actions wait in Approvals</p>
         </div>
         <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>

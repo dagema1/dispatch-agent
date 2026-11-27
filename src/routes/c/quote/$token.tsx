@@ -50,7 +50,7 @@ function Quote() {
           </div>
           {dx.likelyFaults?.[0] && <div className="mt-1 text-muted-foreground">Most likely: {dx.likelyFaults[0].fault}</div>}
           {d.quote.replacementLead && (
-            <div className="mt-2 rounded-md bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <div className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               This unit is at or past its expected lifespan. Repairs may not last; replacement is worth considering.
             </div>
           )}

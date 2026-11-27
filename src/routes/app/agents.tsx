@@ -65,7 +65,6 @@ function Agents() {
   }, [sel, runs.length])
   return (
     <div className="mx-auto max-w-6xl">
-      <AgentsTabs />
       <PageTitle
         title="Agent traces"
         sub={`${snap.runs.length} recent runs · ${usd(cost)} AI cost at list price`}
@@ -85,6 +84,7 @@ function Agents() {
           </Select>
         }
       />
+      <AgentsTabs />
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
         <Section title="Runs" className={cn(run && 'max-lg:hidden')}>
           {runs.length === 0 ? (

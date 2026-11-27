@@ -34,7 +34,7 @@ function Approvals() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-6xl">
       <PageTitle title="Approvals" sub="Held by policy, low model confidence or after-hours. Rules live in Settings." />
       <ErrorText error={act.error} />
       <Section

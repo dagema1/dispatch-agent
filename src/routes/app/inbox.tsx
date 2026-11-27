@@ -61,7 +61,7 @@ function InboxPage() {
   const snap = useSnap()
   const [tab, setTab] = useState<InboxTab>('requests')
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-6xl">
       <PageTitle title="Requests" sub="Every customer request, message and call, with its full history." right={<TestEmailButton />} />
       <SegmentedNav
         label="Inbox sections"
