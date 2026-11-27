@@ -6,14 +6,44 @@ import { env } from '../lib/env'
  */
 const API = () => `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`
 
+/**
+ * A group becomes a supergroup (e.g. when the bot is made an admin) and gets a new chat id;
+ * Telegram tells us the new id once, on the next failed send. Whoever owns the stored ids listens here.
+ */
+type MigrateHook = (from: string, to: string) => Promise<void>
+const migrateHooks: MigrateHook[] = []
+export function onChatMigrated(fn: MigrateHook) {
+  migrateHooks.push(fn)
+}
+
+async function chatMigrated(from: string, to: string) {
+  console.warn(`[telegram] chat ${from} is now supergroup ${to}; switching over`)
+  for (const fn of migrateHooks) await fn(from, to).catch((e) => console.warn('[telegram] migrate hook', (e as Error).message))
+}
+
 export async function tg<T = unknown>(method: string, body: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch(`${API()}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(method === 'getUpdates' ? 40_000 : 10_000),
-  })
-  const data = (await res.json()) as { ok: boolean; result: T; description?: string }
+  let res: Response
+  try {
+    res = await fetch(`${API()}/${method}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(method === 'getUpdates' ? 40_000 : 10_000),
+    })
+  } catch (e) {
+    // undici hides the real reason (DNS, reset, timeout) in `cause`
+    const cause = (e as { cause?: { code?: string; message?: string } }).cause
+    throw new Error(`telegram ${method}: ${(e as Error).message}${cause ? ` (${cause.code ?? cause.message})` : ''}`)
+  }
+  const data = (await res.json()) as { ok: boolean; result: T; description?: string; parameters?: { migrate_to_chat_id?: number } }
+  const moved = data.parameters?.migrate_to_chat_id
+  const scope = body.scope as { chat_id?: string | number } | undefined
+  const target = body.chat_id ?? scope?.chat_id
+  if (!data.ok && moved && target !== undefined) {
+    const to = String(moved)
+    await chatMigrated(String(target), to)
+    return tg<T>(method, body.chat_id !== undefined ? { ...body, chat_id: to } : { ...body, scope: { ...scope, chat_id: to } })
+  }
   if (!data.ok) throw new Error(`telegram ${method}: ${data.description}`)
   return data.result
 }
@@ -85,10 +115,16 @@ export function startTelegramPolling(onUpdate: (u: TgUpdate) => Promise<void>, o
         const updates = await tg<TgUpdate[]>('getUpdates', { offset, timeout: 30, allowed_updates: ['message', 'edited_message', 'callback_query', 'widget_query'] })
         for (const u of updates) {
           offset = u.update_id + 1
+          // service message in the old group when it becomes a supergroup
+          const m = u.message as (TgMessage & { migrate_to_chat_id?: number }) | undefined
+          if (m?.migrate_to_chat_id) {
+            await chatMigrated(String(m.chat.id), String(m.migrate_to_chat_id))
+            continue
+          }
           await onUpdate(u).catch((e) => console.error('[telegram] handler', e))
         }
       } catch (e) {
-        console.warn('[telegram] poll', (e as Error).message)
+        console.warn('[telegram] poll failed:', (e as Error).message)
         await new Promise((r) => setTimeout(r, 5000))
       }
     }

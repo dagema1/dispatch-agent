@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db, schema } from '../db'
 import { gmailConnected, sendGmail } from '../integrations/google'
-import { esc, sendTelegram } from '../integrations/telegram'
+import { esc, onChatMigrated, sendTelegram } from '../integrations/telegram'
 import { publish } from '../lib/bus'
 import { env } from '../lib/env'
 import { personalize } from './persona'
@@ -119,10 +119,24 @@ export async function messageTechnician(technicianId: number, text: string, jobI
 }
 
 export async function ownerChatId(): Promise<string | null> {
-  if (env.TELEGRAM_OWNER_CHAT_ID) return env.TELEGRAM_OWNER_CHAT_ID
   const [row] = await db.select().from(schema.settings).where(eq(schema.settings.key, 'telegram_owner'))
-  return (row?.value as { chatId?: string } | undefined)?.chatId ?? null
+  const saved = row?.value as { chatId?: string; migratedFrom?: string } | undefined
+  // the group in .env was upgraded to a supergroup: use its new id until .env is updated
+  if (env.TELEGRAM_OWNER_CHAT_ID && saved?.migratedFrom === env.TELEGRAM_OWNER_CHAT_ID && saved.chatId) return saved.chatId
+  if (env.TELEGRAM_OWNER_CHAT_ID) return env.TELEGRAM_OWNER_CHAT_ID
+  return saved?.chatId ?? null
 }
+
+onChatMigrated(async (from, to) => {
+  const [row] = await db.select().from(schema.settings).where(eq(schema.settings.key, 'telegram_owner'))
+  const saved = row?.value as { chatId?: string } | undefined
+  if (from !== env.TELEGRAM_OWNER_CHAT_ID && from !== saved?.chatId) return
+  const value = { ...(saved ?? {}), chatId: to, migratedFrom: from }
+  await db.insert(schema.settings).values({ key: 'telegram_owner', value }).onConflictDoUpdate({ target: schema.settings.key, set: { value } })
+  // the pinned board lived in the old chat; post a fresh one next time
+  await db.delete(schema.settings).where(eq(schema.settings.key, 'telegram_board'))
+  console.warn(`[telegram] office group moved to ${to}; set TELEGRAM_OWNER_CHAT_ID=${to} in .env to make it permanent`)
+})
 
 /** Alert the office group. `replan` adds a one-tap "Re-plan now" button anyone in the group can press. */
 export async function alertOwner(text: string, opts: { replan?: boolean } = {}) {

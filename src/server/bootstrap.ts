@@ -1,3 +1,8 @@
+import net from 'node:net'
+
+// Node races IPv6/IPv4 with a 250 ms budget per address; on slow links every attempt times out
+// (fetch failed, ETIMEDOUT) and Telegram, Gemini and the map lookups all stall. Give each attempt 3 s.
+net.setDefaultAutoSelectFamilyAttemptTimeout(3000)
 import './agent/front-desk'
 import './agent/revenue'
 import './agent/owner'
