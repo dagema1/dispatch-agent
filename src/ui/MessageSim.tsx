@@ -31,6 +31,7 @@ const RESULT: Record<string, string> = {
   status_update: 'Answered with the live status of their visit',
   change_request: 'Change request: the office was alerted',
   ack: 'Thanks noted, no reply needed',
+  note: 'Passed to the office as a note on their visit',
   completed_request: 'Their answer completed the open request',
   new_case: 'Handled as a new request',
 }
@@ -189,7 +190,7 @@ function Bubble({ m, first }: { m: Msg; first: string }) {
             <span className="font-medium">{m.subject ?? '(no subject)'}</span>
           </div>
         )}
-        {m.body}
+        <Linked text={m.body} />
       </div>
       <span
         className={cn('mt-1 px-1 text-[11px]', m.direction === 'out' && !m.delivered ? 'font-medium text-amber-600 dark:text-(--attn-1)' : 'text-muted-foreground')}
@@ -198,6 +199,27 @@ function Bubble({ m, first }: { m: Msg; first: string }) {
         {sms ? 'Text' : 'Email'} · {delivery} · {ago(m.createdAt)}
       </span>
     </div>
+  )
+}
+
+const URL_RE = /(https?:\/\/[^\s<>"]+[^\s<>".,;:!?)'])/g
+
+/** Message text with its links clickable (tracking, payment, review pages open in a new tab). */
+function Linked({ text }: { text: string }) {
+  const parts = text.split(URL_RE)
+  return (
+    <>
+      {parts.map((p, i) =>
+        i % 2 ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: split output is positional and static
+          <a key={i} href={p} target="_blank" rel="noreferrer" className="break-all font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
+            {p}
+          </a>
+        ) : (
+          p
+        ),
+      )}
+    </>
   )
 }
 

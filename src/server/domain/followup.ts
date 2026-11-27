@@ -65,15 +65,20 @@ export function caseBrief(c: OpenCase): string {
 }
 
 const ASKS_STATUS = /\b(when|eta|status|update|where|still coming|running late|how long|what time|arriv|on (his|her|their|the) way|any news)\b/i
-const ASKS_CHANGE = /\b(cancel|reschedul|move (it|the)|different (time|day)|another (time|day)|can't make|cannot make|not home)\b/i
+const ASKS_CHANGE =
+  /\b(cancel|reschedul|move (it|the|my)|push (it|back)|different (time|day)|another (time|day)|can't make|cannot make|can ?not make|won'?t be (home|there)|not (be )?home|(doesn'?t|does not|won'?t|no longer) work|instead|(earlier|later) (time|slot|in the day))\b/i
+/** Words that mean a fresh problem, not a reply about the visit already booked. */
+const NEW_PROBLEM =
+  /\b(leak|drip|flood|burst|broke|broken|not working|stopped|won'?t (turn|start|heat|cool|drain)|no (heat|hot water|water|power|ac|a\/c)|clog|backed up|smell|gas|spark|smoke|noise|banging|new (issue|problem)|another (issue|problem))/i
 const JUST_THANKS = /^\s*(ok(ay)?|thanks?( you)?|thank you|great|perfect|got it|sounds good|👍)[.!\s]*$/i
 
-export type FollowUp = { kind: 'status_update' | 'change_request' | 'ack'; reply: string | null }
+export type FollowUp = { kind: 'status_update' | 'change_request' | 'ack' | 'note'; reply: string | null }
 
 /**
  * A message from a customer with a case already open. Status questions get the live status,
- * change requests go to the office, a plain "thanks" gets nothing back. Anything else is a new
- * problem and returns null, so the front desk triages it as a new case.
+ * change requests go to the office, a plain "thanks" gets nothing back, and any other reply about a
+ * booked visit (gate code, "call first") is passed to the office. Only a message that describes a
+ * problem returns null, so the front desk triages it as a new case.
  */
 export async function followUp(customerId: number, text: string, channel: 'email' | 'sms'): Promise<FollowUp | null> {
   const c = await openCase(customerId)
@@ -90,6 +95,13 @@ export async function followUp(customerId: number, text: string, channel: 'email
     const reply = statusLine(c)
     await messageCustomer({ customerId, requestId: c.requestId || null, jobId: c.job?.id ?? null, subject: `Re: ${c.issue}`, body: reply, channel })
     return { kind: 'status_update', reply }
+  }
+  if (c.job && !NEW_PROBLEM.test(text)) {
+    const tech = c.job.tech ? firstName(c.job.tech) : 'your technician'
+    const reply = `Thanks, I've passed that on to the office and ${tech} for your visit.`
+    await messageCustomer({ customerId, requestId: c.requestId || null, jobId: c.job.id, subject: `Re: ${c.issue}`, body: reply, channel })
+    await alertOwner(`${cust?.name ?? 'A customer'} about visit #${c.job.id}: “${text.slice(0, 200)}”`)
+    return { kind: 'note', reply }
   }
   return null
 }

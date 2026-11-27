@@ -108,7 +108,7 @@ async function callerContext(phone: string | undefined) {
     .from(schema.calls)
     .where(
       and(
-        sql`right(regexp_replace(coalesce(${schema.calls.callerPhone}, ''), '\D', '', 'g'), 10) = ${digits(phone)}`,
+        sql`right(regexp_replace(coalesce(${schema.calls.callerPhone}, ''), '[^0-9]', '', 'g'), 10) = ${digits(phone)}`,
         gt(schema.calls.startedAt, new Date(Date.now() - 3 * 3_600_000)),
       ),
     )

@@ -85,6 +85,7 @@ export async function customerSends(input: {
         text: `${pending.rawText}\n\nCustomer reply: ${input.body}`,
         externalId: `test:${Date.now()}`,
         customer: { name: customer.name, email: customer.email, phone: customer.phone },
+        customerId: customer.id,
       })
       return { kind: 'completed_request' as const, customerId: res.customerId, status: res.status }
     }
@@ -95,6 +96,7 @@ export async function customerSends(input: {
     text: subject ? `${subject}\n\n${input.body}` : input.body,
     externalId: `test:${Date.now()}`,
     customer: who ?? undefined,
+    customerId: customer?.id,
   })
   if (!customer) {
     customer = res.customerId ? ((await db.select().from(schema.customers).where(eq(schema.customers.id, res.customerId)))[0] ?? null) : null

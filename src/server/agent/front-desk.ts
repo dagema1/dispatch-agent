@@ -21,6 +21,8 @@ export type Inbound = {
   text: string
   externalId?: string
   customer?: { name?: string | null; email?: string | null; phone?: string | null; address?: string | null }
+  /** already identified (a reply in an existing thread): skip the lookup */
+  customerId?: number
   photos?: Media[]
   /** for the simulator: do not send messages or replan */
   dryRun?: boolean
@@ -72,9 +74,8 @@ async function intake(input: Inbound, resumed?: typeof schema.requests.$inferSel
     if (safety) await run.step('policy', 'safety_rule', { text: input.text.slice(0, 200) }, safety)
 
     // 2. Identify or create the customer (a resumed request already has one).
-    let customer = resumed?.customerId
-      ? ((await db.select().from(schema.customers).where(eq(schema.customers.id, resumed.customerId)))[0] ?? null)
-      : await findCustomer(input.customer)
+    const knownId = resumed?.customerId ?? input.customerId
+    let customer = knownId ? ((await db.select().from(schema.customers).where(eq(schema.customers.id, knownId)))[0] ?? null) : await findCustomer(input.customer)
     const weatherAt = customer?.lat != null ? { lat: customer.lat, lng: customer.lng! } : settings.company.hq
     const weather = resumed ? null : await run.timed('tool', 'weather', weatherAt, () => getWeather(weatherAt))
 
@@ -392,4 +393,4 @@ async function createCustomer(run: Run, c: { name?: string | null; email?: strin
 
 export const digits = (p: string) => p.replace(/\D/g, '').slice(-10)
 /** Same number whatever the formatting: "(720) 555-0142", "720.555.0142" and "+17205550142" all match. */
-export const phoneMatches = (p: string) => sql`right(regexp_replace(coalesce(${schema.customers.phone}, ''), '\D', '', 'g'), 10) = ${digits(p)}`
+export const phoneMatches = (p: string) => sql`right(regexp_replace(coalesce(${schema.customers.phone}, ''), '[^0-9]', '', 'g'), 10) = ${digits(p)}`
