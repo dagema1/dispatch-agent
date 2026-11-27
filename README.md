@@ -111,7 +111,7 @@ Every integration is optional. Without a key, the feature falls back (rules inst
 ### Telegram setup (2 minutes)
 
 1. Create the bot with @BotFather and put the token in `.env`.
-2. **Office group:** add the bot to a group with everyone who should see alerts, then send `/owner` there (or set `TELEGRAM_OWNER_CHAT_ID`). The bot posts the button panel and pins it if it is an admin; `/menu` re-posts it. The group also gets a running dispatch log: bookings, technician assignments and slot changes, and what technicians are sent and report (accepted, on the way, on site, running late, notes, done), batched into silent messages. Turn it off in Settings → Integrations → Office group log. A **live board** is posted and pinned with the panel (or from Settings → Integrations → Live board in Telegram): every technician's day with done/total and what they're on now, unassigned visits and pending approvals, re-rendered in place on every schedule change. Tap a technician for their route; Re-plan re-plans the day. Production Telegram allows HTML widgets (Bot API 10.4) only in private chats, so in a group the board is a text message that edits itself, with a button per technician (route shown only to whoever tapped) and Re-plan; where widgets are allowed it is sent as the widget.
+2. **Office group:** add the bot to a group with everyone who should see alerts, then send `/owner` there (or set `TELEGRAM_OWNER_CHAT_ID`). The bot posts the button panel and pins it if it is an admin; `/menu` re-posts it. The group also gets a running dispatch log: bookings, technician assignments and slot changes, and what technicians are sent and report (accepted, on the way, on site, running late, notes, done), batched into silent messages. Turn it off in Settings → Integrations → Office group log. A **live board** is posted and pinned with the panel (or from Settings → Integrations → Live board in Telegram): every technician's day with done/total and what they're on now, unassigned visits and pending approvals, re-rendered in place on every schedule change. Tap a technician for their route; Re-plan re-plans the day. The board is a text message that edits itself, with a button per technician (route shown only to whoever tapped) and Re-plan; it becomes an HTML widget (Bot API 10.4) once Telegram allows widgets for the bot (see below).
 3. **Technicians:** each tech opens a private chat with the bot, sends `/start` and taps their name. The button keyboard appears under the chat.
 
 Telegram enables Bot API 10.4 HTML widgets per bot, and this bot is not enabled yet (`INPUT_MEDIA_WIDGET_NOT_ALLOWED` in every chat). The route and the live board therefore run as self-editing text with inline buttons; every send tries the widget first, so they switch over on their own once Telegram allows it. Ephemeral messages work in groups.
@@ -128,17 +128,42 @@ pnpm build       # production build → .output/
 
 ## Deploy (Google Cloud Run + Cloud Scheduler)
 
-```bash
-pnpm build
-# Postgres: Neon free tier or Cloud SQL; run `pnpm db:migrate` and `pnpm db:seed` against it once.
-gcloud run deploy dispatch-agent --source . --region us-central1 \
-  --set-env-vars "APP_URL=https://<service-url>,EXTERNAL_CRON=1,DATABASE_URL=…,GEMINI_API_KEY=…,…" \
-  --min-instances 1 --no-cpu-throttling
+**1. Database.** Create a Postgres database (Neon free tier works) and copy its connection string. Tables are created on first boot; demo data is loaded from `/setup`.
+
+**2. Settings file.** Put the production settings in `.env.deploy.yaml` (git-ignored, so keys never land in the repo or your shell history):
+
+```yaml
+DATABASE_URL: "postgresql://…?sslmode=require"
+APP_URL: "https://<service-url>"          # fill in after the first deploy, then redeploy
+EXTERNAL_CRON: "1"
+GEMINI_API_KEY: "…"
+TELEGRAM_BOT_TOKEN: "…"
+TELEGRAM_OWNER_CHAT_ID: "…"
+ORS_API_KEY: "…"
+STRIPE_SECRET_KEY: "sk_test_…"
+OWNER_PASSWORD: "…"
+SESSION_SECRET: "<long random string>"
+CRON_SECRET: "<long random string>"
+GOOGLE_CLIENT_ID: "…"                      # optional: Gmail + Calendar
+GOOGLE_CLIENT_SECRET: "…"
 ```
 
-- Cloud Run's Node buildpack runs `pnpm build` and then `pnpm start` (`node .output/server/index.mjs`).
-- `--min-instances 1 --no-cpu-throttling` keeps one instance alive. The Telegram bot uses long polling and the queue worker runs in-process, so both need a running instance.
-- `EXTERNAL_CRON=1` turns off the local timers. Create the three jobs:
+**3. Deploy.**
+
+```bash
+gcloud run deploy dispatch-agent --source . --region us-central1 \
+  --env-vars-file .env.deploy.yaml \
+  --min-instances 1 --max-instances 1 --no-cpu-throttling \
+  --allow-unauthenticated
+```
+
+- The Node buildpack runs `pnpm build`, then `pnpm start` (`node .output/server/index.mjs`) on Cloud Run's `$PORT`.
+- Exactly one instance, always on: the Telegram bot long-polls (two pollers make Telegram return 409 Conflict), and the job queue and the live dashboard stream run in-process.
+- `--allow-unauthenticated` is for the customer pages (`/book`, `/c/…`); the dashboard sits behind `OWNER_PASSWORD`.
+- Stop the local dev server while the deployed one runs: both would poll the same bot.
+- Google sign-in: add `https://<service-url>/api/google/callback` as a redirect URI on the OAuth client.
+
+**4. Schedules.** `EXTERNAL_CRON=1` turns off the in-process timers; Cloud Scheduler calls them instead:
 
 ```bash
 for job in "tick:* * * * *" "morning:30 6 * * *" "weather:0 17 * * *"; do
@@ -150,7 +175,7 @@ for job in "tick:* * * * *" "morning:30 6 * * *" "weather:0 17 * * *"; do
 done
 ```
 
-- With an `https` `APP_URL`, approval cards in Telegram also get an "Open dashboard" button.
+**5. First run.** Open `https://<service-url>/setup`, pick the demo company, then send `/owner` in the office Telegram group if `TELEGRAM_OWNER_CHAT_ID` is not set. With an `https` `APP_URL`, approval cards in Telegram also get an "Open dashboard" button.
 
 ---
 
