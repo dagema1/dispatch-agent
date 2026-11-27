@@ -173,7 +173,7 @@ export async function refreshBoard(note?: string) {
 /* ---------- the widget in office members' private chats ---------- */
 
 const DM_KEY = 'telegram_board_dm'
-type DmBoard = { chatId: string; messageId: number }
+type DmBoard = { chatId: string; messageId: number; kind?: 'widget' | 'text' }
 
 async function dmBoards(): Promise<DmBoard[]> {
   const [row] = await db.select().from(schema.settings).where(eq(schema.settings.key, DM_KEY))
@@ -194,43 +194,87 @@ export async function isBoardWidget(chatId: number | string, messageId?: number)
  * Send the live board widget to an office member's private chat with the bot (widgets are
  * allowed there). Only members of the office group get it; one board per person, the newest.
  */
-export async function sendBoardDm(userId: number): Promise<{ ok: true } | { ok: false; reason: string }> {
+export async function sendBoardDm(userId: number): Promise<{ ok: true; kind: 'widget' | 'text' } | { ok: false; reason: string }> {
   const group = await ownerChatId()
   if (!group) return { ok: false, reason: 'No office group is set up yet.' }
   const member = await tg<{ status: string }>('getChatMember', { chat_id: group, user_id: userId }).catch(() => null)
   if (!member || !['creator', 'administrator', 'member', 'restricted'].includes(member.status)) return { ok: false, reason: 'The live board is for members of the office group.' }
+  const caption = '📋 Live board · updates itself as the day changes. Tap a technician for their route.'
+  const widget = (allowQueries: boolean) =>
+    tg<{ message_id: number }>('sendWidget', { chat_id: userId, html: BOARD_WIDGET_HTML, chat_data: '', caption, ...(allowQueries ? { allow_queries: true } : {}) })
+  let sent: DmBoard | null = null
   try {
-    const m = await tg<{ message_id: number }>('sendWidget', {
-      chat_id: userId,
-      html: BOARD_WIDGET_HTML,
-      chat_data: await boardData(),
-      allow_queries: true,
-      caption: '📋 Live board · updates itself as the day changes. Tap a technician for their route.',
-    })
-    const list = (await dmBoards()).filter((b) => b.chatId !== String(userId))
-    list.push({ chatId: String(userId), messageId: m.message_id })
-    await saveDmBoards(list)
-    return { ok: true }
+    const data = await boardData()
+    const m = await tg<{ message_id: number }>('sendWidget', { chat_id: userId, html: BOARD_WIDGET_HTML, chat_data: data, allow_queries: true, caption })
+    sent = { chatId: String(userId), messageId: m.message_id, kind: 'widget' }
   } catch (e) {
     const msg = (e as Error).message
     if (/chat not found|initiate|blocked/i.test(msg)) return { ok: false, reason: 'Open a private chat with the bot and press Start, then try again.' }
-    return { ok: false, reason: `Telegram refused the widget: ${msg.slice(0, 160)}` }
+    console.warn('[telegram] board widget refused in private chat:', msg)
+    // narrow down what Telegram objects to, for the log; the person gets a working board either way
+    if (/NOT_ALLOWED/i.test(msg))
+      await widget(false)
+        .then(async (m) => {
+          console.warn('[telegram] a widget without queries was accepted; queries are what Telegram refuses')
+          await tg('deleteMessage', { chat_id: userId, message_id: m.message_id }).catch(() => {})
+        })
+        .catch((e2) => console.warn('[telegram] a bare widget was refused too:', (e2 as Error).message))
   }
+  if (!sent) {
+    // Telegram would not take the widget: send the same live board as text, edited in place as the day changes
+    const s = await snapshot()
+    const m = await tg<{ message_id: number }>('sendMessage', {
+      chat_id: userId,
+      text: boardText(s),
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+      reply_markup: { inline_keyboard: boardKeyboard(s) },
+    })
+    sent = { chatId: String(userId), messageId: m.message_id, kind: 'text' }
+  }
+  const list = (await dmBoards()).filter((b) => b.chatId !== String(userId))
+  list.push(sent)
+  await saveDmBoards(list)
+  return { ok: true, kind: sent.kind ?? 'widget' }
 }
 
 async function refreshDmBoards(note?: string) {
   const list = await dmBoards()
   if (!list.length) return
   const data = await boardData(note)
+  const s = list.some((b) => b.kind === 'text') ? await snapshot() : null
   const gone: string[] = []
   for (const b of list)
-    await tg('editMessageWidgetData', { chat_id: b.chatId, message_id: b.messageId, chat_data: data }).catch((e) => {
+    await (b.kind === 'text' && s
+      ? tg('editMessageText', { chat_id: b.chatId, message_id: b.messageId, text: boardText(s, note), parse_mode: 'HTML', reply_markup: { inline_keyboard: boardKeyboard(s) } })
+      : tg('editMessageWidgetData', { chat_id: b.chatId, message_id: b.messageId, chat_data: data })
+    ).catch((e) => {
       const msg = (e as Error).message
       if (/not modified/i.test(msg)) return
       console.warn('[telegram] dm board refresh', msg)
       if (/not found|can't be edited|MESSAGE_ID_INVALID|blocked/i.test(msg)) gone.push(b.chatId)
     })
   if (gone.length) await saveDmBoards(list.filter((b) => !gone.includes(b.chatId)))
+}
+
+/** Buttons on a text board in someone's private chat: a technician's route, or a re-plan. */
+export async function onDmBoardCallback(cb: { id: string; data?: string; from: { first_name?: string }; message?: { chat: { id: number } } }) {
+  const chatId = cb.message?.chat.id
+  if (chatId == null) return
+  const [kind, sub, id] = (cb.data ?? '').split(':')
+  if (kind === 'bd' && sub === 't') {
+    await tg('answerCallbackQuery', { callback_query_id: cb.id }).catch(() => {})
+    await tg('sendMessage', { chat_id: chatId, text: esc(await techRoute(Number(id))), parse_mode: 'HTML' })
+    return
+  }
+  if (kind === 'replan') {
+    await tg('answerCallbackQuery', { callback_query_id: cb.id, text: 'Re-planning…' }).catch(() => {})
+    const res = await replan({ reason: `re-plan requested by ${cb.from.first_name ?? 'owner'} in Telegram` })
+    await refreshBoard()
+    await tg('sendMessage', { chat_id: chatId, text: `🔁 Re-planned: ${res.moved.length} visit(s) moved, ${res.unassigned.length} still unassigned.` })
+    return
+  }
+  await tg('answerCallbackQuery', { callback_query_id: cb.id }).catch(() => {})
 }
 
 /** One technician's route today, as plain lines (widget answer or ephemeral reply). */

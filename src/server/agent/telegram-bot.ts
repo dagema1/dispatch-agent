@@ -1,5 +1,5 @@
 import { esc, sendTelegram, type TgUpdate } from '../integrations/telegram'
-import { isBoardWidget, onBoardQuery, sendBoardDm } from './board-widget'
+import { isBoardWidget, onBoardQuery, onDmBoardCallback, sendBoardDm } from './board-widget'
 import { isOwnerChat, onGroupMessage, onOwnerCallback } from './owner-bot'
 import { onTechCallback, onTechMessage, onWidgetQuery } from './technician'
 
@@ -17,6 +17,9 @@ export async function onTelegramUpdate(u: TgUpdate) {
     }
     if (u.callback_query) {
       const chat = u.callback_query.message?.chat
+      // buttons on an office member's private text board
+      if (chat?.type === 'private' && /^(bd:|replan$)/.test(u.callback_query.data ?? '') && (await isBoardWidget(chat.id, u.callback_query.message?.message_id)))
+        return await onDmBoardCallback(u.callback_query)
       return chat && chat.type !== 'private' ? await onOwnerCallback(u.callback_query) : await onTechCallback(u.callback_query)
     }
     const msg = u.message ?? u.edited_message
