@@ -111,7 +111,8 @@ const NAV: Record<Tab, { label: string; icon: Icon }> = {
 }
 
 function SettingsPage() {
-  const tab = Route.useSearch().tab ?? 'company'
+  const raw = Route.useSearch().tab
+  const tab: Tab = raw && TABS.includes(raw) ? raw : 'company'
 
   return (
     <div className="mx-auto max-w-6xl">

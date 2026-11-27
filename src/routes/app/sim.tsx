@@ -20,7 +20,8 @@ const META: Record<Tab, { label: string; icon: React.ComponentType<{ className?:
 
 /** Demo tools: the field and the customer's phone, without phones. */
 function Simulators() {
-  const tab = Route.useSearch().tab ?? 'field'
+  const raw = Route.useSearch().tab
+  const tab: Tab = raw && TABS.includes(raw) ? raw : 'field'
   return (
     <div className="mx-auto max-w-6xl">
       <PageTitle title={tab === 'field' ? 'Field simulator' : 'Test inbox'} sub={META[tab].sub} />
