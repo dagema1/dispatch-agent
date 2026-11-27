@@ -67,6 +67,8 @@ function Setup() {
     setError(null)
     try {
       await completeSetup({ data: { mode, loadData: fresh, sampleQuote: sample, ...values, keys: mode === 'own' ? typedKeys(keys) : undefined } })
+      // the board's cached data is from before the reset
+      await router.invalidate()
       await router.navigate({ to: '/app' })
     } catch (e) {
       setError((e as Error).message)

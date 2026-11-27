@@ -50,6 +50,7 @@ export async function seed({ quiet = false, empty = false, quote = false } = {})
   const now = new Date()
   const today = dayOf(now)
   const jobs = []
+  const freeAt = new Map<number, number>()
   for (let i = 0; i < 22; i++) {
     const tpl = ROUTINE_JOBS[i % ROUTINE_JOBS.length]
     const cust = custRows[(i * 3 + 1) % custRows.length]
@@ -57,9 +58,19 @@ export async function seed({ quiet = false, empty = false, quote = false } = {})
     const morning = r() < 0.5
     const win =
       r() < 0.6 ? { start: zoned(day, morning ? '08:00' : '12:00'), end: zoned(day, morning ? '12:00' : '17:00') } : { start: zoned(day, '08:00'), end: zoned(day, '17:00') }
-    const past = win.end.getTime() < now.getTime()
+    // Seeded mid-day: a window that closes within the next 90 minutes was worked this morning
+    // (done, by a technician with the skill), unless it could not have started yet; then the
+    // customer moved it to the rest of today. Nothing is left that no one can reach in time.
+    const tight = win.end.getTime() < now.getTime() + 90 * 60_000
+    const tech = techRows.find((t, k) => t.skills.includes(tpl.skill) && k >= i % techRows.length) ?? techRows.find((t) => t.skills.includes(tpl.skill)) ?? techRows[0]
+    // one visit after another per technician, 20 minutes' drive apart
+    const start = new Date(Math.max(win.start.getTime(), freeAt.get(tech.id) ?? 0))
+    const doneAt = new Date(start.getTime() + tpl.minutes * 60_000)
+    const past = tight && doneAt.getTime() < now.getTime()
+    if (past) freeAt.set(tech.id, doneAt.getTime() + 20 * 60_000)
+    else if (tight) win.end = zoned(day, '17:00')
     jobs.push({
-      ...(past ? { status: 'done' as const, technicianId: techRows[i % techRows.length].id, completedAt: new Date(win.start.getTime() + tpl.minutes * 60_000) } : {}),
+      ...(past ? { status: 'done' as const, technicianId: tech.id, scheduledStart: start, scheduledEnd: doneAt, completedAt: doneAt } : {}),
       customerId: cust.id,
       title: tpl.title,
       priority: tpl.priority,

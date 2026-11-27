@@ -92,6 +92,10 @@ export function LiveProvider({ initial, children }: { initial: Snapshot | null; 
   const refresh = useCallback(async () => {
     setSnap(await getSnapshot())
   }, [])
+  // a newer snapshot from the route loader (e.g. after setup reloads the demo) replaces the old one
+  useEffect(() => {
+    if (initial) setSnap(initial)
+  }, [initial])
   useEffect(() => {
     const onEvent = (ev: DomainEvent) => {
       setEvents((xs) => [ev, ...xs].slice(0, 150))
