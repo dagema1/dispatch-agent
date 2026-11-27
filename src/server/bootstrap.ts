@@ -12,7 +12,7 @@ import './agent/follow-ups'
 import { onOwnerReady } from './agent/owner-bot'
 import { onTelegramUpdate } from './agent/telegram-bot'
 import { runMigrations } from './db/migrate'
-import { startTelegramPolling } from './integrations/telegram'
+import { startTelegram } from './integrations/telegram'
 import { CRON, type CronName } from './jobs/ops'
 import { env } from './lib/env'
 import { startWorker } from './lib/queue'
@@ -30,7 +30,7 @@ export function ensureBooted() {
     // owner-entered API keys (setup wizard) override .env before anything uses them
     await (await import('./lib/keys')).applyKeys()
     startWorker()
-    startTelegramPolling(async (u) => void (await onTelegramUpdate(u)), onOwnerReady)
+    startTelegram(async (u) => void (await onTelegramUpdate(u)), onOwnerReady)
     if (!process.env.EXTERNAL_CRON) startLocalCron()
     console.log(`[boot] dispatch agent ready on ${env.APP_URL}`)
   })().catch((e) => {

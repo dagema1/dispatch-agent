@@ -29,6 +29,7 @@ import { Route as CPaidRouteImport } from './routes/c/paid'
 import { Route as ApiCronNameRouteImport } from './routes/api/cron/$name'
 import { Route as ApiGoogleCallbackRouteImport } from './routes/api/google/callback'
 import { Route as ApiGoogleStartRouteImport } from './routes/api/google/start'
+import { Route as ApiTelegramWebhookRouteImport } from './routes/api/telegram/webhook'
 import { Route as CPhotosTokenRouteImport } from './routes/c/photos/$token'
 import { Route as CQuoteTokenRouteImport } from './routes/c/quote/$token'
 import { Route as CTrackTokenRouteImport } from './routes/c/track/$token'
@@ -133,6 +134,11 @@ const ApiGoogleStartRoute = ApiGoogleStartRouteImport.update({
   path: '/api/google/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTelegramWebhookRoute = ApiTelegramWebhookRouteImport.update({
+  id: '/api/telegram/webhook',
+  path: '/api/telegram/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CPhotosTokenRoute = CPhotosTokenRouteImport.update({
   id: '/c/photos/$token',
   path: '/c/photos/$token',
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/api/cron/$name': typeof ApiCronNameRoute
   '/api/google/callback': typeof ApiGoogleCallbackRoute
   '/api/google/start': typeof ApiGoogleStartRoute
+  '/api/telegram/webhook': typeof ApiTelegramWebhookRoute
   '/c/photos/$token': typeof CPhotosTokenRoute
   '/c/quote/$token': typeof CQuoteTokenRoute
   '/c/track/$token': typeof CTrackTokenRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByTo {
   '/api/cron/$name': typeof ApiCronNameRoute
   '/api/google/callback': typeof ApiGoogleCallbackRoute
   '/api/google/start': typeof ApiGoogleStartRoute
+  '/api/telegram/webhook': typeof ApiTelegramWebhookRoute
   '/c/photos/$token': typeof CPhotosTokenRoute
   '/c/quote/$token': typeof CQuoteTokenRoute
   '/c/track/$token': typeof CTrackTokenRoute
@@ -220,6 +228,7 @@ export interface FileRoutesById {
   '/api/cron/$name': typeof ApiCronNameRoute
   '/api/google/callback': typeof ApiGoogleCallbackRoute
   '/api/google/start': typeof ApiGoogleStartRoute
+  '/api/telegram/webhook': typeof ApiTelegramWebhookRoute
   '/c/photos/$token': typeof CPhotosTokenRoute
   '/c/quote/$token': typeof CQuoteTokenRoute
   '/c/track/$token': typeof CTrackTokenRoute
@@ -247,6 +256,7 @@ export interface FileRouteTypes {
     | '/api/cron/$name'
     | '/api/google/callback'
     | '/api/google/start'
+    | '/api/telegram/webhook'
     | '/c/photos/$token'
     | '/c/quote/$token'
     | '/c/track/$token'
@@ -271,6 +281,7 @@ export interface FileRouteTypes {
     | '/api/cron/$name'
     | '/api/google/callback'
     | '/api/google/start'
+    | '/api/telegram/webhook'
     | '/c/photos/$token'
     | '/c/quote/$token'
     | '/c/track/$token'
@@ -296,6 +307,7 @@ export interface FileRouteTypes {
     | '/api/cron/$name'
     | '/api/google/callback'
     | '/api/google/start'
+    | '/api/telegram/webhook'
     | '/c/photos/$token'
     | '/c/quote/$token'
     | '/c/track/$token'
@@ -312,6 +324,7 @@ export interface RootRouteChildren {
   ApiCronNameRoute: typeof ApiCronNameRoute
   ApiGoogleCallbackRoute: typeof ApiGoogleCallbackRoute
   ApiGoogleStartRoute: typeof ApiGoogleStartRoute
+  ApiTelegramWebhookRoute: typeof ApiTelegramWebhookRoute
   CPhotosTokenRoute: typeof CPhotosTokenRoute
   CQuoteTokenRoute: typeof CQuoteTokenRoute
   CTrackTokenRoute: typeof CTrackTokenRoute
@@ -459,6 +472,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiGoogleStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/telegram/webhook': {
+      id: '/api/telegram/webhook'
+      path: '/api/telegram/webhook'
+      fullPath: '/api/telegram/webhook'
+      preLoaderRoute: typeof ApiTelegramWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/c/photos/$token': {
       id: '/c/photos/$token'
       path: '/c/photos/$token'
@@ -522,6 +542,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCronNameRoute: ApiCronNameRoute,
   ApiGoogleCallbackRoute: ApiGoogleCallbackRoute,
   ApiGoogleStartRoute: ApiGoogleStartRoute,
+  ApiTelegramWebhookRoute: ApiTelegramWebhookRoute,
   CPhotosTokenRoute: CPhotosTokenRoute,
   CQuoteTokenRoute: CQuoteTokenRoute,
   CTrackTokenRoute: CTrackTokenRoute,

@@ -126,6 +126,12 @@ pnpm build       # production build → .output/
 
 ---
 
+### Telegram: webhook or polling
+
+- With an `https` `APP_URL` (any deployment), the app registers a webhook at `/api/telegram/webhook` on start-up. Telegram signs each call with a secret derived from the bot token, so there is nothing extra to configure.
+- On `http://localhost` it long-polls instead, since Telegram cannot reach a laptop.
+- A local dev server will not poll a bot that has a webhook set, so it never takes a deployed copy's updates. Use a second bot token for local development, or set `TELEGRAM_MODE=polling` on the server to keep polling there too.
+
 ## Deploy (Dokploy, or any Docker host)
 
 The repo has a `Dockerfile`: one container for the app, Postgres next to it.
@@ -151,8 +157,8 @@ The repo has a `Dockerfile`: one container for the app, Postgres next to it.
 
    Leave `EXTERNAL_CRON` unset: the scheduled jobs then run inside the container.
 4. **Domain** (Application → Domains): your host name, container port `3000`, HTTPS on with Let's Encrypt. Point a DNS `A` record for the name at the server first.
-5. **Deploy.** Keep **one replica**: the Telegram bot long-polls (two pollers get 409 Conflict) and the queue runs in-process. The image's health check calls `/api/health`, which also starts the bot, queue and timers right after a deploy.
-6. **First run.** Stop any local dev server using the same bot token. Open `https://<your domain>/setup` and pick the demo company. For Google, add `https://<your domain>/api/google/callback` as a redirect URI on the OAuth client.
+5. **Deploy.** Keep **one replica**: the job queue, timers and live dashboard stream run in-process. The image's health check calls `/api/health`, which starts them right after a deploy and registers the Telegram webhook.
+6. **First run.** Open `https://<your domain>/setup` and pick the demo company. For Google, add `https://<your domain>/api/google/callback` as a redirect URI on the OAuth client.
 
 ## Deploy (Google Cloud Run + Cloud Scheduler)
 
@@ -186,9 +192,8 @@ gcloud run deploy dispatch-agent --source . --region us-central1 \
 ```
 
 - The Node buildpack runs `pnpm build`, then `pnpm start` (`node .output/server/index.mjs`) on Cloud Run's `$PORT`.
-- Exactly one instance, always on: the Telegram bot long-polls (two pollers make Telegram return 409 Conflict), and the job queue and the live dashboard stream run in-process.
+- Exactly one instance, always on: the job queue and the live dashboard stream run in-process.
 - `--allow-unauthenticated` is for the customer pages (`/book`, `/c/…`); the dashboard sits behind `OWNER_PASSWORD`.
-- Stop the local dev server while the deployed one runs: both would poll the same bot.
 - Google sign-in: add `https://<service-url>/api/google/callback` as a redirect URI on the OAuth client.
 
 **4. Schedules.** `EXTERNAL_CRON=1` turns off the in-process timers; Cloud Scheduler calls them instead:

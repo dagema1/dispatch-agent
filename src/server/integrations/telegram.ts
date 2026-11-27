@@ -1,8 +1,9 @@
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { env } from '../lib/env'
 
 /**
- * Telegram Bot API (technician app + owner alerts). Uses long polling, so it works on localhost
- * without a public webhook URL. Live location shares arrive as edited messages.
+ * Telegram Bot API (technician app + owner alerts). Deployed on https it uses a webhook; on
+ * localhost (no public URL) it long-polls. Live location shares arrive as edited messages.
  */
 const API = () => `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`
 
@@ -103,34 +104,81 @@ export type TgMessage = {
   date: number
 }
 
-const g = globalThis as unknown as { __tgPolling?: boolean }
+const ALLOWED_UPDATES = ['message', 'edited_message', 'callback_query', 'widget_query']
+const g = globalThis as unknown as { __tgStarted?: boolean; __tgHandler?: (u: TgUpdate) => Promise<void>; __tgChain?: Promise<void> }
 
-export function startTelegramPolling(onUpdate: (u: TgUpdate) => Promise<void>, onReady?: () => Promise<void>) {
-  if (!env.TELEGRAM_BOT_TOKEN || g.__tgPolling) return
-  g.__tgPolling = true
+/** Webhook when the app has a public https address (Telegram requires https); TELEGRAM_MODE=polling forces polling. */
+export const telegramMode = (): 'webhook' | 'polling' => (env.APP_URL.startsWith('https://') && process.env.TELEGRAM_MODE !== 'polling' ? 'webhook' : 'polling')
+const webhookUrl = () => `${env.APP_URL.replace(/\/$/, '')}/api/telegram/webhook`
+/** Sent back by Telegram on every webhook call; derived from the bot token, so there is nothing extra to configure. */
+const webhookSecret = () => createHash('sha256').update(`telegram-webhook:${env.TELEGRAM_BOT_TOKEN}`).digest('base64url').slice(0, 48)
+
+export function isTelegramWebhookCall(header: string | null): boolean {
+  if (!env.TELEGRAM_BOT_TOKEN || !header) return false
+  const got = Buffer.from(header)
+  const want = Buffer.from(webhookSecret())
+  return got.length === want.length && timingSafeEqual(got, want)
+}
+
+async function dispatch(u: TgUpdate) {
+  // service message in the old group when it becomes a supergroup
+  const m = u.message as (TgMessage & { migrate_to_chat_id?: number }) | undefined
+  if (m?.migrate_to_chat_id) return chatMigrated(String(m.chat.id), String(m.migrate_to_chat_id))
+  await g.__tgHandler?.(u).catch((e) => console.error('[telegram] handler', e))
+}
+
+/** A webhook update: handled in arrival order, after the HTTP reply (Telegram only needs a quick 200). */
+export function acceptWebhookUpdate(u: TgUpdate) {
+  g.__tgChain = (g.__tgChain ?? Promise.resolve()).then(() => dispatch(u))
+}
+
+export function startTelegram(onUpdate: (u: TgUpdate) => Promise<void>, onReady?: () => Promise<void>) {
+  g.__tgHandler = onUpdate
+  if (!env.TELEGRAM_BOT_TOKEN || g.__tgStarted) return
+  g.__tgStarted = true
+  const setup = async () => {
+    await tg('setMyCommands', {
+      scope: { type: 'all_private_chats' },
+      // everything else is on the button keyboard; the old slash commands still work if typed
+      commands: [{ command: 'start', description: 'Show my route and the button menu' }],
+    }).catch((e) => console.warn('[telegram] commands', e.message))
+    await onReady?.().catch((e) => console.warn('[telegram] ready', (e as Error).message))
+  }
+
+  if (telegramMode() === 'webhook') {
+    void (async () => {
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await tg('setWebhook', { url: webhookUrl(), secret_token: webhookSecret(), allowed_updates: ALLOWED_UPDATES, max_connections: 10 })
+          console.log(`[telegram] webhook set: ${webhookUrl()}`)
+          break
+        } catch (e) {
+          console.warn('[telegram] setWebhook failed, retrying:', (e as Error).message)
+          await new Promise((r) => setTimeout(r, Math.min(60_000, 5000 * attempt)))
+        }
+      }
+      await setup()
+    })()
+    return
+  }
+
   let offset = 0
   const loop = async () => {
-    try {
-      await tg('deleteWebhook', {}).catch(() => {})
-      await tg('setMyCommands', {
-        scope: { type: 'all_private_chats' },
-        // everything else is on the button keyboard; the old slash commands still work if typed
-        commands: [{ command: 'start', description: 'Show my route and the button menu' }],
-      }).catch((e) => console.warn('[telegram] commands', e.message))
-      await onReady?.()
-    } catch {}
+    // A webhook means a deployed copy owns this bot: polling would take its updates (and Telegram
+    // refuses getUpdates while a webhook is set). Leave it alone; use another bot token locally.
+    const info = await tg<{ url: string }>('getWebhookInfo').catch(() => null)
+    if (info?.url) {
+      console.warn(`[telegram] bot has a webhook (${info.url}); not polling here. Use a separate bot token for local development.`)
+      g.__tgStarted = false
+      return
+    }
+    await setup()
     for (;;) {
       try {
-        const updates = await tg<TgUpdate[]>('getUpdates', { offset, timeout: 30, allowed_updates: ['message', 'edited_message', 'callback_query', 'widget_query'] })
+        const updates = await tg<TgUpdate[]>('getUpdates', { offset, timeout: 30, allowed_updates: ALLOWED_UPDATES })
         for (const u of updates) {
           offset = u.update_id + 1
-          // service message in the old group when it becomes a supergroup
-          const m = u.message as (TgMessage & { migrate_to_chat_id?: number }) | undefined
-          if (m?.migrate_to_chat_id) {
-            await chatMigrated(String(m.chat.id), String(m.migrate_to_chat_id))
-            continue
-          }
-          await onUpdate(u).catch((e) => console.error('[telegram] handler', e))
+          await dispatch(u)
         }
       } catch (e) {
         console.warn('[telegram] poll failed:', (e as Error).message)
