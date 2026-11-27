@@ -307,10 +307,13 @@
 
 /* Tiles: flat icon chips. A soft tint of the state colour with the glyph in that colour; no shadow.
    Violet = the system acting, gold = needs a person, red = emergency, quiet = routine. */
-.tile {
-  display: grid;
-  place-items: center;
-  border-radius: calc(var(--radius) - 4px);
+/* layered so utilities (hidden, md:hidden, rounded-*) can override it */
+@layer components {
+  .tile {
+    display: grid;
+    place-items: center;
+    border-radius: calc(var(--radius) - 4px);
+  }
 }
 .tile-action {
   background: color-mix(in oklch, var(--primary) 16%, transparent);
