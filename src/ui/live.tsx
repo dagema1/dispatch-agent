@@ -27,7 +27,9 @@ type Wire = { t: 'event'; ev: DomainEvent } | { t: 'status'; connected: boolean 
  * One server stream for all open dashboard tabs. Browsers allow about six connections per host
  * over HTTP/1.1, and every tab holding its own EventSource used to starve page loads once a few
  * tabs were open. One tab (the holder of a Web Lock) owns the EventSource and relays events to
- * the others over a BroadcastChannel; when it closes, the lock passes to another tab.
+ * the others over a BroadcastChannel; when it closes, the lock passes to another tab. The leader
+ * sends a heartbeat; a tab that hears nothing for a while (the leader was frozen in the background,
+ * or is an old copy of the page) opens its own stream rather than going dark.
  */
 function shareEvents(onEvent: (ev: DomainEvent) => void, onStatus: (c: boolean) => void): () => void {
   const solo = (): (() => void) => {
@@ -43,7 +45,14 @@ function shareEvents(onEvent: (ev: DomainEvent) => void, onStatus: (c: boolean) 
   let leader = false
   let lastStatus = false
   let closeStream: (() => void) | null = null
-  let release: (() => void) | null = null
+  let disposed = false
+  let lastHeard = 0
+  let own: (() => void) | null = null
+  // created up front so unmounting can always hand the lock back, even if it is granted a moment later
+  let release = () => {}
+  const held = new Promise<void>((r) => {
+    release = r
+  })
   const status = (c: boolean) => {
     lastStatus = c
     onStatus(c)
@@ -51,6 +60,7 @@ function shareEvents(onEvent: (ev: DomainEvent) => void, onStatus: (c: boolean) 
   }
   ch.onmessage = (m: MessageEvent<Wire>) => {
     const w = m.data
+    if (w.t !== 'hello') lastHeard = Date.now()
     if (w.t === 'event' && !leader) onEvent(w.ev)
     else if (w.t === 'status' && !leader) onStatus(w.connected)
     else if (w.t === 'hello' && leader) ch.postMessage({ t: 'status', connected: lastStatus } satisfies Wire)
@@ -58,7 +68,11 @@ function shareEvents(onEvent: (ev: DomainEvent) => void, onStatus: (c: boolean) 
   const ac = new AbortController()
   navigator.locks
     .request('dispatch-events', { signal: ac.signal }, () => {
+      // granted after this provider was already gone: give it straight back
+      if (disposed) return
       leader = true
+      own?.()
+      own = null
       const es = new EventSource('/api/events')
       es.onopen = () => status(true)
       es.onerror = () => status(false)
@@ -69,16 +83,22 @@ function shareEvents(onEvent: (ev: DomainEvent) => void, onStatus: (c: boolean) 
       })
       closeStream = () => es.close()
       // hold the lock until this tab's provider unmounts
-      return new Promise<void>((r) => {
-        release = r
-      })
+      return held
     })
     .catch(() => {})
   ch.postMessage({ t: 'hello' } satisfies Wire)
+  const started = Date.now()
+  const beat = setInterval(() => {
+    if (leader) ch.postMessage({ t: 'status', connected: lastStatus } satisfies Wire)
+    else if (!own && Date.now() - Math.max(lastHeard, started) > 8000) own = solo()
+  }, 3000)
   return () => {
+    disposed = true
+    clearInterval(beat)
+    own?.()
     ac.abort() // a tab still waiting for the lock must not take it after it is gone
     closeStream?.()
-    release?.()
+    release()
     ch.close()
   }
 }
