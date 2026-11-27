@@ -353,13 +353,13 @@ export function outsideHours(d: Date, hours: { open: string; close: string }) {
 registerExecutor('after_hours_dispatch', async (a) => {
   await messageCustomer({
     customerId: Number(a.customerId),
-    requestId: Number(a.requestId),
-    jobId: Number(a.jobId),
+    requestId: a.requestId ? Number(a.requestId) : null,
+    jobId: a.jobId ? Number(a.jobId) : null,
     subject: String(a.subject),
     body: String(a.body),
     channel: a.channel as 'email' | 'sms' | 'voice' | 'web',
   })
-  if (a.techText) await messageTechnician(Number(a.technicianId), String(a.techText), Number(a.jobId))
+  if (a.techText && a.technicianId) await messageTechnician(Number(a.technicianId), String(a.techText), a.jobId ? Number(a.jobId) : undefined)
   return { confirmed: true }
 })
 

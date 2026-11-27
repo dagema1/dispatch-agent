@@ -16,7 +16,11 @@ export const TriageSchema = z.object({
   equipment: z.enum(['furnace', 'ac', 'heat_pump', 'boiler', 'water_heater', 'pipes', 'drain', 'fixture', 'other']),
   noHeat: z.boolean(),
   noCooling: z.boolean(),
-  activeLeak: z.boolean(),
+  activeLeak: z
+    .boolean()
+    .describe(
+      'water escaping into the home right now: burst pipe, flooding, water through a ceiling or wall, pooling on the floor. A dripping faucet or a running toilet is not an active leak',
+    ),
   vulnerableOccupant: z.boolean().describe('infant, elderly, medically fragile, or disabled person in the home'),
   customerAvailability: z.string().nullable().describe('when the customer said they are available, verbatim'),
   basePriority: z.number().int().min(1).max(4).describe('1 emergency, 2 urgent same/next day, 3 routine, 4 planned/quote'),
@@ -179,7 +183,12 @@ export function prioritise(ex: Extraction, text: string, weather: Pick<Weather, 
       reasons.push(`no cooling at ${cToF(temp)}°F`)
     }
   }
-  if (ex.activeLeak && priority > 1) {
+  // the model sometimes calls a dripping tap a leak; a drip that stays in the fixture is routine
+  const contained =
+    /\b(drip\w*|running toilet|toilet (keeps )?running)\b/i.test(text) && !/\b(flood\w*|burst|ceiling|floor|everywhere|gush\w*|pour\w*|spray\w*|pooling|soak\w*)\b/i.test(text)
+  if (ex.activeLeak && contained) reasons.push('drip contained in the fixture, not an active leak')
+  const leak = ex.activeLeak && !contained
+  if (leak && priority > 1) {
     priority = 1
     reasons.push('active leak')
   }
@@ -188,8 +197,8 @@ export function prioritise(ex: Extraction, text: string, weather: Pick<Weather, 
     reasons.push('vulnerable occupant')
   }
   const wantsSenior = ex.skill === 'hvac_install'
-  const estValueCents = estimateValue(ex, priority)
-  return { ...ex, priority, safety: safety?.flag ?? null, reasons, wantsSenior, estValueCents }
+  const estValueCents = estimateValue({ ...ex, activeLeak: leak }, priority)
+  return { ...ex, activeLeak: leak, priority, safety: safety?.flag ?? null, reasons, wantsSenior, estValueCents }
 }
 
 /** Rough expected ticket used for value-aware dispatch before a real quote exists. */

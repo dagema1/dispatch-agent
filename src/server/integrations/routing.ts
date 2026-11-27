@@ -76,26 +76,63 @@ export async function travelMatrix(points: LatLng[]): Promise<{ minutes: number[
   }
 }
 
-/** Geocode an address with Nominatim (OSM). Polite: 1 req/s, identifying User-Agent, cached. */
+/**
+ * Geocode a US address. Nominatim (OSM) first, politely (1 req/s, identifying User-Agent), with one
+ * retry when it is busy; the US Census geocoder as a fallback, which is strong on street addresses.
+ * Only definite answers are cached, so a rate-limited moment never turns into a "bad address".
+ */
 const geoCache = new Map<string, LatLng | null>()
 let lastGeo = 0
+type Lookup = LatLng | null | 'error'
+
+async function nominatim(address: string): Promise<Lookup> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const wait = lastGeo + (attempt ? 2500 : 1100) - Date.now()
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+    lastGeo = Date.now()
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q=${encodeURIComponent(address)}`
+      const res = await fetch(url, { headers: { 'User-Agent': 'dispatch-agent-demo/1.0 (portfolio project)' }, signal: AbortSignal.timeout(8000) })
+      if (res.status === 429 || res.status >= 500) continue
+      if (!res.ok) return 'error'
+      const data = (await res.json()) as Array<{ lat: string; lon: string }>
+      return data[0] ? { lat: Number(data[0].lat), lng: Number(data[0].lon) } : null
+    } catch {
+      // timeout or a non-JSON busy page: try once more
+    }
+  }
+  return 'error'
+}
+
+async function census(address: string): Promise<Lookup> {
+  try {
+    const url = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?benchmark=Public_AR_Current&format=json&address=${encodeURIComponent(address)}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) })
+    if (!res.ok) return 'error'
+    const data = (await res.json()) as { result?: { addressMatches?: Array<{ coordinates: { x: number; y: number } }> } }
+    const m = data.result?.addressMatches?.[0]
+    return m ? { lat: m.coordinates.y, lng: m.coordinates.x } : null
+  } catch {
+    return 'error'
+  }
+}
+
 export async function geocode(address: string): Promise<LatLng | null> {
   const k = address.trim().toLowerCase()
+  if (!k) return null
   if (geoCache.has(k)) return geoCache.get(k) ?? null
-  const wait = lastGeo + 1100 - Date.now()
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait))
-  lastGeo = Date.now()
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q=${encodeURIComponent(address)}`
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'dispatch-agent-demo/1.0 (portfolio project)' },
-      signal: AbortSignal.timeout(8000),
-    })
-    const data = (await res.json()) as Array<{ lat: string; lon: string }>
-    const hit = data[0] ? { lat: Number(data[0].lat), lng: Number(data[0].lon) } : null
-    geoCache.set(k, hit)
-    return hit
-  } catch {
-    return null
+  const first = await nominatim(address)
+  if (first && first !== 'error') {
+    geoCache.set(k, first)
+    return first
   }
+  const second = await census(address)
+  if (second && second !== 'error') {
+    geoCache.set(k, second)
+    return second
+  }
+  // both answered "no such address": remember it; otherwise a lookup failed and we may try again later
+  if (first === null && second === null) geoCache.set(k, null)
+  else console.warn('[geocode] lookup failed, not cached:', first, second)
+  return null
 }
